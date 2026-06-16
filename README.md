@@ -71,11 +71,16 @@ npm install
 cp .env.example .env.local
 ```
 
-`.env.local`:
+`.env.local` (vidi [`.env.example`](./.env.example) za pun spisak):
 
 ```bash
 # Neon pooled connection string (Neon Console → Connection Details)
 DATABASE_URL="postgresql://<user>:<password>@<host>.neon.tech/<db>?sslmode=require"
+
+# Clerk (Clerk Dashboard → API Keys)
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_..."
+CLERK_SECRET_KEY="sk_test_..."
+CLERK_WEBHOOK_SIGNING_SECRET="whsec_..."   # Clerk Dashboard → Webhooks
 ```
 
 ```bash
@@ -87,6 +92,25 @@ npm run dev
 ```
 
 App radi na [http://localhost:3000](http://localhost:3000). Style guide / design sistem je na [`/style-guide`](http://localhost:3000/style-guide).
+
+### Clerk auth — dodatna podešavanja
+
+Pored env varijabli, u **Clerk Dashboard**-u uradi:
+
+1. **Sessions → Customize session token** → dodaj claim da `role` stigne u session:
+   ```json
+   { "metadata": "{{user.public_metadata}}" }
+   ```
+   Middleware ([`middleware.ts`](./middleware.ts)) čita `sessionClaims.metadata.role` za gating `/admin` ruta.
+2. **Webhooks** → napravi endpoint ka `https://<tvoj-domen>/api/webhooks/clerk`, subscribe na `user.created`, `user.updated`, `user.deleted`. Signing secret ide u `CLERK_WEBHOOK_SIGNING_SECRET`.
+   - Lokalni test: Clerk Dashboard "Send test event" ili `ngrok` tunel ka `localhost:3000`.
+3. **Bootstrap prvog admina:** Users → izaberi korisnika → **Metadata → Public** → postavi:
+   ```json
+   { "role": "admin" }
+   ```
+   Promena važi nakon sledećeg refresha session tokena (re-login). Ostali korisnici default-no dobijaju `role: "user"` preko webhook-a.
+
+Rute: javne (`/`, `/sign-in`, `/sign-up`, `/style-guide`, `/api/webhooks/*`); zaštićene login-om (`/dashboard`); zaštićene rolom admin (`/admin`, `/api/admin/*`).
 
 ---
 
@@ -164,7 +188,7 @@ Pun spisak tokena je u PRD-u (§09) i na `/style-guide` strani.
 - [x] Next.js + TypeScript + Tailwind + brend tokeni + Hanken Grotesk
 - [x] shadcn/ui u ZenFlow stilu + style guide strana
 - [x] **Neon Postgres + Drizzle (šeme iz PRD §07)**
-- [ ] Clerk (login, role, admin middleware)
+- [x] **Clerk (login/signup, role u publicMetadata, admin middleware gating, user→DB webhook)**
 - [ ] Vercel deploy + Resend + Serwist PWA shell
 
 ### Faza 1 — MVP
@@ -179,11 +203,18 @@ Wellness alati (disanje, meditacije, mood, journaling) · edukacija · napredni 
 
 ```
 app/                  # Next.js App Router (strane, layout, globals)
+  (auth)/             # Branded Clerk sign-in / sign-up rute
+  admin/              # Admin panel (gejtovan rolom)
+  dashboard/          # Korisnički dashboard (zahteva login)
+  api/webhooks/clerk/ # Clerk → DB sync (user.created/updated/deleted)
   style-guide/        # Prikaz design sistema
 components/ui/        # shadcn/ui komponente
 lib/
   db/                 # Drizzle schema + klijent
+  auth.ts             # getCurrentProfile / isAdmin / requireAdmin
   utils.ts            # cn() helper
+middleware.ts         # Clerk auth + admin role gating
+types/globals.d.ts    # CustomJwtSessionClaims (role u session token-u)
 drizzle/              # Versioned SQL migracije + meta
 CLAUDE.md             # Brand kontekst + radne konvencije
 zenflow-prd.md        # Pun PRD (v1.0)

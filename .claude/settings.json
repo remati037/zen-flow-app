@@ -25,7 +25,21 @@
       "Bash(kill 23776)",
       "Bash(git check-ignore *)",
       "Bash(git add *)",
-      "Bash(git commit -q -m ' *)"
+      "Bash(git commit -q -m ' *)",
+      "Bash(git push *)",
+      "Bash(npm i *)",
+      "Bash(DATABASE_URL=\"postgresql://u:p@localhost/db\" npx drizzle-kit generate)",
+      "Bash(npx tsc *)",
+      "Bash(node /tmp/smoke.mjs)",
+      "Bash(node ./_smoke.mjs)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(git commit -m ' *)",
+      "Bash(node -e \"console.log\\(require\\('svix/package.json'\\).version\\); console.log\\(require\\('@clerk/nextjs/package.json'\\).version\\)\")",
+      "Bash(node -e \"const p=require\\('/Users/marko/Desktop/Marko/zen-flow-app/node_modules/@clerk/nextjs/package.json'\\); console.log\\(JSON.stringify\\(p.exports['./webhooks']||p.exports, null, 1\\)\\)\")",
+      "Bash(node -e \"const m=require\\('/Users/marko/Desktop/Marko/zen-flow-app/node_modules/@clerk/nextjs/dist/cjs/webhooks.js'\\); console.log\\(Object.keys\\(m\\)\\)\")"
+    ],
+    "additionalDirectories": [
+      "/tmp"
     ]
   }
 }

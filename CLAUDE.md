@@ -50,6 +50,8 @@ Ovo nije dekoracija — to je retencioni motor proizvoda.
 ## Access model
 
 - Dve role: **Admin** i **User**.
+- **Role storage (implementirano):** `role` živi u Clerk `publicMetadata`, izložen kroz session token (Clerk Dashboard → Sessions → Customize session token: `{ "metadata": "{{user.public_metadata}}" }`). Middleware (`middleware.ts`) čita `sessionClaims.metadata.role` i gejtuje `/admin` rute bez DB poziva (Edge-safe). `role` se i dalje upisuje u `profiles` u DB radi konzistentnosti. Prvi admin se postavlja ručno u Clerk Dashboard-u.
+- **Clerk → DB sync:** webhook `/api/webhooks/clerk` (`user.created/updated/deleted`) održava `profiles`. Novi korisnik dobija `role: 'user'`, `access_status: 'inactive'`. VIP/WooCommerce verifikacija je odložena za sledeći korak.
 - **VIP status besplatno** za aktivne WooCommerce kupce (porudžbina u poslednjih 60 dana).
 - Pristup se verifikuje preko **WooCommerce order sync-a**.
 - Kupci sa VIP liste imaju **trajan besplatan pristup dok su aktivni**.

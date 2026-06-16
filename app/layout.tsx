@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Hanken_Grotesk } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 
 const hankenGrotesk = Hanken_Grotesk({
@@ -20,8 +21,28 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="sr" className={hankenGrotesk.variable}>
-      <body>{children}</body>
-    </html>
+    <ClerkProvider
+      appearance={{
+        variables: {
+          colorPrimary: "#203849",
+          colorPrimaryForeground: "#ECF0F3",
+          colorForeground: "#203849",
+          colorBackground: "#FFFFFF",
+          colorInput: "#FFFFFF",
+          colorInputForeground: "#203849",
+          borderRadius: "20px",
+          fontFamily: "var(--font-sans)",
+        },
+        elements: {
+          formButtonPrimary:
+            "bg-ink text-paper hover:bg-slate normal-case shadow-soft",
+          card: "shadow-soft rounded-[28px]",
+        },
+      }}
+    >
+      <html lang="sr" className={hankenGrotesk.variable}>
+        <body>{children}</body>
+      </html>
+    </ClerkProvider>
   );
 }
