@@ -3,6 +3,7 @@ import { clerkClient } from '@clerk/nextjs/server'
 import { eq } from 'drizzle-orm'
 import { NextResponse, type NextRequest } from 'next/server'
 
+import { refreshAccessStatusForEmail } from '@/lib/access/status'
 import { db, profiles } from '@/lib/db'
 import { sendWelcomeEmail } from '@/lib/email/send'
 
@@ -60,10 +61,17 @@ export async function POST(req: NextRequest) {
         })
       }
 
-      // Welcome mejl — samo kad je novi red stvarno ubačen (izbegava dupli mejl na webhook retry).
-      // sendWelcomeEmail ne baca; mejl fail samo loguje u notifications_log.
+      // Korak 1.3 — verifikacija porudžbine pri registraciji. Profil je upravo kreiran,
+      // pa ga refreshAccessStatusForEmail nalazi i diže na `vip` ako u `orders` postoji
+      // porudžbina u 60-dnevnom prozoru. Radi samo kad je novi red stvarno ubačen.
       if (inserted.length > 0) {
-        await sendWelcomeEmail({ id, email: primaryEmail, name })
+        const refreshed = await refreshAccessStatusForEmail(primaryEmail)
+
+        // Welcome mejl ide SAMO VIP kupcima (verifikacija je našla porudžbinu).
+        // sendWelcomeEmail ne baca; mejl fail samo loguje u notifications_log.
+        if (refreshed?.status === 'vip') {
+          await sendWelcomeEmail({ id, email: primaryEmail, name })
+        }
       }
     } else {
       // user.updated — osveži email/name i sinhronizuj rolu iz Clerk publicMetadata
@@ -75,6 +83,9 @@ export async function POST(req: NextRequest) {
         .update(profiles)
         .set({ email: primaryEmail, name, ...(role ? { role } : {}) })
         .where(eq(profiles.id, id))
+
+      // Promena mejla može da se poklopi sa porudžbinom → re-evaluiraj pristup.
+      await refreshAccessStatusForEmail(primaryEmail)
     }
   }
 

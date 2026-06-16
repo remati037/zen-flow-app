@@ -51,7 +51,8 @@ Ovo nije dekoracija — to je retencioni motor proizvoda.
 
 - Dve role: **Admin** i **User**.
 - **Role storage (implementirano):** `role` živi u Clerk `publicMetadata`, izložen kroz session token (Clerk Dashboard → Sessions → Customize session token: `{ "metadata": "{{user.public_metadata}}" }`). Middleware (`middleware.ts`) čita `sessionClaims.metadata.role` i gejtuje `/admin` rute bez DB poziva (Edge-safe). `role` se i dalje upisuje u `profiles` u DB radi konzistentnosti. Prvi admin se postavlja ručno u Clerk Dashboard-u.
-- **Clerk → DB sync:** webhook `/api/webhooks/clerk` (`user.created/updated/deleted`) održava `profiles`. Novi korisnik dobija `role: 'user'`, `access_status: 'inactive'`. VIP/WooCommerce verifikacija je odložena za sledeći korak.
+- **Clerk → DB sync:** webhook `/api/webhooks/clerk` (`user.created/updated/deleted`) održava `profiles`. Novi korisnik dobija `role: 'user'`, `access_status: 'inactive'`, pa se odmah verifikuje preko `refreshAccessStatusForEmail` (poklapanje mejla sa `orders` → `vip` ako ima porudžbinu u 60 dana). Welcome mejl ide samo VIP kupcima.
+- **Gejt pristupa (Korak 1.3):** `(app)/layout.tsx` posle `refreshAccessStatusForProfile` preusmerava `inactive` korisnike na `/nemas-pristup` (ekran sa uputstvom, CTA na shop, kontakt, odjava). Samo `vip`/`subscriber`/admin ulaze u app.
 - **VIP status besplatno** za aktivne WooCommerce kupce (porudžbina u poslednjih 60 dana).
 - Pristup se verifikuje preko **WooCommerce order sync-a**.
 - Kupci sa VIP liste imaju **trajan besplatan pristup dok su aktivni**.
