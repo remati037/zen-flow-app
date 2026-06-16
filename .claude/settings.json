@@ -36,7 +36,12 @@
       "Bash(git commit -m ' *)",
       "Bash(node -e \"console.log\\(require\\('svix/package.json'\\).version\\); console.log\\(require\\('@clerk/nextjs/package.json'\\).version\\)\")",
       "Bash(node -e \"const p=require\\('/Users/marko/Desktop/Marko/zen-flow-app/node_modules/@clerk/nextjs/package.json'\\); console.log\\(JSON.stringify\\(p.exports['./webhooks']||p.exports, null, 1\\)\\)\")",
-      "Bash(node -e \"const m=require\\('/Users/marko/Desktop/Marko/zen-flow-app/node_modules/@clerk/nextjs/dist/cjs/webhooks.js'\\); console.log\\(Object.keys\\(m\\)\\)\")"
+      "Bash(node -e \"const m=require\\('/Users/marko/Desktop/Marko/zen-flow-app/node_modules/@clerk/nextjs/dist/cjs/webhooks.js'\\); console.log\\(Object.keys\\(m\\)\\)\")",
+      "WebFetch(domain:zen-flow-app-ten.vercel.app)",
+      "Bash(node -e \"const c=require\\('@react-email/components'\\); console.log\\('render:', typeof c.render\\)\")",
+      "Bash(grep -rInE \"re_[A-Za-z0-9]{10,}|sk_\\(live|test\\)_[A-Za-z0-9]|pk_\\(live|test\\)_[A-Za-z0-9]|whsec_[A-Za-z0-9]|npg_[A-Za-z0-9]|postgres\\(ql\\)?://[^<]\" .env.example app/api/cron app/api/email lib/email vercel.json)",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('.claude/settings.json','utf8'\\)\\); console.log\\('OK validan JSON'\\)\")",
+      "Bash(grep -nE \"npg_[A-Za-z0-9]|re_[A-Za-z0-9]{10,}|sk_\\(live|test\\)_[A-Za-z0-9]|whsec_[A-Za-z0-9]\" .claude/settings.json)"
     ],
     "additionalDirectories": [
       "/tmp"
