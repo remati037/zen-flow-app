@@ -13,7 +13,7 @@ import { wooOrderSchema, type WooOrderPayload } from '@/lib/validations/woocomme
 export const SYNCED_STATUSES = ['processing', 'completed'] as const
 
 export type SyncOutcome =
-  | { result: 'created' | 'updated'; wooOrderId: string }
+  | { result: 'created' | 'updated'; wooOrderId: string; email: string }
   | { result: 'skipped'; reason: 'status' | 'no-email' | 'no-product' | 'invalid'; wooOrderId?: string }
 
 /**
@@ -88,5 +88,5 @@ export async function upsertOrder(raw: unknown): Promise<SyncOutcome> {
       },
     })
 
-  return { result: existing ? 'updated' : 'created', wooOrderId }
+  return { result: existing ? 'updated' : 'created', wooOrderId, email }
 }

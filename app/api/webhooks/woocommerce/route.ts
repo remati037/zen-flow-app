@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 
 import { NextResponse, type NextRequest } from 'next/server'
 
+import { refreshAccessStatusForEmail } from '@/lib/access/status'
 import { getWebhookSecret } from '@/lib/woocommerce/env'
 import { upsertOrder } from '@/lib/woocommerce/sync'
 
@@ -59,6 +60,17 @@ export async function POST(req: NextRequest) {
 
   try {
     const outcome = await upsertOrder(payload)
+
+    // Nova/ažurirana porudžbina može da promeni VIP status korisnika → osveži.
+    // Greška ovde se loguje ali ne ruši webhook (i dalje 200, da Woo ne retry-uje).
+    if (outcome.result === 'created' || outcome.result === 'updated') {
+      try {
+        await refreshAccessStatusForEmail(outcome.email)
+      } catch (err) {
+        console.error('[woo-webhook] osvežavanje access_status nije uspelo:', err)
+      }
+    }
+
     // Uvek 200 na poznate no-op slučajeve da Woo ne retry-uje beskonačno.
     return NextResponse.json({ received: true, outcome })
   } catch (err) {

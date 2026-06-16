@@ -3,7 +3,8 @@ import { redirect } from 'next/navigation'
 import { AppHeader } from '@/components/app-shell/app-header'
 import { BottomNav } from '@/components/app-shell/bottom-nav'
 import { Sidebar } from '@/components/app-shell/sidebar'
-import { getCurrentProfile } from '@/lib/auth'
+import { refreshAccessStatusForProfile } from '@/lib/access/status'
+import { getCurrentProfile, isAdmin } from '@/lib/auth'
 
 /**
  * Zajednički shell za autentikovani deo aplikacije.
@@ -17,6 +18,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!profile) {
     redirect('/sign-in')
   }
+
+  // Login put: osveži VIP/inactive status pri ulasku u app (hvata istek pre dnevnog cron-a).
+  // Rola iz Clerk session claim-a je izvor istine — sinhronizuje DB ako webhook nije stigao.
+  const authoritativeRole = (await isAdmin()) ? 'admin' : 'user'
+  await refreshAccessStatusForProfile(profile, authoritativeRole)
 
   return (
     <div className="min-h-dvh bg-paper">

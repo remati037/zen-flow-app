@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 
+import { refreshAccessStatusForEmail } from '@/lib/access/status'
 import { requireAdmin } from '@/lib/auth'
 import { getRestCredentials } from '@/lib/woocommerce/env'
 import { SYNCED_STATUSES, upsertOrder, type SyncOutcome } from '@/lib/woocommerce/sync'
@@ -39,6 +40,8 @@ export async function POST() {
   const statusParam = SYNCED_STATUSES.join(',')
 
   const tally = { created: 0, updated: 0, skipped: 0 }
+  // Jedinstveni mejlovi upsert-ovanih porudžbina → access_status osvežavamo jednom po kupcu na kraju.
+  const affectedEmails = new Set<string>()
   let page = 1
   let totalPages = 1
 
@@ -71,9 +74,13 @@ export async function POST() {
       const batch = (await res.json()) as unknown[]
       for (const order of batch) {
         const outcome: SyncOutcome = await upsertOrder(order)
-        if (outcome.result === 'created') tally.created += 1
-        else if (outcome.result === 'updated') tally.updated += 1
-        else tally.skipped += 1
+        if (outcome.result === 'created') {
+          tally.created += 1
+          affectedEmails.add(outcome.email)
+        } else if (outcome.result === 'updated') {
+          tally.updated += 1
+          affectedEmails.add(outcome.email)
+        } else tally.skipped += 1
       }
 
       page += 1
@@ -83,5 +90,16 @@ export async function POST() {
     return NextResponse.json({ error: 'Backfill failed', ...tally }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true, pages: totalPages, ...tally })
+  // Osveži VIP/inactive status za sve kupce čije su porudžbine upravo uvezene.
+  let accessRefreshed = 0
+  for (const email of affectedEmails) {
+    try {
+      const res = await refreshAccessStatusForEmail(email)
+      if (res?.changed) accessRefreshed += 1
+    } catch (err) {
+      console.error('[woo-backfill] osvežavanje access_status nije uspelo za', email, err)
+    }
+  }
+
+  return NextResponse.json({ ok: true, pages: totalPages, ...tally, accessRefreshed })
 }
