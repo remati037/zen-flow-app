@@ -8,6 +8,9 @@ const isPublicRoute = createRouteMatcher([
   '/sign-up(.*)',
   '/style-guide',
   '/api/webhooks(.*)',
+  // PWA: manifest dohvata browser anonimno, offline fallback mora biti dostupan bez logina.
+  '/manifest.webmanifest',
+  '/~offline',
 ])
 
 // Admin rute — zaštićene rolom (page + admin API).

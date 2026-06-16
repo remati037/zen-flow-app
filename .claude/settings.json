@@ -41,7 +41,22 @@
       "Bash(node -e \"const c=require\\('@react-email/components'\\); console.log\\('render:', typeof c.render\\)\")",
       "Bash(grep -rInE \"re_[A-Za-z0-9]{10,}|sk_\\(live|test\\)_[A-Za-z0-9]|pk_\\(live|test\\)_[A-Za-z0-9]|whsec_[A-Za-z0-9]|npg_[A-Za-z0-9]|postgres\\(ql\\)?://[^<]\" .env.example app/api/cron app/api/email lib/email vercel.json)",
       "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('.claude/settings.json','utf8'\\)\\); console.log\\('OK validan JSON'\\)\")",
-      "Bash(grep -nE \"npg_[A-Za-z0-9]|re_[A-Za-z0-9]{10,}|sk_\\(live|test\\)_[A-Za-z0-9]|whsec_[A-Za-z0-9]\" .claude/settings.json)"
+      "Bash(grep -nE \"npg_[A-Za-z0-9]|re_[A-Za-z0-9]{10,}|sk_\\(live|test\\)_[A-Za-z0-9]|whsec_[A-Za-z0-9]\" .claude/settings.json)",
+      "Bash(npx tsx *)",
+      "Bash(node -e ' *)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(curl -s http://localhost:3000/manifest.webmanifest)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/sw.js)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/icons/icon-512.png)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/~offline)",
+      "Bash(curl -s http://localhost:3000/)",
+      "Bash(pkill -f \"next start\")",
+      "Bash(pkill -f \"next-server\")",
+      "Bash(echo \"build exit: $?\")",
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code} type=%{content_type}\\\\n\" http://localhost:3000/manifest.webmanifest)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/~offline)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/sw.js)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/)"
     ],
     "additionalDirectories": [
       "/tmp"
