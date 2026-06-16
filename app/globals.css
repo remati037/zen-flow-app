@@ -1,0 +1,165 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ── ZenFlow / NuroLab brend tokeni ────────────────────────────────
+   Clean & premium: paper pozadina, bele kartice, lime akcenat,
+   meke senke, zaobljeni radijusi. (PRD sekcija 09) */
+@theme {
+  /* Boje */
+  --color-paper: #ecf0f3;
+  --color-white: #ffffff;
+  --color-ink: #203849;
+  --color-slate: #304f60;
+  --color-slate-mid: #445662;
+  --color-slate-soft: #597080;
+  --color-lime: #defe9c;
+  --color-lime-deep: #dcf39e;
+  --color-lime-soft: #f0ffd0;
+  --color-mint: #d3fbd8;
+
+  /* Linije (rgba — ostaju kao custom props) */
+  --line: rgba(32, 56, 73, 0.12);
+  --line-strong: rgba(32, 56, 73, 0.2);
+
+  /* Senke i kretanje */
+  --shadow-soft: 0 6px 30px rgba(32, 56, 73, 0.08);
+  --shadow-lift: 0 18px 60px rgba(32, 56, 73, 0.16);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── shadcn semantički tokeni mapirani na brend ──────────────────── */
+@theme inline {
+    --font-heading: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+    /* Radius: brend koristi 20px (kartice) / 28px (lg) */
+    --radius: 20px;
+
+    --background: var(--color-paper);
+    --foreground: var(--color-ink);
+    --card: var(--color-white);
+    --card-foreground: var(--color-ink);
+    --popover: var(--color-white);
+    --popover-foreground: var(--color-ink);
+
+    /* primary = tamno (ink) dugme; CTA lime ima poseban variant */
+    --primary: var(--color-ink);
+    --primary-foreground: var(--color-paper);
+    --secondary: var(--color-lime-soft);
+    --secondary-foreground: var(--color-ink);
+    --muted: #e3e8ec;
+    --muted-foreground: var(--color-slate-soft);
+    --accent: var(--color-mint);
+    --accent-foreground: var(--color-ink);
+    --destructive: oklch(0.577 0.245 27.325);
+
+    --border: var(--line);
+    --input: var(--line-strong);
+    --ring: var(--color-lime-deep);
+
+    --chart-1: var(--color-lime-deep);
+    --chart-2: var(--color-slate);
+    --chart-3: var(--color-mint);
+    --chart-4: var(--color-slate-soft);
+    --chart-5: var(--color-ink);
+
+    --sidebar: var(--color-white);
+    --sidebar-foreground: var(--color-ink);
+    --sidebar-primary: var(--color-ink);
+    --sidebar-primary-foreground: var(--color-paper);
+    --sidebar-accent: var(--color-lime-soft);
+    --sidebar-accent-foreground: var(--color-ink);
+    --sidebar-border: var(--line);
+    --sidebar-ring: var(--color-lime-deep);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    line-height: 1.55;
+  }
+  html {
+    @apply font-sans;
+  }
+  h1, h2, h3, h4 {
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 1.06;
+  }
+}
+
+/* ── Primitivi (PRD sekcija 09) ──────────────────────────────────── */
+@layer components {
+  /* Eyebrow: uppercase, tracking, slate-soft, linija ispred */
+  .eyebrow {
+    @apply inline-flex items-center gap-3 text-xs font-medium uppercase text-slate-soft;
+    letter-spacing: 0.14em;
+  }
+  .eyebrow::before {
+    content: "";
+    @apply h-px w-8 bg-slate-soft/50;
+  }
+
+  /* Pill dugmad (999px) — referentne klase / fallback uz shadcn Button */
+  .btn-dark,
+  .btn-lime,
+  .btn-ghost {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-medium transition-all;
+    transition-timing-function: var(--ease);
+  }
+  .btn-dark {
+    @apply bg-ink text-paper hover:opacity-90;
+  }
+  .btn-lime {
+    @apply bg-lime text-ink hover:bg-lime-deep;
+  }
+  .btn-ghost {
+    @apply border border-[var(--line-strong)] text-ink hover:bg-white;
+  }
+}
