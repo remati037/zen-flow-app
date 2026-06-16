@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { NextResponse, type NextRequest } from 'next/server'
 
 import { db, profiles } from '@/lib/db'
+import { sendWelcomeEmail } from '@/lib/email/send'
 
 export const runtime = 'nodejs'
 
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
     const name = [first_name, last_name].filter(Boolean).join(' ') || null
 
     if (eventType === 'user.created') {
-      await db
+      const inserted = await db
         .insert(profiles)
         .values({
           id,
@@ -49,6 +50,7 @@ export async function POST(req: NextRequest) {
           accessStatus: 'inactive',
         })
         .onConflictDoNothing({ target: profiles.id })
+        .returning({ id: profiles.id })
 
       // Postavi default rolu u publicMetadata da middleware claim radi od starta.
       if (!(public_metadata as Record<string, unknown>)?.role) {
@@ -57,11 +59,21 @@ export async function POST(req: NextRequest) {
           publicMetadata: { role: 'user' },
         })
       }
+
+      // Welcome mejl — samo kad je novi red stvarno ubačen (izbegava dupli mejl na webhook retry).
+      // sendWelcomeEmail ne baca; mejl fail samo loguje u notifications_log.
+      if (inserted.length > 0) {
+        await sendWelcomeEmail({ id, email: primaryEmail, name })
+      }
     } else {
-      // user.updated — osveži email/name.
+      // user.updated — osveži email/name i sinhronizuj rolu iz Clerk publicMetadata
+      // (Clerk je izvor istine za rolu; menja se ručno u Dashboard-u → ovde stiže u DB).
+      const metadataRole = (public_metadata as Record<string, unknown>)?.role
+      const role = metadataRole === 'admin' ? 'admin' : metadataRole === 'user' ? 'user' : undefined
+
       await db
         .update(profiles)
-        .set({ email: primaryEmail, name })
+        .set({ email: primaryEmail, name, ...(role ? { role } : {}) })
         .where(eq(profiles.id, id))
     }
   }
