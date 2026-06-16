@@ -56,7 +56,15 @@
       "Bash(curl -s -o /dev/null -w \"status=%{http_code} type=%{content_type}\\\\n\" http://localhost:3000/manifest.webmanifest)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/~offline)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/sw.js)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/)",
+      "Bash(node -p \"require\\('./package.json'\\).dependencies.next\")",
+      "Bash(node -p \"require\\('./package.json'\\).dependencies.zod || 'NOT INSTALLED'\")",
+      "Bash(git rm *)",
+      "Bash(node -p \"require\\('./node_modules/zod/package.json'\\).version\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(pkill -f \"next dev\")",
+      "Bash(node -e \"const {z}=require\\('zod'\\); const o=z.object\\({a:z.string\\(\\)}\\); console.log\\('loose:', typeof o.loose\\); console.log\\('passthrough:', typeof o.passthrough\\); console.log\\('z.email:', typeof z.email\\); console.log\\('string.email:', typeof z.string\\(\\).email\\);\")",
+      "Bash(npx eslint *)"
     ],
     "additionalDirectories": [
       "/tmp"
