@@ -18,14 +18,21 @@ export const runtime = 'nodejs'
  */
 export async function POST(req: NextRequest) {
   const rawBody = await req.text()
-
-  // WooCommerce pri kreiranju webhook-a šalje test "ping" (prazno/ne-JSON telo). Vrati 200.
-  if (!rawBody) {
-    return NextResponse.json({ received: true, ping: true })
-  }
-
   const signature = req.headers.get('x-wc-webhook-signature')
+
+  // WooCommerce pri kreiranju/aktivaciji webhook-a šalje test "ping" preko deliver_ping():
+  // telo je `{"webhook_id": N}` i NEMA potpis. Mora da vrati 200 da bi se webhook aktivirao.
   if (!signature) {
+    if (rawBody) {
+      try {
+        const ping = JSON.parse(rawBody) as Record<string, unknown>
+        if ('webhook_id' in ping) {
+          return NextResponse.json({ received: true, ping: true })
+        }
+      } catch {
+        // padne dole na 401
+      }
+    }
     return new NextResponse('Missing signature', { status: 401 })
   }
 
