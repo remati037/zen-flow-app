@@ -1,36 +1,202 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ZenFlow App — NuroLab Companion PWA
 
-## Getting Started
+> Companion aplikacija za **ZenFlow™** protokol — dnevni habit tracker, alati za fokus i sistem koji čuva niz i podstiče ponovnu kupovinu.
+>
+> _Mentalne performanse za ljude koji ne mogu da priušte sebi loš dan._ — [nurolab.rs](https://nurolab.rs)
 
-First, run the development server:
+Hostuje se na **app.nurolab.rs**. Standalone Next.js aplikacija koju dobijaju ZenFlow kupci. Glavni sajt (`nurolab.rs`) je odvojen WordPress/WooCommerce projekat.
+
+---
+
+## Zašto postoji
+
+ZenFlow nije „pre i posle" proizvod — efekat se **gradi iz dana u dan i nestaje kad se protokol prekine**. Zato aplikacija nije dodatak nego **retencioni motor**: svaka funkcionalnost služi jednom od tri cilja.
+
+1. **Doslednost protokola** — da korisnik svaki dan popije obe doze (streak mehanika).
+2. **Doživljaj vrednosti** — da vidi napredak i oseti da app vredi (kriva fokusa, bedževi).
+3. **Ponovna kupovina** — da na vreme dokupi refill i ne prekine niz (supply alerti + CTA).
+
+---
+
+## Tech stack
+
+| Sloj | Izbor |
+|---|---|
+| Framework | Next.js (App Router) + TypeScript + React 19 |
+| Stilizovanje | Tailwind CSS v4 (brend tokeni u configu) |
+| UI | shadcn/ui (Radix) |
+| Baza | **Neon Postgres** |
+| ORM | **Drizzle** |
+| Auth + role | Clerk |
+| PWA | Serwist |
+| Grafike | Recharts |
+| Email | Resend |
+| Push | Web Push (VAPID) + Vercel Cron |
+| Hosting | Vercel |
+| Plaćanje (Faza 2) | Stripe (zahteva US entitet) |
+
+> **Ključne odluke:** Supabase je odbačen u korist Neon + Clerk (kad je Clerk izabran za auth, glavna prednost Supabase-a je nestala; Neon izbegava 7-dnevnu inactivity pauzu). Detalji u [`CLAUDE.md`](./CLAUDE.md).
+
+---
+
+## Model pristupa
+
+Dve role: **Admin** (NuroLab tim) i **User** (krajnji korisnik). Pristup se verifikuje preko WooCommerce porudžbine.
+
+| `access_status` | Uslov | Pristup |
+|---|---|---|
+| **VIP** | Porudžbina u poslednjih 60 dana | Pun pristup, besplatno |
+| **Inactive** | Nema porudžbine 60+ dana | Ograničen; poziv na dokup |
+| **Subscriber** `F2` | Plaća pretplatu (Stripe) | Pun pristup bez kupovine |
+
+Registracija je dozvoljena samo ako mejl postoji među WooCommerce porudžbinama. `access_status` se računa iz datuma poslednje porudžbine i osvežava pri svakom sync-u.
+
+---
+
+## Početak rada
+
+### Preduslovi
+
+- Node.js 20+ (testirano na 24)
+- npm
+- Neon Postgres baza ([neon.tech](https://neon.tech) — free tier je dovoljan za MVP)
+
+### Setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# 1. Instaliraj zavisnosti
+npm install
+
+# 2. Napravi .env.local iz šablona i popuni vrednosti
+cp .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`.env.local`:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# Neon pooled connection string (Neon Console → Connection Details)
+DATABASE_URL="postgresql://<user>:<password>@<host>.neon.tech/<db>?sslmode=require"
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# 3. Primeni migracije na bazu
+npm run db:migrate
 
-## Learn More
+# 4. Pokreni dev server
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+App radi na [http://localhost:3000](http://localhost:3000). Style guide / design sistem je na [`/style-guide`](http://localhost:3000/style-guide).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Skripte
 
-## Deploy on Vercel
+| Komanda | Opis |
+|---|---|
+| `npm run dev` | Dev server |
+| `npm run build` | Production build |
+| `npm run start` | Pokreni production build |
+| `npm run lint` | ESLint |
+| `npm run db:generate` | Generiši SQL migraciju iz promena u `lib/db/schema.ts` |
+| `npm run db:migrate` | Primeni versioned migracije na Neon |
+| `npm run db:push` | Gurni šemu direktno (samo za brzi prototip) |
+| `npm run db:studio` | Vizuelni pregled baze u browseru |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Baza i ORM
+
+Drizzle šeme su u [`lib/db/schema.ts`](./lib/db/schema.ts), Drizzle klijent (neon-http) u [`lib/db/index.ts`](./lib/db/index.ts). Migracije se verzionišu u [`drizzle/`](./drizzle/) i commituju.
+
+```ts
+import { db, profiles } from '@/lib/db'
+
+const rows = await db.select().from(profiles)
+
+// relational query
+const user = await db.query.profiles.findFirst({
+  with: { supply: true, protocolLogs: true },
+})
+```
+
+### Tabele (Faza 1)
+
+| Tabela | Uloga |
+|---|---|
+| `profiles` | Korisnički nalog (`id` = Clerk user id), role, `access_status`, podešavanja doza |
+| `orders` | WooCommerce porudžbine (`full` / `refill`), osnova za `access_status` |
+| `protocol_logs` | Dnevni check-in po dozi (jutro/veče) — osnova streak-a |
+| `supply` | Preostale kapsule + predviđeni datum isteka |
+| `focus_sessions` | Pomodoro deep-work blokovi |
+| `daily_tasks` | „3 najvažnija zadatka danas" |
+| `badges` | Osvojeni bedževi (7 / 15 / 30 dana) |
+| `push_subscriptions` | Web Push pretplate (endpoint, p256dh, auth) |
+| `notifications_log` | Istorija poslatih notifikacija (push/email) |
+| `focus_quiz_results` | Focus Score kviz rezultati |
+
+> Faza 2 dodaci (još nisu u šemi): `mood_checkins`, `journal_entries`, `subscriptions`, `content_items`.
+
+---
+
+## Design sistem
+
+Princip: clean i premium. Paper pozadina, bele kartice sa mekim senkama, lime kao jedini jak akcenat, dosta vazduha, zaobljeni radijusi. Brend tokeni žive u Tailwind configu — **ne hardkoduj boje po komponentama**.
+
+| Token | Vrednost | Uloga |
+|---|---|---|
+| `--paper` | `#ECF0F3` | pozadina |
+| `--ink` | `#203849` | tekst / tamna dugmad |
+| `--lime` | `#DEFE9C` | akcenat / CTA |
+| `--mint` | `#D3FBD8` | sekundarni akcenat |
+
+- **Font:** Hanken Grotesk (300–700)
+- **Radijusi:** 20px / 28px · **Senke:** soft `0 6px 30px rgba(32,56,73,.08)`, lift `0 18px 60px rgba(32,56,73,.16)`
+- **Dugmad (pill):** `btn-dark` ink/paper · `btn-lime` lime/ink · `btn-ghost` border
+
+Pun spisak tokena je u PRD-u (§09) i na `/style-guide` strani.
+
+---
+
+## Roadmap
+
+### Faza 0 — Postavka
+- [x] Next.js + TypeScript + Tailwind + brend tokeni + Hanken Grotesk
+- [x] shadcn/ui u ZenFlow stilu + style guide strana
+- [x] **Neon Postgres + Drizzle (šeme iz PRD §07)**
+- [ ] Clerk (login, role, admin middleware)
+- [ ] Vercel deploy + Resend + Serwist PWA shell
+
+### Faza 1 — MVP
+WooCommerce sync + `access_status` · onboarding + Focus Score kviz · protokol tracker (niz, heatmap, kriva fokusa) · zalihe + predviđanje isteka · Web Push + Resend notifikacije (Vercel Cron) · Pomodoro + dnevni zadaci · dashboard + bedževi · admin panel · PWA poliranje.
+
+### Faza 2
+Wellness alati (disanje, meditacije, mood, journaling) · edukacija · napredni 30-dnevni uvidi · Stripe pretplata · ambijentalni zvuci i fokus mod.
+
+---
+
+## Struktura projekta
+
+```
+app/                  # Next.js App Router (strane, layout, globals)
+  style-guide/        # Prikaz design sistema
+components/ui/        # shadcn/ui komponente
+lib/
+  db/                 # Drizzle schema + klijent
+  utils.ts            # cn() helper
+drizzle/              # Versioned SQL migracije + meta
+CLAUDE.md             # Brand kontekst + radne konvencije
+zenflow-prd.md        # Pun PRD (v1.0)
+```
+
+---
+
+## Napomene
+
+- **Disklejmer:** ZenFlow je dnevni protokol za mentalne performanse i nije namenjen dijagnostikovanju, lečenju ili prevenciji bolesti. Praćenje fokusa i raspoloženja je lično samoposmatranje, ne medicinska procena.
+- **Privatnost (GDPR/ZZPL):** minimalno prikupljanje; mood/fokus podaci su osetljivi i zahtevaju eksplicitan pristanak.
+- `.env.local` se **ne commituje** (u `.gitignore`); `.env.example` je šablon koji se commituje.
+
+---
+
+*NuroLab · ZenFlow App — interni README. Pun PRD: [`zenflow-prd.md`](./zenflow-prd.md).*
