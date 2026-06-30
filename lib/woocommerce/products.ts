@@ -21,7 +21,7 @@ export interface ProductConfig {
  * Primeri ispod su placeholder — zameni tačnim vrednostima.
  */
 export const PRODUCT_MAP: Record<string, ProductConfig> = {
-  // Oba pakovanja = 60 kapsula (30 dana × 2 doze dnevno).
+  // Oba pakovanja = 60 fizičkih kapsula. Pri 4 kapsule/dan (2 po dozi × 2 doze) traje 15 dana.
   'NURO-001': { productType: 'full', capsulesPerPackage: 60 },
   'NURO-002': { productType: 'refill', capsulesPerPackage: 60 },
 }

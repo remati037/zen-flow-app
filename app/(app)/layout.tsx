@@ -30,6 +30,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect('/nemas-pristup')
   }
 
+  // Korak 1.4 — gejt onboardinga: dok ga ne završi, korisnik ide na setup protokola.
+  // Ruta /onboarding je van (app) grupe pa nema petlje.
+  if (!profile.onboardingCompleted) {
+    redirect('/onboarding')
+  }
+
   return (
     <div className="min-h-dvh bg-paper">
       <Sidebar />
