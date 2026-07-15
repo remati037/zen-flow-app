@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { subscribeToPush } from '@/lib/push/client'
 import { belgradeToday } from '@/lib/dates'
 import { CAPSULES_PER_PACKAGE, estimateDaysRemaining, estimateRunoutDate } from '@/lib/protocol/dosing'
 import {
@@ -61,13 +62,8 @@ export function OnboardingWizard({ defaultPackages }: { defaultPackages: number 
 
   async function requestNotifications() {
     setNotifAsked(true)
-    try {
-      if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-        await Notification.requestPermission()
-      }
-    } catch {
-      // Best-effort — dozvola nije obavezna za nastavak (push subscribe ide u Koraku 1.7).
-    }
+    // Pravi push subscribe + persist (Korak 1.8). Best-effort — dozvola nije obavezna za nastavak.
+    await subscribeToPush()
   }
 
   function submit() {
