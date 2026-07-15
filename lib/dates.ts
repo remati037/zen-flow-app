@@ -20,6 +20,16 @@ export function belgradeToday(): string {
   }).format(new Date())
 }
 
+/** Dati `Date` (npr. `orders.orderDate` iz baze) kao beogradski kalendarski dan 'YYYY-MM-DD'. */
+export function toBelgradeIso(date: Date): string {
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: BELGRADE_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
+}
+
 /** Beogradsko vreme kao 'HH:mm' (24h). */
 export function belgradeTimeHM(): string {
   return new Intl.DateTimeFormat('sv-SE', {
