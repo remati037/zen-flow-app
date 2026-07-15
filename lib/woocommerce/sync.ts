@@ -2,9 +2,64 @@ import 'server-only'
 
 import { eq } from 'drizzle-orm'
 
-import { db, orders } from '@/lib/db'
+import { db, orders, profiles, supply } from '@/lib/db'
+import { belgradeToday } from '@/lib/dates'
+import { estimateRunoutDate } from '@/lib/protocol/dosing'
 import { resolveProductFromLineItems } from '@/lib/woocommerce/products'
 import { wooOrderSchema, type WooOrderPayload } from '@/lib/validations/woocommerce'
+
+/** Opcije za `upsertOrder`. */
+type UpsertOrderOptions = {
+  /**
+   * Da li nova porudžbina naduvava zalihe (`supply.capsulesRemaining += capsulesTotal`).
+   * Webhook: `true` (nova kupovina = nove kapsule). Backfill istorijskih porudžbina: `false`
+   * (istorija ne sme retroaktivno da naduva zalihe). Top-up ide SAMO na `created` grani.
+   */
+  topUpSupply?: boolean
+}
+
+/**
+ * Naduva zalihe korisnika za `capsulesTotal` iz nove porudžbine i recompute-uje istek.
+ * Vezuje porudžbinu (email) za profil (userId). Bezbedno preskače ako:
+ *  - profil za email još ne postoji (webhook stigao pre Clerk registracije), ili
+ *  - supply red ne postoji (profil nije završio onboarding — onboarding ga seed-uje).
+ * Nikad ne baca — greška ovde ne sme da obori webhook/backfill.
+ */
+async function topUpSupplyForEmail(email: string, capsulesTotal: number): Promise<void> {
+  if (capsulesTotal <= 0) return
+  try {
+    const [profile] = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.email, email))
+      .limit(1)
+    if (!profile) return // Nema koga da naduvamo; supply se seed-uje na onboardingu.
+
+    const [supplyRow] = await db
+      .select({ capsulesRemaining: supply.capsulesRemaining })
+      .from(supply)
+      .where(eq(supply.userId, profile.id))
+      .limit(1)
+    if (!supplyRow) {
+      console.warn(
+        `[woo-sync] Top-up preskočen za ${email} — supply red ne postoji (nezavršen onboarding).`,
+      )
+      return
+    }
+
+    const capsulesRemaining = supplyRow.capsulesRemaining + capsulesTotal
+    await db
+      .update(supply)
+      .set({
+        capsulesRemaining,
+        estimatedRunoutDate: estimateRunoutDate(belgradeToday(), capsulesRemaining),
+        updatedAt: new Date(),
+      })
+      .where(eq(supply.userId, profile.id))
+  } catch (err) {
+    console.error('[woo-sync] top-up zaliha nije uspeo za', email, err)
+  }
+}
 
 /**
  * Statusi porudžbine koji se računaju kao validna kupovina za pristup.
@@ -28,7 +83,11 @@ export type SyncOutcome =
  * - Bez email-a ili bez poznatog ZenFlow proizvoda → preskače (nije relevantna kupovina).
  * - Upsert po `woo_order_id` (unique): ponovni event ažurira status/podatke.
  */
-export async function upsertOrder(raw: unknown): Promise<SyncOutcome> {
+export async function upsertOrder(
+  raw: unknown,
+  options: UpsertOrderOptions = {},
+): Promise<SyncOutcome> {
+  const { topUpSupply = true } = options
   const parsed = wooOrderSchema.safeParse(raw)
   if (!parsed.success) {
     return { result: 'skipped', reason: 'invalid' }
@@ -94,6 +153,12 @@ export async function upsertOrder(raw: unknown): Promise<SyncOutcome> {
         syncedAt: new Date(),
       },
     })
+
+  // Top-up zaliha samo kad je porudžbina NOVA (insert grana). Replay `order.updated`
+  // webhooka na isti wooOrderId pada u `updated` granu → bez dupliranja kapsula.
+  if (!existing && topUpSupply) {
+    await topUpSupplyForEmail(email, values.capsulesTotal)
+  }
 
   return { result: existing ? 'updated' : 'created', wooOrderId, email }
 }

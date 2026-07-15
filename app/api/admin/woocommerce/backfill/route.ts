@@ -73,7 +73,8 @@ export async function POST() {
 
       const batch = (await res.json()) as unknown[]
       for (const order of batch) {
-        const outcome: SyncOutcome = await upsertOrder(order)
+        // Istorijske porudžbine NE naduvavaju zalihe — top-up važi samo za žive webhook-e.
+        const outcome: SyncOutcome = await upsertOrder(order, { topUpSupply: false })
         if (outcome.result === 'created') {
           tally.created += 1
           affectedEmails.add(outcome.email)
