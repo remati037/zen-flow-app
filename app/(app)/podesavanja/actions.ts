@@ -25,5 +25,8 @@ export const updateSettings = createAction(
       .where(eq(profiles.id, profile.id))
 
     revalidatePath('/podesavanja')
+    // Vremena doza se odmah vide na protokolu i utiču na reminder dispatcher.
+    revalidatePath('/protokol')
+    revalidatePath('/dashboard')
   },
 )

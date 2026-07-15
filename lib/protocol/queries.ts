@@ -28,6 +28,8 @@ export interface WeekStripDay {
   date: IsoDate
   status: DayStatus
   isToday: boolean
+  /** Per-dozni status tog dana — za backfill dijalog na klik. */
+  doses: TodayDoses
 }
 
 export interface ProtocolState {
@@ -105,10 +107,12 @@ export async function getProtocolState(profile: Profile): Promise<ProtocolState>
   const weekStrip: WeekStripDay[] = []
   for (let i = 6; i >= 0; i--) {
     const date = addDaysIso(today, -i)
+    const entry = byDate.get(date)
     weekStrip.push({
       date,
-      status: dayStatus(byDate.get(date), isCovered(date, coveredRanges, alwaysCovered)),
+      status: dayStatus(entry, isCovered(date, coveredRanges, alwaysCovered)),
       isToday: i === 0,
+      doses: { morning: entry?.morning ?? null, evening: entry?.evening ?? null },
     })
   }
 

@@ -1,29 +1,6 @@
+import { WeekStrip } from '@/components/protocol/week-strip'
 import type { WeekStripDay } from '@/lib/protocol/queries'
-import type { DayStatus } from '@/lib/protocol/streak'
 import type { StreakResult } from '@/lib/protocol/streak'
-import { cn } from '@/lib/utils'
-
-const WEEKDAY_LABELS = ['Ned', 'Pon', 'Uto', 'Sre', 'Čet', 'Pet', 'Sub'] as const
-
-/** Srpski skraćeni naziv dana iz ISO datuma (čisto kalendarski, UTC parse). */
-function weekdayLabel(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number)
-  return WEEKDAY_LABELS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]
-}
-
-const DOT_STYLES: Record<DayStatus, string> = {
-  complete: 'bg-lime border-lime',
-  partial: 'bg-lime/40 border-lime/40',
-  missed: 'bg-slate-soft/20 border-slate-soft/25',
-  frozen: 'border-dashed border-slate-soft/50 bg-transparent',
-}
-
-const DOT_TITLES: Record<DayStatus, string> = {
-  complete: 'Obe doze uzete',
-  partial: 'Jedna doza uzeta',
-  missed: 'Propušteno',
-  frozen: 'Pauza — nema aktivne porudžbine',
-}
 
 export function StreakHeader({
   streak,
@@ -53,28 +30,7 @@ export function StreakHeader({
         </div>
       </div>
 
-      <div className="mt-6 flex items-end justify-between gap-1">
-        {weekStrip.map((day) => (
-          <div key={day.date} className="flex flex-1 flex-col items-center gap-1.5">
-            <span
-              title={DOT_TITLES[day.status]}
-              className={cn(
-                'size-7 rounded-full border-2 transition-colors',
-                DOT_STYLES[day.status],
-                day.isToday && 'ring-2 ring-ink/60 ring-offset-2 ring-offset-white',
-              )}
-            />
-            <span
-              className={cn(
-                'text-[10px] text-slate-soft',
-                day.isToday && 'font-semibold text-ink',
-              )}
-            >
-              {weekdayLabel(day.date)}
-            </span>
-          </div>
-        ))}
-      </div>
+      <WeekStrip weekStrip={weekStrip} />
     </div>
   )
 }

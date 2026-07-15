@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PushToggle } from '@/components/push/push-toggle'
+import { SettingsForm } from '@/components/settings/settings-form'
 import { getCurrentProfile } from '@/lib/auth'
 import { db, pushSubscriptions } from '@/lib/db'
 
@@ -28,16 +29,27 @@ export default async function PodesavanjaPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Notifikacije</CardTitle>
+          <CardTitle>Profil i protokol</CardTitle>
         </CardHeader>
         <CardContent>
-          <PushToggle initialEnabled={hasPush} />
+          {profile ? (
+            <SettingsForm
+              initialName={profile.name}
+              initialMorningTime={profile.doseMorningTime}
+              initialEveningTime={profile.doseEveningTime}
+            />
+          ) : (
+            <p className="text-slate-soft">Prijavi se da vidiš podešavanja.</p>
+          )}
         </CardContent>
       </Card>
 
       <Card>
-        <CardContent className="py-12 text-center text-slate-soft">
-          Uskoro — podešavanja protokola i profila.
+        <CardHeader>
+          <CardTitle>Notifikacije</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PushToggle initialEnabled={hasPush} />
         </CardContent>
       </Card>
     </div>

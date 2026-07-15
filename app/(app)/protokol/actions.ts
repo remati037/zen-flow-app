@@ -15,11 +15,15 @@ import { logDoseSchema } from '@/lib/validations/protocol'
  * akciji. Uzimanje doze troši 2 kapsule; undo (taken→skipped) ih vraća.
  * Idempotentno — ponovni isti status ne menja zalihe (delta 0).
  */
+/** Koliko dana unazad sme da se naknadno označi doza (backfill). */
+const BACKFILL_DAYS = 7
+
 export const logDose = createAction(logDoseSchema, async (data, { profile }) => {
   const today = belgradeToday()
-  const yesterday = addDaysIso(today, -1)
-  if (data.date !== today && data.date !== yesterday) {
-    throw new Error('Check-in je moguć samo za danas ili juče.')
+  const earliest = addDaysIso(today, -BACKFILL_DAYS)
+  // ISO 'YYYY-MM-DD' se poredi leksikografski = hronološki.
+  if (data.date > today || data.date < earliest) {
+    throw new Error(`Check-in je moguć samo za poslednjih ${BACKFILL_DAYS} dana.`)
   }
 
   // Prethodni status (pre upserta) — određuje da li menjamo zalihe.
