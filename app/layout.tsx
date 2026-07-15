@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Hanken_Grotesk } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 const hankenGrotesk = Hanken_Grotesk({
@@ -58,7 +59,10 @@ export default function RootLayout({
       }}
     >
       <html lang="sr" className={hankenGrotesk.variable}>
-        <body>{children}</body>
+        <body>
+          {children}
+          <Toaster richColors position="top-center" />
+        </body>
       </html>
     </ClerkProvider>
   );

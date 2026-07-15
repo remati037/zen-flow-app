@@ -217,7 +217,7 @@ middleware.ts         # Clerk auth + admin role gating
 types/globals.d.ts    # CustomJwtSessionClaims (role u session token-u)
 drizzle/              # Versioned SQL migracije + meta
 CLAUDE.md             # Brand kontekst + radne konvencije
-zenflow-prd.md        # Pun PRD (v1.0)
+docs/                 # PRD, plan implementacije, finalni plan Faze 1
 ```
 
 ---
@@ -230,4 +230,4 @@ zenflow-prd.md        # Pun PRD (v1.0)
 
 ---
 
-*NuroLab · ZenFlow App — interni README. Pun PRD: [`zenflow-prd.md`](./zenflow-prd.md).*
+*NuroLab · ZenFlow App — interni README. Pun PRD: [`docs/zenflow-prd.md`](./docs/zenflow-prd.md).*

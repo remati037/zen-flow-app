@@ -48,6 +48,13 @@ export async function upsertOrder(raw: unknown): Promise<SyncOutcome> {
 
   const product = resolveProductFromLineItems(order.line_items)
   if (!product) {
+    const seenSkus = order.line_items
+      .map((item) => item.sku?.trim())
+      .filter((sku): sku is string => Boolean(sku))
+    console.warn(
+      `[woo-sync] Porudžbina ${wooOrderId} (${email}) preskočena — nijedan poznat ZenFlow SKU. ` +
+        `Viđeni SKU-ovi: ${seenSkus.length ? seenSkus.join(', ') : '(nijedan)'}`,
+    )
     return { result: 'skipped', reason: 'no-product', wooOrderId }
   }
 

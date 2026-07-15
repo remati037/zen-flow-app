@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { belgradeToday } from '@/lib/dates'
 import { CAPSULES_PER_PACKAGE, estimateDaysRemaining, estimateRunoutDate } from '@/lib/protocol/dosing'
 import {
   FOCUS_QUIZ_LENGTH,
@@ -16,10 +17,6 @@ import {
 import { completeOnboarding } from './actions'
 
 const TOTAL_STEPS = 4
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10)
-}
 
 function formatDateSr(iso: string): string {
   const d = new Date(iso)
@@ -33,7 +30,7 @@ export function OnboardingWizard({ defaultPackages }: { defaultPackages: number 
 
   const [step, setStep] = useState(1)
   const [packages, setPackages] = useState(String(defaultPackages))
-  const [startDate, setStartDate] = useState(todayIso())
+  const [startDate, setStartDate] = useState(belgradeToday())
   const [doseMorningTime, setDoseMorningTime] = useState('08:00')
   const [doseEveningTime, setDoseEveningTime] = useState('20:00')
   const [quizAnswers, setQuizAnswers] = useState<(number | null)[]>(
@@ -47,7 +44,7 @@ export function OnboardingWizard({ defaultPackages }: { defaultPackages: number 
 
   const estimate = useMemo(() => {
     const days = estimateDaysRemaining(capsules)
-    const runout = estimateRunoutDate(new Date(startDate), capsules)
+    const runout = estimateRunoutDate(startDate, capsules)
     return { days, runoutLabel: formatDateSr(runout) }
   }, [capsules, startDate])
 

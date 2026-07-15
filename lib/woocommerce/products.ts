@@ -1,7 +1,6 @@
 /**
  * Mapiranje WooCommerce proizvoda → tip protokola + broj kapsula po pakovanju.
  *
- * ⚠️ POPUNITI STVARNIM SKU-ovima iz WooCommerce-a pre puštanja u rad.
  * Ključ je `sku` (string iz Woo `line_items[].sku`).
  *
  * - `productType`: 'full'   = pun protokol (npr. starter / 1 mesec)
@@ -17,8 +16,8 @@ export interface ProductConfig {
 }
 
 /**
- * SKU → konfiguracija. Dodaj/izmeni redove kako brend širi asortiman.
- * Primeri ispod su placeholder — zameni tačnim vrednostima.
+ * SKU → konfiguracija. NURO-001 (full) i NURO-002 (refill) su pravi ZenFlow SKU-ovi.
+ * Dodaj/izmeni redove kako brend širi asortiman.
  */
 export const PRODUCT_MAP: Record<string, ProductConfig> = {
   // Oba pakovanja = 60 fizičkih kapsula. Pri 4 kapsule/dan (2 po dozi × 2 doze) traje 15 dana.

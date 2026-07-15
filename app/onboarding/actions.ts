@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { createAction } from '@/lib/actions/safe-action'
 import { db, focusQuizResults, profiles, supply } from '@/lib/db'
 import { eq } from 'drizzle-orm'
+import { belgradeToday } from '@/lib/dates'
 import { CAPSULES_PER_PACKAGE, estimateRunoutDate } from '@/lib/protocol/dosing'
 import { scoreFocusQuiz } from '@/lib/quiz/focus-quiz'
 import { completeOnboardingSchema } from '@/lib/validations/onboarding'
@@ -17,9 +18,9 @@ export const completeOnboarding = createAction(
   completeOnboardingSchema,
   async (data, { profile }) => {
     const capsulesRemaining = data.packages * CAPSULES_PER_PACKAGE
-    const estimatedRunoutDate = estimateRunoutDate(new Date(data.startDate), capsulesRemaining)
+    const estimatedRunoutDate = estimateRunoutDate(data.startDate, capsulesRemaining)
     const score = scoreFocusQuiz(data.quizAnswers)
-    const today = new Date().toISOString().slice(0, 10)
+    const today = belgradeToday()
 
     await db
       .update(profiles)
