@@ -1,19 +1,22 @@
-import { and, eq, gte, inArray, lte, ne } from 'drizzle-orm'
+import { and, eq, lte, ne } from 'drizzle-orm'
 import { NextResponse, type NextRequest } from 'next/server'
 
-import { db, notificationsLog, profiles, supply } from '@/lib/db'
+import { db, profiles, supply } from '@/lib/db'
 import { sendLowStockEmail } from '@/lib/email/send'
+import { filterNotifiedSince } from '@/lib/push/dedup'
+import { sendPushToUser } from '@/lib/push/send'
 
 export const runtime = 'nodejs'
 
 /** Prag ispod kog se šalje alert: 14 kapsula ≈ nedelja dana na 2 doze dnevno. */
 const LOW_STOCK_THRESHOLD = 14
-/** Ne šalji ponovo low-stock mejl ako je već poslat u zadnjih ovoliko dana. */
+/** Ne šalji ponovo low-stock alert ako je već poslat u zadnjih ovoliko dana (po kanalu). */
 const DEDUP_DAYS = 3
 
 /**
- * Vercel Cron — pronalazi korisnike sa niskim zalihama i šalje email alert.
+ * Vercel Cron — pronalazi korisnike sa niskim zalihama i šalje alert na EMAIL + PUSH.
  * Zaštićen `CRON_SECRET`-om (Vercel Cron šalje `Authorization: Bearer <secret>`).
+ * Dedup je nezavistan po kanalu (3 dana): email i push imaju svaki svoj prozor.
  * Vidi vercel.json za raspored.
  */
 export async function GET(req: NextRequest) {
@@ -35,36 +38,41 @@ export async function GET(req: NextRequest) {
     .innerJoin(profiles, eq(profiles.id, supply.userId))
     .where(and(lte(supply.capsulesRemaining, LOW_STOCK_THRESHOLD), ne(profiles.accessStatus, 'inactive')))
 
-  let sent = 0
+  let emailsSent = 0
+  let pushSent = 0
 
   if (candidates.length > 0) {
-    // Dedup: ko je već dobio low_stock_alert u zadnjih DEDUP_DAYS dana.
+    const ids = candidates.map((c) => c.id)
     const cutoff = new Date(Date.now() - DEDUP_DAYS * 24 * 60 * 60 * 1000)
-    const recent = await db
-      .select({ userId: notificationsLog.userId })
-      .from(notificationsLog)
-      .where(
-        and(
-          inArray(
-            notificationsLog.userId,
-            candidates.map((c) => c.id),
-          ),
-          eq(notificationsLog.type, 'low_stock_alert'),
-          eq(notificationsLog.status, 'success'),
-          gte(notificationsLog.sentAt, cutoff),
-        ),
-      )
-    const alreadyNotified = new Set(recent.map((r) => r.userId))
+
+    // Nezavistan dedup po kanalu — inače bi poslat email blokirao push (i obrnuto).
+    const [emailedRecently, pushedRecently] = await Promise.all([
+      filterNotifiedSince({ userIds: ids, type: 'low_stock_alert', since: cutoff, channel: 'email' }),
+      filterNotifiedSince({ userIds: ids, type: 'low_stock_alert', since: cutoff, channel: 'push' }),
+    ])
 
     for (const c of candidates) {
-      if (alreadyNotified.has(c.id)) continue
-      const res = await sendLowStockEmail(
-        { id: c.id, email: c.email, name: c.name },
-        { capsulesRemaining: c.capsulesRemaining, estimatedRunoutDate: c.estimatedRunoutDate },
-      )
-      if (res.ok) sent += 1
+      if (!emailedRecently.has(c.id)) {
+        const res = await sendLowStockEmail(
+          { id: c.id, email: c.email, name: c.name },
+          { capsulesRemaining: c.capsulesRemaining, estimatedRunoutDate: c.estimatedRunoutDate },
+        )
+        if (res.ok) emailsSent += 1
+      }
+
+      if (!pushedRecently.has(c.id)) {
+        const res = await sendPushToUser({
+          userId: c.id,
+          type: 'low_stock_alert',
+          title: `Zalihe su pri kraju — ostalo ${c.capsulesRemaining} kapsula`,
+          body: 'Dopuni zalihe da ne prekineš protokol.',
+          url: '/zalihe',
+          tag: 'low_stock_alert',
+        })
+        if (res.sent > 0) pushSent += 1
+      }
     }
   }
 
-  return NextResponse.json({ processed: candidates.length, sent })
+  return NextResponse.json({ processed: candidates.length, emailsSent, pushSent })
 }

@@ -41,6 +41,31 @@ export function belgradeTimeHM(): string {
 }
 
 /**
+ * Parsira 'HH:mm' ili Postgres `time` ('HH:mm:ss') u minute od ponoći.
+ * Za poređenje vremena doza (`profiles.doseMorningTime`) sa `belgradeTimeHM()`.
+ */
+export function hmToMinutes(hm: string): number {
+  const [h, m] = hm.split(':').map(Number)
+  return h * 60 + m
+}
+
+/**
+ * UTC timestamp početka TEKUĆEG beogradskog kalendarskog dana (00:00 po Beogradu).
+ * Koristi se kao granica za "danas" dedup nad `notifications_log`.
+ *
+ * DST-safe bez offset matematike: oduzima proteklo vreme od ponoći. `H:M` su
+ * beogradski sati/minuti; sekunde i milisekunde su iste u UTC i Beogradu jer je
+ * offset ceo sat (+1/+2), pa ih čitamo direktno sa `Date`.
+ */
+export function belgradeDayStart(): Date {
+  const now = new Date()
+  const [h, m] = belgradeTimeHM().split(':').map(Number)
+  const msSinceMidnight =
+    (h * 3600 + m * 60 + now.getUTCSeconds()) * 1000 + now.getUTCMilliseconds()
+  return new Date(now.getTime() - msSinceMidnight)
+}
+
+/**
  * Dodaje `days` na ISO datum ('YYYY-MM-DD') čistom UTC aritmetikom.
  * Bez lokalnog `Date` drifta / DST iznenađenja — parsira komponente, računa preko
  * `Date.UTC`, pa reformatira. `days` može biti negativan.
