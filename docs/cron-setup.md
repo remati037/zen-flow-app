@@ -33,11 +33,21 @@ Repo je public, pa su Actions minuti besplatni i neograničeni.
 Workflow puca sa jasnom porukom na `401` (secret se ne poklapa) i na redirect (pogrešan `APP_URL`),
 pa neuspeh ne prođe tiho.
 
-**Dve zamke GitHub cron-a:**
-- Raspored **nije precizan** — run zna da kasni nekoliko minuta. Prozor podsetnika je 30 min, a
-  pozivi idu na 15, pa jedno kašnjenje ne gubi notifikaciju. Ako ti treba minut-u-minut, uzmi cron-job.org.
-- GitHub **automatski gasi** zakazane workflow-e posle **60 dana neaktivnosti repoa**. Za projekat u
-  razvoju nije problem; ako repo miruje, proveri da je workflow i dalje uključen.
+**Tri zamke GitHub cron-a — pročitaj pre nego što se osloniš na njega:**
+
+1. **Prvi zakazani run ne kreće odmah.** Pošto workflow sleti na default granu, GitHub-u treba
+   vremena da aktivira raspored — obično 10–30 min, ponekad i duže. Dotle radi samo „Run workflow".
+   Provera da li je raspored proradio:
+   ```bash
+   gh run list --workflow="Notification dispatcher" --limit 20
+   ```
+   Ako u koloni event nema nijedan `schedule`, raspored još nije aktivan.
+2. **Raspored nije precizan.** GitHub izričito navodi da `schedule` kasni pod opterećenjem, najviše
+   na pun sat. Kašnjenja od 10–20 min su normalna, a pod velikim opterećenjem run zna i da se
+   **preskoči**. Prozor podsetnika je 30 min a pozivi na 15, pa umereno kašnjenje ne gubi
+   notifikaciju — ali ako ti treba pouzdano, uzmi **cron-job.org** (opcija B).
+3. **GitHub gasi zakazane workflow-e posle 60 dana neaktivnosti repoa.** Za projekat u razvoju nije
+   problem; ako repo miruje, proveri da je workflow i dalje uključen.
 
 ### B) cron-job.org podešavanje
 
@@ -94,3 +104,13 @@ curl -i -H "Authorization: Bearer $CRON_SECRET" \
 ```
 
 Ponovni poziv u istom danu (dispatcher) / u zadnja 3 dana (low-stock) → dedup blokira ponovno slanje (brojači 0).
+
+## Dedup pri testiranju
+
+Dedup je **po beogradskom danu i po tipu**. Kad jednom dobiješ `dose_reminder_evening`, drugi taj dan
+ne stiže — **ni ako promeniš vreme doze**. Tako i treba (korisnik ne sme da dobije dva podsetnika za
+istu dozu), ali znači da se podešavanje može testirati samo jednom dnevno.
+
+Za ponovni test: `/admin` → **Dijagnostika push-a** → dugme **„Resetuj dedup za danas"** (pojavi se
+samo kad te dedup stvarno blokira). Briše isključivo **tvoje** današnje push zapise podsetnika —
+ne dira tuđe redove, ranije dane, mejlove ni low-stock prozor.

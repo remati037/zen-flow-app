@@ -1,7 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { CheckCircle2, Stethoscope, XCircle } from 'lucide-react'
+import { CheckCircle2, RotateCcw, Stethoscope, XCircle } from 'lucide-react'
+
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 
@@ -30,6 +32,7 @@ type Diagnosis = {
       inWindowNow: boolean
       alreadyTakenToday: boolean
       alreadyNotifiedToday: boolean
+      notifiedAt: string | null
       wouldSendNow: boolean
       reason: string
     }[]
@@ -46,6 +49,7 @@ type Diagnosis = {
 export function PushDiagnostics() {
   const [data, setData] = useState<Diagnosis | null>(null)
   const [loading, setLoading] = useState(false)
+  const [resetting, setResetting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function run() {
@@ -65,12 +69,49 @@ export function PushDiagnostics() {
     }
   }
 
+  /** Briše današnje zapise podsetnika za ovog admina, da dedup pusti ponovni test. */
+  async function resetDedup() {
+    setResetting(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/admin/push/reset-dedup', { method: 'POST' })
+      if (!res.ok) {
+        setError(`Reset nije uspeo (${res.status}).`)
+        return
+      }
+      const { deleted } = (await res.json()) as { deleted: number }
+      toast.success(
+        deleted > 0
+          ? `Obrisano ${deleted} današnjih zapisa — podsetnik može ponovo.`
+          : 'Nije bilo šta da se obriše — dedup te i ne blokira.',
+      )
+      await run()
+    } catch {
+      setError('Reset nije uspeo. Pokušaj ponovo.')
+    } finally {
+      setResetting(false)
+    }
+  }
+
+  const dedupBlocking = data?.notificationsDispatcher.doseChecks.some(
+    (c) => c.alreadyNotifiedToday,
+  )
+
   return (
     <div className="space-y-3">
-      <Button onClick={run} disabled={loading} variant="outline">
-        <Stethoscope aria-hidden className="size-4" />
-        {loading ? 'Proveravam…' : 'Dijagnostika push-a'}
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={run} disabled={loading} variant="outline">
+          <Stethoscope aria-hidden className="size-4" />
+          {loading ? 'Proveravam…' : 'Dijagnostika push-a'}
+        </Button>
+
+        {dedupBlocking && (
+          <Button onClick={resetDedup} disabled={resetting} variant="ghost">
+            <RotateCcw aria-hidden className="size-4" />
+            {resetting ? 'Resetujem…' : 'Resetuj dedup za danas'}
+          </Button>
+        )}
+      </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 

@@ -1,10 +1,9 @@
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, gte } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { getCurrentProfile, requireAdmin } from '@/lib/auth'
 import { db, notificationsLog, protocolLogs, pushSubscriptions } from '@/lib/db'
 import { belgradeDayStart, belgradeTimeHM, belgradeToday, hmToMinutes } from '@/lib/dates'
-import { filterNotifiedSince } from '@/lib/push/dedup'
 import { inWindow, minutesToHm, reminderWindowStart } from '@/lib/push/dispatch-rules'
 import { checkVapidConfig } from '@/lib/push/vapid'
 
@@ -20,6 +19,8 @@ type DoseCheck = {
   inWindowNow: boolean
   alreadyTakenToday: boolean
   alreadyNotifiedToday: boolean
+  /** Kad je današnji podsetnik tog tipa poslat ('HH:mm' po Beogradu), ako jeste. */
+  notifiedAt: string | null
   /** Šta bi dispatcher uradio da se pokrene BAŠ SADA. */
   wouldSendNow: boolean
   reason: string
@@ -75,24 +76,36 @@ export async function GET() {
   const nowHm = belgradeTimeHM()
   const nowMin = hmToMinutes(nowHm)
 
-  const [todayLogs, notifiedMorning, notifiedEvening] = await Promise.all([
+  const [todayLogs, reminderLog] = await Promise.all([
     db
       .select({ dose: protocolLogs.dose, status: protocolLogs.status })
       .from(protocolLogs)
       .where(and(eq(protocolLogs.userId, profile.id), eq(protocolLogs.date, today))),
-    filterNotifiedSince({
-      userIds: [profile.id],
-      type: 'dose_reminder_morning',
-      since: belgradeDayStart(),
-      channel: 'push',
-    }),
-    filterNotifiedSince({
-      userIds: [profile.id],
-      type: 'dose_reminder_evening',
-      since: belgradeDayStart(),
-      channel: 'push',
-    }),
+    // Današnji uspešni podsetnici — isti uslov koji dedup koristi u dispatcher-u,
+    // ali sa vremenom slanja, da "već poslat" bude samoobjašnjivo.
+    db
+      .select({ type: notificationsLog.type, sentAt: notificationsLog.sentAt })
+      .from(notificationsLog)
+      .where(
+        and(
+          eq(notificationsLog.userId, profile.id),
+          eq(notificationsLog.channel, 'push'),
+          eq(notificationsLog.status, 'success'),
+          gte(notificationsLog.sentAt, belgradeDayStart()),
+        ),
+      ),
   ])
+
+  const notifiedAtFor = (type: string): string | null => {
+    const row = reminderLog.find((r) => r.type === type)
+    if (!row) return null
+    return new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'Europe/Belgrade',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(row.sentAt)
+  }
 
   const takenToday = {
     morning: todayLogs.some((l) => l.dose === 'morning' && l.status === 'taken'),
@@ -101,11 +114,9 @@ export async function GET() {
 
   const eligible = profile.accessStatus !== 'inactive' && profile.onboardingCompleted
 
-  const buildDoseCheck = (
-    dose: 'morning' | 'evening',
-    time: string | null,
-    notified: boolean,
-  ): DoseCheck => {
+  const buildDoseCheck = (dose: 'morning' | 'evening', time: string | null): DoseCheck => {
+    const notifiedAt = notifiedAtFor(`dose_reminder_${dose}`)
+    const notified = notifiedAt !== null
     const base = {
       dose,
       time,
@@ -113,6 +124,7 @@ export async function GET() {
       inWindowNow: false,
       alreadyTakenToday: takenToday[dose],
       alreadyNotifiedToday: notified,
+      notifiedAt,
       wouldSendNow: false,
     }
 
@@ -134,7 +146,12 @@ export async function GET() {
       return { ...base, window, inWindowNow: isIn, reason: 'Doza je već označena kao uzeta danas.' }
     }
     if (notified) {
-      return { ...base, window, inWindowNow: isIn, reason: 'Podsetnik je danas već poslat (dedup).' }
+      return {
+        ...base,
+        window,
+        inWindowNow: isIn,
+        reason: `Podsetnik je danas već poslat u ${notifiedAt} — dedup blokira drugi isti dan. Promena vremena doze ga NE resetuje. Za ponovni test koristi "Resetuj dedup za danas".`,
+      }
     }
     if (!isIn) {
       return {
@@ -147,8 +164,8 @@ export async function GET() {
   }
 
   const doseChecks: DoseCheck[] = [
-    buildDoseCheck('morning', profile.doseMorningTime, notifiedMorning.has(profile.id)),
-    buildDoseCheck('evening', profile.doseEveningTime, notifiedEvening.has(profile.id)),
+    buildDoseCheck('morning', profile.doseMorningTime),
+    buildDoseCheck('evening', profile.doseEveningTime),
   ]
 
   const services = subs.map((s) => {
