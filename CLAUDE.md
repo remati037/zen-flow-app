@@ -82,7 +82,11 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
 - Šema je kompletna za Fazu 1 — nema novih migracija bez eksplicitne potrebe.
 - Boje samo kroz Tailwind brand tokene (`@theme` u `app/globals.css`). Hardkodovani hex je dozvoljen **samo** u: `app/manifest.ts`, Clerk `appearance` u `app/layout.tsx`, `app/style-guide/page.tsx`, `lib/email/templates/*` (email klijenti nemaju Tailwind), `lib/confetti.ts`.
 - Build ide kroz **webpack** (`next build --webpack`), ne Turbopack — Serwist injector mod.
-- QA harness za datume/streak: `npx tsx scripts/qa-dates.mts` (47 provera, mora ostati zeleno).
+- QA harness: `npx tsx scripts/qa-dates.mts` (datumi/streak/prozori dispatchera, 57 provera) i
+  `npx tsx scripts/qa-routes.mts` (klasifikacija ruta u middleware-u, 26 provera). Oba moraju ostati zelena.
+- **Nove `/api` rute bez Clerk sesije MORAJU u `PUBLIC_ROUTES`** (`lib/route-config.ts`). Inače ih
+  `auth.protect()` presretne, a Clerk za ne-HTML zahteve vraća **404** (ne 401) — otkaz izgleda kao
+  "ruta ne postoji". Tako su cron rute tiho bile mrtve.
 
 ---
 
@@ -122,6 +126,6 @@ Brand tokeni idu u Tailwind config; ne hardkoduj boje po komponentama.
 - Drži PRD i implementacioni plan u `/docs`.
 - Faze prati kao Faza 0 (setup) → Faza 1 (MVP) → Faza 2.
 - Kad zatvoriš fazu, ažuriraj sekcije iznad u ovom fajlu.
-- Pre commita: `npm run build` (webpack) + `npm run lint` + `npx tsx scripts/qa-dates.mts`.
+- Pre commita: `npm run build` (webpack) + `npm run lint` + `npx tsx scripts/qa-dates.mts` + `npx tsx scripts/qa-routes.mts`.
 - Env varijable: launch lista je u README (`Env varijable (Vercel launch lista)`); scheduler u `docs/cron-setup.md`.
 - Precache PWA ruta: `/~offline` se dodaje kroz `manifestTransforms` u `next.config.ts` (NE kroz `additionalPrecacheEntries` — ta opcija zamenjuje glob nad `public/` i izbacila bi ikone). Bumpuj `SW_VERSION` kad se offline stranica menja.

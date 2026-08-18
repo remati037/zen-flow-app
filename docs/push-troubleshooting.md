@@ -85,6 +85,8 @@ Ručna provera da ruta radi:
 
 ```bash
 curl -i -H "Authorization: Bearer $CRON_SECRET" https://app.nurolab.rs/api/cron/notifications
+# 404 → ruta nije u PUBLIC_ROUTES (lib/route-config.ts), pa je `auth.protect()` presreo.
+#       Clerk za ne-HTML zahteve vraća 404 umesto 401, pa izgleda kao da ruta ne postoji.
 # 401 → CRON_SECRET ne odgovara (ili nije postavljen na Vercelu)
 # 200 {"now":"HH:mm","morning":0,...} → ruta radi; nule su normalne van prozora doze
 ```

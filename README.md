@@ -154,7 +154,8 @@ Uz env varijable, za pun launch treba i **scheduler** za `/api/cron/notification
 | `npm run build` | Production build |
 | `npm run start` | Pokreni production build |
 | `npm run lint` | ESLint |
-| `npx tsx scripts/qa-dates.mts` | QA harness: timezone/DST i streak logika pod zamrznutim satom (47 provera) |
+| `npx tsx scripts/qa-dates.mts` | QA harness: timezone/DST, streak i prozori dispatchera pod zamrznutim satom (57 provera) |
+| `npx tsx scripts/qa-routes.mts` | QA harness: koje rute traže Clerk sesiju, koje rolu, koje su javne (26 provera) |
 | `npm run db:generate` | Generiši SQL migraciju iz promena u `lib/db/schema.ts` |
 | `npm run db:migrate` | Primeni versioned migracije na Neon |
 | `npm run db:push` | Gurni šemu direktno (samo za brzi prototip) |
