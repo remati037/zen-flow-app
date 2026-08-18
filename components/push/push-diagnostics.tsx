@@ -17,7 +17,23 @@ type Diagnosis = {
   }
   subscriptions: { count: number; services: string[] }
   cronSecretSet: boolean
-  notificationsDispatcher: { note: string; seenDoseReminders: boolean }
+  notificationsDispatcher: {
+    note: string
+    seenDoseReminders: boolean
+    now: string
+    today: string
+    eligible: boolean
+    doseChecks: {
+      dose: 'morning' | 'evening'
+      time: string | null
+      window: string | null
+      inWindowNow: boolean
+      alreadyTakenToday: boolean
+      alreadyNotifiedToday: boolean
+      wouldSendNow: boolean
+      reason: string
+    }[]
+  }
   recentNotifications: { type: string; channel: string; status: string; sentAt: string }[]
   recentPushFailures: number
 }
@@ -117,11 +133,35 @@ export function PushDiagnostics() {
             </div>
           </dl>
 
-          {!data.notificationsDispatcher.seenDoseReminders && (
-            <p className="rounded-md bg-white px-3 py-2 text-slate-mid ring-1 ring-foreground/10">
-              {data.notificationsDispatcher.note}
+          <div className="space-y-2 border-t border-border pt-3">
+            <p className="font-medium text-ink">
+              Podsetnici za doze{' '}
+              <span className="font-normal text-slate-soft">
+                (sada je {data.notificationsDispatcher.now})
+              </span>
             </p>
-          )}
+
+            {data.notificationsDispatcher.doseChecks.map((c) => (
+              <div key={c.dose} className="rounded-md bg-white px-3 py-2 ring-1 ring-foreground/10">
+                <p className="flex items-center justify-between gap-3 font-medium text-ink">
+                  <span>{c.dose === 'morning' ? 'Jutarnja' : 'Večernja'}</span>
+                  <span className="font-normal text-slate-mid">
+                    {c.time ? `${c.time.slice(0, 5)} · prozor ${c.window}` : 'nije podešeno'}
+                  </span>
+                </p>
+                <p className="mt-1 text-slate-mid">
+                  {c.wouldSendNow ? '✅ ' : '— '}
+                  {c.reason}
+                </p>
+              </div>
+            ))}
+
+            {!data.notificationsDispatcher.seenDoseReminders && (
+              <p className="rounded-md bg-white px-3 py-2 text-slate-mid ring-1 ring-foreground/10">
+                {data.notificationsDispatcher.note}
+              </p>
+            )}
+          </div>
         </div>
       )}
     </div>

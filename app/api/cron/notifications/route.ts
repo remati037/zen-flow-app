@@ -6,6 +6,11 @@ import type { Profile } from '@/lib/auth'
 import { belgradeDayStart, belgradeTimeHM, belgradeToday, hmToMinutes } from '@/lib/dates'
 import { getProtocolState } from '@/lib/protocol/queries'
 import { filterNotifiedSince } from '@/lib/push/dedup'
+import {
+  inWindow,
+  reminderWindowStart,
+  streakRiskWindowStart,
+} from '@/lib/push/dispatch-rules'
 import { sendPushToUser } from '@/lib/push/send'
 import type { NotificationType } from '@/lib/push/types'
 
@@ -21,22 +26,6 @@ export const runtime = 'nodejs'
  *  - streak-at-risk (uveče, dan nekompletan, streak ≥ 1)
  * Dedup po beogradskom danu + tipu + kanalu (push) sprečava dupliranje između run-ova.
  */
-
-/** Koliko minuta posle ciljanog vremena reminder još sme da se pošalje (širina prozora). */
-const WINDOW_MIN = 30
-/** Streak-at-risk ne šalji pre ovog sata (beogradsko veče). */
-const STREAK_RISK_EARLIEST_MIN = 21 * 60
-/** Streak-at-risk: koliko posle večernje doze počinje prozor. */
-const STREAK_RISK_AFTER_EVENING_MIN = 90
-/** Minuta u danu — poslednji prozor mora da stane pre ponoći. */
-const MINUTES_PER_DAY = 24 * 60
-/** Najkasniji početak streak-at-risk prozora (23:30), da se ceo prozor ispuni do ponoći. */
-const LAST_RISK_WINDOW_START_MIN = MINUTES_PER_DAY - WINDOW_MIN
-
-/** Da li je `nowMin` u [start, start+WINDOW_MIN). */
-function inWindow(nowMin: number, start: number): boolean {
-  return nowMin >= start && nowMin < start + WINDOW_MIN
-}
 
 export async function GET(req: NextRequest) {
   const auth = req.headers.get('authorization')
@@ -82,24 +71,28 @@ export async function GET(req: NextRequest) {
   for (const p of candidates) {
     const taken = logsByUser.get(p.id) ?? { morning: false, evening: false }
 
-    if (p.doseMorningTime && !taken.morning && inWindow(nowMin, hmToMinutes(p.doseMorningTime))) {
+    // `reminderWindowStart` clamp-uje prozor da stane u dan — bez toga doza
+    // podešena posle 23:45 nikad ne dobije podsetnik (prozor prelazi ponoć).
+    if (
+      p.doseMorningTime &&
+      !taken.morning &&
+      inWindow(nowMin, reminderWindowStart(hmToMinutes(p.doseMorningTime)))
+    ) {
       morningTargets.push(p)
     }
-    if (p.doseEveningTime && !taken.evening && inWindow(nowMin, hmToMinutes(p.doseEveningTime))) {
+    if (
+      p.doseEveningTime &&
+      !taken.evening &&
+      inWindow(nowMin, reminderWindowStart(hmToMinutes(p.doseEveningTime)))
+    ) {
       eveningTargets.push(p)
     }
 
     // Streak-at-risk: dan nekompletan + u večernjem prozoru. Streak ≥ 1 se proverava
     // tek dole (getProtocolState), samo za one koji su prošli vremenski filter.
     const dayComplete = taken.morning && taken.evening
-    // Clamp na kraj dana: bez njega bi večernja doza ≥ 22:30 gurnula prozor preko
-    // ponoći (≥ 1440 min), a `nowMin` nikad ne pređe 1439 → alert se ne bi poslao.
-    const riskStart = Math.min(
-      LAST_RISK_WINDOW_START_MIN,
-      Math.max(
-        STREAK_RISK_EARLIEST_MIN,
-        p.doseEveningTime ? hmToMinutes(p.doseEveningTime) + STREAK_RISK_AFTER_EVENING_MIN : 0,
-      ),
+    const riskStart = streakRiskWindowStart(
+      p.doseEveningTime ? hmToMinutes(p.doseEveningTime) : null,
     )
     if (!dayComplete && inWindow(nowMin, riskStart)) {
       streakRiskCandidates.push(p)

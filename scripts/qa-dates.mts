@@ -29,6 +29,7 @@ const {
 } = await import('../lib/dates')
 const { computeStreak, mergeCoveredRanges, isCovered } = await import('../lib/protocol/streak')
 const { estimateRunoutDate } = await import('../lib/protocol/dosing')
+const { inWindow, reminderWindowStart, streakRiskWindowStart, minutesToHm } = await import('../lib/push/dispatch-rules')
 
 console.log('\n=== 1. Ponoć: 23:50 i 00:10 po Beogradu (zima, UTC+1) ===')
 freeze('2026-01-15T22:50:00Z') // Beograd 23:50, 15. jan
@@ -147,6 +148,33 @@ const adminCov = computeStreak({ completedDates: new Set(['2026-08-17', '2026-08
 check('admin (alwaysCovered) bez porudžbina → prekid na 16.08, pa 2', adminCov.current, 2)
 const merged = mergeCoveredRanges(['2026-01-01', '2026-02-01'])
 check('preklapajuće porudžbine → jedan merge-ovan interval', merged, [['2026-01-01', '2026-04-02']])
+
+console.log('\n=== 11. Dispatcher: prozori podsetnika ===')
+// Scheduler gađa rutu na 15 min. Svako moguće vreme doze mora da padne u bar
+// jedan tick, inače podsetnik ne stigne nikad.
+const ticks = Array.from({ length: 96 }, (_, i) => i * 15)
+const uncovered: number[] = []
+for (let dose = 0; dose < 1440; dose++) {
+  if (!ticks.some((t) => inWindow(t, reminderWindowStart(dose)))) uncovered.push(dose)
+}
+check('svako od 1440 vremena doze uhvati bar jedan tick (15 min)', uncovered.length, 0)
+check('doza 23:50 → prozor stane u dan', minutesToHm(reminderWindowStart(hmToMinutes('23:50'))), '23:30')
+check('doza 08:00 → prozor netaknut', minutesToHm(reminderWindowStart(hmToMinutes('08:00'))), '08:00')
+check('doza 23:30 → poslednji netaknut prozor', minutesToHm(reminderWindowStart(hmToMinutes('23:30'))), '23:30')
+// Kompromis clamp-a: doza posle 23:30 dobija podsetnik ranije nego što je podešeno,
+// ali GA DOBIJA — pre popravke prozor za 23:46+ nije bio dostižan nijednom ticku.
+check('doza 23:45 → clamp na 23:30 (do 15 min ranije, ali stiže)', minutesToHm(reminderWindowStart(hmToMinutes('23:45'))), '23:30')
+
+// Streak-at-risk: isti clamp; večernja doza ≥ 22:30 ne sme da isklizne iz dana.
+check('veče 20:00 → risk prozor 21:30', minutesToHm(streakRiskWindowStart(hmToMinutes('20:00'))), '21:30')
+check('veče 18:00 → risk prozor 21:00 (pod nikad-pre-21h)', minutesToHm(streakRiskWindowStart(hmToMinutes('18:00'))), '21:00')
+check('veče 23:00 → risk prozor clamp-ovan na 23:30', minutesToHm(streakRiskWindowStart(hmToMinutes('23:00'))), '23:30')
+check('bez večernje doze → risk prozor 21:00', minutesToHm(streakRiskWindowStart(null)), '21:00')
+const riskUncovered: number[] = []
+for (let ev = 0; ev < 1440; ev++) {
+  if (!ticks.some((t) => inWindow(t, streakRiskWindowStart(ev)))) riskUncovered.push(ev)
+}
+check('svako večernje vreme daje dostižan risk prozor', riskUncovered.length, 0)
 
 console.log(`\n──────────────\nRezultat: ${pass} prošlo, ${fail} palo\n`)
 process.exit(fail > 0 ? 1 : 0)
