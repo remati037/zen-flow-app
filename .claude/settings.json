@@ -64,7 +64,24 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
       "Bash(pkill -f \"next dev\")",
       "Bash(node -e \"const {z}=require\\('zod'\\); const o=z.object\\({a:z.string\\(\\)}\\); console.log\\('loose:', typeof o.loose\\); console.log\\('passthrough:', typeof o.passthrough\\); console.log\\('z.email:', typeof z.email\\); console.log\\('string.email:', typeof z.string\\(\\).email\\);\")",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash(git commit -q -m 'Faza 1.1: WooCommerce sinhronizacija porudžbina *)",
+      "Bash(curl -s -i -X POST https://app.nurolab.rs/api/webhooks/woocommerce -H \"Content-Type: application/json\" -d '{\"webhook_id\":1}')",
+      "Bash(git commit -q -m 'Faza 1.1: prihvati WooCommerce ping bez potpisa \\(deliver_ping\\) *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -X POST https://app.nurolab.rs/api/webhooks/woocommerce -H \"Content-Type: application/json\" -d '{\"webhook_id\":1}')",
+      "Bash(node --env-file=.env.local -e ' *)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(npx shadcn@latest add dialog progress tabs switch checkbox label select separator skeleton tooltip table sonner --yes --overwrite)",
+      "Bash(npm uninstall *)",
+      "Bash(git mv *)",
+      "Bash(node -e \"const p=require\\('./package.json'\\);console.log\\('lucide-react:',p.dependencies['lucide-react']||p.devDependencies?.['lucide-react']||'MISSING'\\)\")",
+      "Bash(node -e \"const l=require\\('lucide-react'\\); console.log\\(['Check','Sun','Moon','X','Undo2','Sparkles'].map\\(n=>n+':'+\\(l[n]?'ok':'NO'\\)\\).join\\('  '\\)\\)\")",
+      "Bash(node -e \"const s=require\\('./package.json'\\).scripts; console.log\\(JSON.stringify\\(s,null,2\\)\\)\")",
+      "Bash(echo \"TSC_EXIT=$?\")",
+      "Bash(node -e \"const p={...require\\('./package.json'\\).dependencies,...require\\('./package.json'\\).devDependencies}; console.log\\('tsx:',p.tsx||'no','| vitest:',p.vitest||'no','| jest:',p.jest||'no'\\)\")",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(echo \"=== EXIT $? ===\")",
+      "Bash(echo \"=== lint exit $? ===\")"
     ],
     "additionalDirectories": [
       "/tmp"
