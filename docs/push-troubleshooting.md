@@ -69,7 +69,13 @@ uključi podsetnike. Uključivanje u Safariju pre instalacije ne radi.
 namerno nije u `vercel.json` jer su vremena doza individualna, pa mora da se zove na 15 min. To radi
 **eksterni scheduler** (cron-job.org). Setup: [`docs/cron-setup.md`](./cron-setup.md).
 
-Dijagnostika prijavljuje `Dose reminderi ikad poslati: ❌ nijedan` kad scheduler nije podešen.
+Dijagnostika ima **dry-run**: za ulogovanog admina računa — istim funkcijama koje koristi i cron
+(`lib/push/dispatch-rules.ts`) — da li bi podsetnik bio poslat **baš sada**, i ako ne bi, zašto
+(onboarding nije završen, nalog je `inactive`, vreme nije podešeno, doza je već uzeta, dedup, ili je
+trenutno vreme van prozora). Prikazuje i sam prozor, npr. `08:00–08:30`.
+
+Ako dry-run kaže **„Poslao bi podsetnik odmah"** a nijedan podsetnik nikad nije zabeležen, zaključak
+je jednoznačan: **ruta se ne poziva** — scheduler nije podešen ili gađa pogrešan URL/header.
 
 Ručna provera da ruta radi:
 
@@ -82,6 +88,14 @@ curl -i -H "Authorization: Bearer $CRON_SECRET" https://app.nurolab.rs/api/cron/
 Podsetnik se šalje samo ako je **trenutno beogradsko vreme u prozoru `[vreme doze, +30min)`**, doza
 još nije označena, korisnik nije `inactive` i završio je onboarding. Za test pomeri vreme doze u
 Podešavanjima par minuta unapred i sačekaj sledeći run schedulera.
+
+**Zašto prozor, a ne tačno vreme:** dispatcher se budi periodično i ne može da pogodi minut u minut,
+pa hvata sve kojima je vreme doze palo u poslednjih 30 min. Zato **scheduler mora da ide na 15 min** —
+na 60 min propušta oko polovine mogućih vremena doze (prozor od 30 min se prosto ne poklopi sa tickom).
+
+Prozor je clamp-ovan da ne pređe ponoć: doza podešena posle **23:30** dobija podsetnik u prozoru
+`23:30–00:00`, dakle ranije nego što je podešeno. Bez toga prozor za dozu posle 23:45 nijedan tick
+ne bi mogao da pogodi (`nowMin` se u ponoć resetuje na 0) i podsetnik ne bi stigao nikad.
 
 ## 5. Slanje puca sa drugim statusom
 
