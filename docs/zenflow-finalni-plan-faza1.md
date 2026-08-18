@@ -430,12 +430,12 @@ Paralelizabilno: 1.10 posle 1.5; 1.14 posle 1.8.
 | 1.7 zalihe + top-up | ✅ | `8822ca3` |
 | 1.8 Web Push infra | ✅ | `c5e3d33`, `500f328` |
 | 1.9 notification cron | ✅ | `385d917` |
-| 1.10 Fokus | ⬜ | — |
-| 1.11 Bedževi | ⬜ | — |
-| 1.12 Dashboard | ⬜ | — |
-| 1.13 Onboarding rework | ⬜ | — |
-| 1.14 Podešavanja UI | 🟡 delimično | `bec7646` |
-| 1.15 Admin panel | ⬜ | — |
+| 1.10 Fokus | ✅ | `3262502` |
+| 1.11 Bedževi | ✅ | `9e3ab1b` |
+| 1.12 Dashboard | ✅ | `38dbc80` |
+| 1.13 Onboarding rework | ✅ | `64a88b3` |
+| 1.14 Podešavanja UI | ✅ | `bec7646`, `ed02015` |
+| 1.15 Admin panel | ✅ | `0562743` |
 | 1.16 QA + launch | ⬜ | — |
 
 Svaki nezavršen korak ima **„Prompt za novu sesiju"** blok u svojoj sekciji — copy/paste u novu sesiju.
