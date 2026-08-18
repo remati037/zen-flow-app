@@ -116,7 +116,7 @@ Rute: javne (`/`, `/sign-in`, `/sign-up`, `/style-guide`, `/api/webhooks/*`, `/m
 
 ## Env varijable (Vercel launch lista)
 
-Svih 21 varijabli koje kod čita. **Obavezno** = bez nje feature pada ili se tiho gasi.
+Svih 22 varijable koje kod čita. **Obavezno** = bez nje feature pada ili se tiho gasi.
 
 | Varijabla | Obavezno | Bez nje | Odakle |
 |---|---|---|---|
@@ -131,6 +131,7 @@ Svih 21 varijabli koje kod čita. **Obavezno** = bez nje feature pada ili se tih
 | `RESEND_API_KEY` | ✅ | nema welcome ni low-stock mejla | resend.com → API Keys |
 | `EMAIL_FROM` | ⚠️ | fallback `onboarding@resend.dev` (šalje samo vlasniku naloga) | posle verifikacije domena: `NuroLab <noreply@nurolab.rs>` |
 | `CRON_SECRET` | ✅ | **sve cron rute vraćaju 401** | `openssl rand -hex 32` |
+| `NOTIFICATION_WINDOW_MIN` | ⚠️ | fallback `30` (upareno sa schedulerom na 15 min) | vidi [`docs/cron-setup.md`](./docs/cron-setup.md#preciznost-podsetnika) |
 | `NEXT_PUBLIC_APP_URL` | ✅ | linkovi u mejlovima gađaju `localhost` | `https://app.nurolab.rs` |
 | `NEXT_PUBLIC_SUPPORT_EMAIL` | ⚠️ | fallback `podrska@nurolab.rs` | — |
 | `NEXT_PUBLIC_SHOP_REFILL_URL` | ✅ | **refill CTA se tiho ne prikazuje** na `/zalihe`, `/dashboard`, `/podesavanja` | link ka ZenFlow proizvodu |

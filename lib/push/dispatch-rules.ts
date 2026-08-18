@@ -6,8 +6,33 @@
  * ovog modula bi se ista aritmetika duplirala i razišla.
  */
 
-/** Koliko minuta posle ciljanog vremena reminder još sme da se pošalje. */
-export const WINDOW_MIN = 30
+/**
+ * Podrazumevana širina prozora — uparena sa schedulerom na 15 min.
+ * Prozor MORA biti širi od razmaka između poziva, inače podsetnik propadne
+ * između dva run-a.
+ */
+const DEFAULT_WINDOW_MIN = 30
+
+/**
+ * Koliko minuta posle ciljanog vremena reminder još sme da se pošalje.
+ *
+ * Podesivo preko `NOTIFICATION_WINDOW_MIN` jer je vezano za kadencu schedulera,
+ * a ona je infrastruktura, ne kod. Pravilo uparivanja:
+ *
+ *   prozor ≥ razmak poziva + tolerancija kašnjenja
+ *
+ * Preciznost isporuke ≈ razmak poziva. Za podsetnik "u minut" treba scheduler
+ * na 1 min i prozor 2 (cron-job.org to podržava; GitHub Actions ne — minimum
+ * mu je 5 min i raspored mu kasni).
+ */
+export const WINDOW_MIN = readWindowMin()
+
+function readWindowMin(): number {
+  const raw = Number(process.env.NOTIFICATION_WINDOW_MIN)
+  if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_WINDOW_MIN
+  // Clamp: ispod 1 min prozor je neupotrebljiv, iznad 60 podsetnik gubi smisao.
+  return Math.min(60, Math.max(1, Math.round(raw)))
+}
 
 /** Minuta u danu. */
 export const MINUTES_PER_DAY = 24 * 60

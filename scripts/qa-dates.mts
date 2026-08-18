@@ -29,7 +29,7 @@ const {
 } = await import('../lib/dates')
 const { computeStreak, mergeCoveredRanges, isCovered } = await import('../lib/protocol/streak')
 const { estimateRunoutDate } = await import('../lib/protocol/dosing')
-const { inWindow, reminderWindowStart, streakRiskWindowStart, minutesToHm } = await import('../lib/push/dispatch-rules')
+const { inWindow, reminderWindowStart, streakRiskWindowStart, minutesToHm, WINDOW_MIN } = await import('../lib/push/dispatch-rules')
 
 console.log('\n=== 1. Ponoć: 23:50 i 00:10 po Beogradu (zima, UTC+1) ===')
 freeze('2026-01-15T22:50:00Z') // Beograd 23:50, 15. jan
@@ -152,12 +152,26 @@ check('preklapajuće porudžbine → jedan merge-ovan interval', merged, [['2026
 console.log('\n=== 11. Dispatcher: prozori podsetnika ===')
 // Scheduler gađa rutu na 15 min. Svako moguće vreme doze mora da padne u bar
 // jedan tick, inače podsetnik ne stigne nikad.
-const ticks = Array.from({ length: 96 }, (_, i) => i * 15)
-const uncovered: number[] = []
-for (let dose = 0; dose < 1440; dose++) {
-  if (!ticks.some((t) => inWindow(t, reminderWindowStart(dose)))) uncovered.push(dose)
+/** Koliko vremena doze ostane bez ijednog tick-a pri datoj kadenci schedulera. */
+function uncoveredAt(cadenceMin: number): number {
+  const ticks = Array.from({ length: Math.floor(1440 / cadenceMin) }, (_, i) => i * cadenceMin)
+  let miss = 0
+  for (let dose = 0; dose < 1440; dose++) {
+    if (!ticks.some((t) => inWindow(t, reminderWindowStart(dose)))) miss++
+  }
+  return miss
 }
-check('svako od 1440 vremena doze uhvati bar jedan tick (15 min)', uncovered.length, 0)
+
+check(`trenutni prozor (NOTIFICATION_WINDOW_MIN)`, WINDOW_MIN, 30)
+check('svako od 1440 vremena doze uhvati bar jedan tick (kadenca 15)', uncoveredAt(15), 0)
+
+// PRAVILO UPARIVANJA: pokrivenost je potpuna dok je kadenca ≤ prozor.
+// Ovo je jedina stvar koju treba proveriti pri promeni kadence schedulera.
+check('kadenca 1 ≤ prozor 30 → potpuna pokrivenost', uncoveredAt(1), 0)
+check('kadenca 5 ≤ prozor 30 → potpuna pokrivenost', uncoveredAt(5), 0)
+check('kadenca 30 = prozor 30 → potpuna pokrivenost', uncoveredAt(30), 0)
+// Kadenca šira od prozora ostavlja rupe — zato ih docs uparuju.
+check('kadenca 60 > prozor 30 → ima rupa (zato pravilo postoji)', uncoveredAt(60) > 0, true)
 check('doza 23:50 → prozor stane u dan', minutesToHm(reminderWindowStart(hmToMinutes('23:50'))), '23:30')
 check('doza 08:00 → prozor netaknut', minutesToHm(reminderWindowStart(hmToMinutes('08:00'))), '08:00')
 check('doza 23:30 → poslednji netaknut prozor', minutesToHm(reminderWindowStart(hmToMinutes('23:30'))), '23:30')
@@ -170,9 +184,10 @@ check('veče 20:00 → risk prozor 21:30', minutesToHm(streakRiskWindowStart(hmT
 check('veče 18:00 → risk prozor 21:00 (pod nikad-pre-21h)', minutesToHm(streakRiskWindowStart(hmToMinutes('18:00'))), '21:00')
 check('veče 23:00 → risk prozor clamp-ovan na 23:30', minutesToHm(streakRiskWindowStart(hmToMinutes('23:00'))), '23:30')
 check('bez večernje doze → risk prozor 21:00', minutesToHm(streakRiskWindowStart(null)), '21:00')
+const riskTicks = Array.from({ length: 96 }, (_, i) => i * 15)
 const riskUncovered: number[] = []
 for (let ev = 0; ev < 1440; ev++) {
-  if (!ticks.some((t) => inWindow(t, streakRiskWindowStart(ev)))) riskUncovered.push(ev)
+  if (!riskTicks.some((t) => inWindow(t, streakRiskWindowStart(ev)))) riskUncovered.push(ev)
 }
 check('svako večernje vreme daje dostižan risk prozor', riskUncovered.length, 0)
 

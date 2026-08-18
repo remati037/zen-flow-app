@@ -79,7 +79,7 @@ Za cron-ove i notifikacije:
 | `VAPID_SUBJECT` | Push (default `mailto:podrska@nurolab.rs`) |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Email (low-stock, welcome) |
 
-Kompletnu launch listu (svih 21 varijablu) vidi u [README → Env varijable](../README.md#env-varijable-vercel-launch-lista).
+Kompletnu launch listu (svih 22 varijable) vidi u [README → Env varijable](../README.md#env-varijable-vercel-launch-lista).
 
 Posle izmene env varijabli → **Redeploy**.
 
@@ -104,6 +104,32 @@ curl -i -H "Authorization: Bearer $CRON_SECRET" \
 ```
 
 Ponovni poziv u istom danu (dispatcher) / u zadnja 3 dana (low-stock) → dedup blokira ponovno slanje (brojači 0).
+
+## Preciznost podsetnika
+
+Podsetnik ne stiže u sekundu — stiže **u prvom pozivu schedulera posle vremena doze**. Zato je
+preciznost isporuke ≈ **razmak između poziva**, a prozor postoji samo da podsetnik ne propadne
+između dva run-a.
+
+Pravilo uparivanja (proverava ga `scripts/qa-dates.mts`):
+
+```
+NOTIFICATION_WINDOW_MIN  ≥  razmak poziva schedulera
+```
+
+| Želiš preciznost | Scheduler | `NOTIFICATION_WINDOW_MIN` | Gde radi |
+|---|---|---|---|
+| „negde u toku pola sata" | `*/15` | `30` (default) | GitHub Actions ili cron-job.org |
+| ±5 min | `*/5` | `10` | GitHub Actions (minimum mu je 5 min) ili cron-job.org |
+| **u minut** | `* * * * *` | `2` | **samo cron-job.org** — GitHub ne dozvoljava ispod 5 min |
+
+**Cena minutne preciznosti.** Poziv svakog minuta znači 1440 poziva dnevno i, važnije, **Neon baza
+se nikad ne uspava** — svaki run je gađa upitom. Na Neon free tier-u autosuspend je jedino što čuva
+compute sate, pa proveri limite svog plana pre nego što pređeš na `* * * * *`. Na `*/15` baza se
+uspava između poziva; na `*/1` radi 24/7.
+
+Srednje rešenje ako ti je bitna preciznost a ne i budžet: `*/5` + prozor `10`. Korisnik dobija
+podsetnik najkasnije 5 min posle vremena doze, a baza i dalje ima prostora da se uspava.
 
 ## Dedup pri testiranju
 
