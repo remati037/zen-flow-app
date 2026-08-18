@@ -6,6 +6,7 @@ import { Coffee, Pause, Play, Square, Target } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { saveFocusSession } from '@/app/(app)/fokus/actions'
+import { celebrateNewBadges } from '@/components/badges/badge-toast'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -96,6 +97,7 @@ export function PomodoroTimer({ tasks }: { tasks: FocusTask[] }) {
           taskLabel: label ?? undefined,
         })
         if (result.ok) {
+          celebrateNewBadges(result.data.newBadges)
           router.refresh()
         } else {
           toast.error(result.error)

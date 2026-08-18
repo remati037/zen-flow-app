@@ -6,6 +6,7 @@ import { Check, Moon, Sun, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { logDose } from '@/app/(app)/protokol/actions'
+import { celebrateNewBadges } from '@/components/badges/badge-toast'
 import type { TodayDoses } from '@/lib/protocol/queries'
 import { cn } from '@/lib/utils'
 
@@ -78,6 +79,7 @@ export function DoseCheckin({
         } else {
           toast('Doza poništena.')
         }
+        celebrateNewBadges(result.data.newBadges)
         router.refresh()
       } else {
         setState((s) => ({ ...s, [dose]: prev })) // revert

@@ -6,6 +6,7 @@ import { Check, Moon, Sun } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { logDose } from '@/app/(app)/protokol/actions'
+import { celebrateNewBadges } from '@/components/badges/badge-toast'
 import {
   Dialog,
   DialogContent,
@@ -83,6 +84,7 @@ export function WeekStrip({ weekStrip }: { weekStrip: WeekStripDay[] }) {
       const result = await logDose({ date: openDate, dose, status: next })
       if (result.ok) {
         toast.success(next === 'taken' ? 'Doza zabeležena 🌿' : 'Doza poništena.')
+        celebrateNewBadges(result.data.newBadges)
         router.refresh()
       } else {
         setLocalDoses((s) => ({ ...s, [dose]: prev })) // revert

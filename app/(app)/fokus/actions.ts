@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { and, count, eq, sql } from 'drizzle-orm'
 
 import { createAction } from '@/lib/actions/safe-action'
+import { checkAndAwardBadges } from '@/lib/badges/award'
 import { dailyTasks, db, focusSessions } from '@/lib/db'
 import { belgradeToday } from '@/lib/dates'
 import {
@@ -32,11 +33,13 @@ export const saveFocusSession = createAction(saveFocusSessionSchema, async (data
     taskLabel: data.taskLabel?.length ? data.taskLabel : null,
   })
 
+  const newBadges = await checkAndAwardBadges(profile.id, { trigger: 'focus' })
+
   revalidatePath('/fokus')
   revalidatePath('/dashboard')
+  if (newBadges.length > 0) revalidatePath('/bedzevi')
 
-  // newBadges ostaje prazan do koraka 1.11 (award engine).
-  return { durationMin: data.durationMin, newBadges: [] as string[] }
+  return { durationMin: data.durationMin, newBadges }
 })
 
 /**

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { and, eq } from 'drizzle-orm'
 
 import { createAction } from '@/lib/actions/safe-action'
+import { checkAndAwardBadges } from '@/lib/badges/award'
 import { db, protocolLogs, supply } from '@/lib/db'
 import { addDaysIso, belgradeToday } from '@/lib/dates'
 import { CAPSULES_PER_DOSE, estimateRunoutDate } from '@/lib/protocol/dosing'
@@ -81,10 +82,16 @@ export const logDose = createAction(logDoseSchema, async (data, { profile }) => 
 
   const { streak } = await getProtocolState(profile)
 
+  // Streak je već izračunat — prosleđuje se da ga award engine ne računa ponovo.
+  const newBadges = await checkAndAwardBadges(profile.id, {
+    trigger: 'dose',
+    currentStreak: streak.current,
+  })
+
   revalidatePath('/protokol')
   revalidatePath('/dashboard')
   revalidatePath('/zalihe')
+  if (newBadges.length > 0) revalidatePath('/bedzevi')
 
-  // newBadges ostaje prazan do koraka 1.11 (award engine).
-  return { streak, capsulesRemaining, newBadges: [] as string[] }
+  return { streak, capsulesRemaining, newBadges }
 })

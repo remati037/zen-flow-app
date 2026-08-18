@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 
 import { createAction } from '@/lib/actions/safe-action'
+import { checkAndAwardBadges } from '@/lib/badges/award'
 import { db, focusQuizResults, profiles, supply } from '@/lib/db'
 import { eq } from 'drizzle-orm'
 import { belgradeToday } from '@/lib/dates'
@@ -13,6 +14,9 @@ import { completeOnboardingSchema } from '@/lib/validations/onboarding'
 /**
  * Završetak onboardinga: upisuje protokol, doze, baseline focus score i
  * inicijalne zalihe; obeležava `onboardingCompleted = true`.
+ *
+ * Vraća `newBadges` (`protokol-zapocet` na prvom prolazu) — celebration ekran
+ * u koraku 1.13 se kači na taj rezultat.
  */
 export const completeOnboarding = createAction(
   completeOnboardingSchema,
@@ -53,6 +57,11 @@ export const completeOnboarding = createAction(
       answers: data.quizAnswers,
     })
 
+    const newBadges = await checkAndAwardBadges(profile.id, { trigger: 'onboarding' })
+
     revalidatePath('/dashboard')
+    revalidatePath('/bedzevi')
+
+    return { newBadges }
   },
 )
