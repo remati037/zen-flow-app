@@ -309,6 +309,7 @@ Zabeleženo pri zatvaranju Faze 1 (nije blocker za launch, ali treba znati):
 - **Otkazana / refundirana porudžbina ne vraća kapsule.** `cancelled` i `refunded` padaju u `skipped: status`, red u `orders` ostaje sa starim statusom, a top-up-ovane kapsule ostaju korisniku.
 - **Ručno postavljen `vip` bez porudžbine** noćni cron (`maintainAccessStatuses`) vraća na `inactive`. Dokumentovano u admin dijalogu; bez izmene šeme u MVP-u.
 - **iOS push traži instaliran PWA.** Van instalirane aplikacije `Notification` ne postoji; `components/push/ios-install-hint.tsx` prikazuje uputstvo za „Dodaj na početni ekran".
+- **Javni VAPID ključ se ugrađuje u bundle na build-u.** Promena `NEXT_PUBLIC_VAPID_PUBLIC_KEY` bez redeploy-a ostavlja stari ključ u klijentu → sve pretplate dobijaju 403. Kad push ne stiže: `/admin` → „Dijagnostika push-a", pa [`docs/push-troubleshooting.md`](./docs/push-troubleshooting.md).
 
 ---
 

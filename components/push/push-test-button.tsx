@@ -20,12 +20,33 @@ export function PushTestButton() {
         toast(res.status === 403 ? 'Nemaš admin dozvolu.' : `Greška ${res.status}.`)
         return
       }
-      const data = (await res.json()) as { ok: boolean; sent: number; removed: number }
-      if (data.sent > 0) {
-        toast(`Test push poslat na ${data.sent} uređaj(a). 🌿`)
-      } else {
-        toast('Nemaš aktivnu pretplatu — uključi push podsetnike u Podešavanjima.')
+      const data = (await res.json()) as {
+        ok: boolean
+        sent: number
+        removed: number
+        subscriptions: number
+        failures: { service: string; statusCode: number | null; reason: string }[]
       }
+
+      if (data.sent > 0) {
+        toast.success(`Test push poslat na ${data.sent} uređaj(a). 🌿`)
+        return
+      }
+
+      // Bez ovog grananja svaki neuspeh je izgledao kao "nema pretplate",
+      // pa je pravi uzrok (npr. 403 zbog VAPID nepoklapanja) ostajao skriven.
+      if (data.subscriptions === 0) {
+        toast('Nemaš aktivnu pretplatu — uključi push podsetnike u Podešavanjima.')
+        return
+      }
+
+      const first = data.failures[0]
+      toast.error(
+        first
+          ? `Slanje odbijeno${first.statusCode ? ` (${first.statusCode})` : ''}: ${first.reason}`
+          : 'Slanje nije uspelo iz nepoznatog razloga — vidi dijagnostiku.',
+        { duration: 12_000 },
+      )
     } catch {
       toast('Slanje nije uspelo. Pokušaj ponovo.')
     } finally {

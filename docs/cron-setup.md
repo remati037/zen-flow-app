@@ -51,6 +51,12 @@ Kompletnu launch listu (svih 21 varijablu) vidi u [README → Env varijable](../
 
 Posle izmene env varijabli → **Redeploy**.
 
+## Push ne stiže?
+
+Vidi [`docs/push-troubleshooting.md`](./push-troubleshooting.md) — dijagnostika po karikama lanca
+(VAPID par, pretplate, iOS instalacija, scheduler, statusi push servisa). Brzi put: `/admin` →
+„Dijagnostika push-a".
+
 ## Ručni test
 
 ```bash

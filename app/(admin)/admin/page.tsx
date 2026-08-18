@@ -3,6 +3,7 @@ import { Activity, BellRing, Flame, Package, ShoppingBag, Smartphone, UserX, Use
 
 import { CheckinsChart } from '@/components/admin/checkins-chart'
 import { MetricCard } from '@/components/admin/metric-card'
+import { PushDiagnostics } from '@/components/push/push-diagnostics'
 import { PushTestButton } from '@/components/push/push-test-button'
 import { PushToggle } from '@/components/push/push-toggle'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -99,10 +100,17 @@ export default async function AdminPage() {
         <CardContent className="space-y-4">
           <PushToggle initialEnabled={hasPush} />
           <div className="border-t border-border pt-4">
-            <p className="mb-3 text-sm text-muted-foreground">
+            <p className="mb-3 text-sm text-slate-mid">
               Uključi podsetnike na ovom uređaju, pa pošalji probnu notifikaciju sebi.
             </p>
             <PushTestButton />
+          </div>
+
+          <div className="border-t border-border pt-4">
+            <p className="mb-3 text-sm text-slate-mid">
+              Ako test push ne stigne, ovo pokazuje gde lanac puca (VAPID par, pretplate, dispatcher).
+            </p>
+            <PushDiagnostics />
           </div>
         </CardContent>
       </Card>
