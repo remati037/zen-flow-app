@@ -4,12 +4,10 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { db, profiles, supply } from '@/lib/db'
 import { sendLowStockEmail } from '@/lib/email/send'
 import { filterNotifiedSince } from '@/lib/push/dedup'
+import { LOW_STOCK_THRESHOLD } from '@/lib/protocol/dosing'
 import { sendPushToUser } from '@/lib/push/send'
 
 export const runtime = 'nodejs'
-
-/** Prag ispod kog se šalje alert: 14 kapsula ≈ nedelja dana na 2 doze dnevno. */
-const LOW_STOCK_THRESHOLD = 14
 /** Ne šalji ponovo low-stock alert ako je već poslat u zadnjih ovoliko dana (po kanalu). */
 const DEDUP_DAYS = 3
 

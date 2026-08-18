@@ -16,6 +16,8 @@ type DoseStatus = 'taken' | 'skipped' | null
 interface DoseConfig {
   dose: Dose
   label: string
+  /** Kraći naziv za `compact` varijantu (dashboard). */
+  shortLabel: string
   icon: typeof Sun
   time: string | null
   successMsg: string
@@ -27,17 +29,25 @@ function formatTime(time: string | null): string | null {
   return time.slice(0, 5)
 }
 
+/**
+ * Inline check-in obe doze. `variant`:
+ * - `default` — pune kartice na `/protokol`
+ * - `compact` — niži par dugmadi za dashboard CTA karticu (isti kod, ista akcija)
+ */
 export function DoseCheckin({
   today,
   doses,
   morningTime,
   eveningTime,
+  variant = 'default',
 }: {
   today: string
   doses: TodayDoses
   morningTime: string | null
   eveningTime: string | null
+  variant?: 'default' | 'compact'
 }) {
+  const compact = variant === 'compact'
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [state, setState] = useState<Record<Dose, DoseStatus>>({
@@ -49,6 +59,7 @@ export function DoseCheckin({
     {
       dose: 'morning',
       label: 'Jutarnja doza',
+      shortLabel: 'Jutro',
       icon: Sun,
       time: formatTime(morningTime),
       successMsg: 'Jutarnja doza zabeležena 🌿',
@@ -56,6 +67,7 @@ export function DoseCheckin({
     {
       dose: 'evening',
       label: 'Večernja doza',
+      shortLabel: 'Veče',
       icon: Moon,
       time: formatTime(eveningTime),
       successMsg: 'Večernja doza zabeležena 🌙',
@@ -89,7 +101,7 @@ export function DoseCheckin({
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className={cn('grid', compact ? 'grid-cols-2 gap-3' : 'gap-4 sm:grid-cols-2')}>
       {config.map((cfg) => {
         const status = state[cfg.dose]
         const taken = status === 'taken'
@@ -102,8 +114,9 @@ export function DoseCheckin({
             disabled={isPending}
             aria-pressed={taken}
             className={cn(
-              'flex flex-col items-center gap-3 rounded-xl p-6 text-center shadow-soft ring-1 transition-all',
+              'flex flex-col items-center rounded-xl text-center ring-1 transition-all',
               'disabled:opacity-70',
+              compact ? 'gap-1.5 p-4' : 'gap-3 p-6 shadow-soft',
               taken
                 ? 'bg-lime text-ink ring-lime'
                 : 'bg-white text-ink ring-foreground/10 hover:ring-foreground/20',
@@ -111,22 +124,34 @@ export function DoseCheckin({
           >
             <span
               className={cn(
-                'flex size-14 items-center justify-center rounded-full',
+                'flex items-center justify-center rounded-full',
+                compact ? 'size-10' : 'size-14',
                 taken ? 'bg-ink text-lime' : 'bg-paper text-slate-mid',
               )}
             >
-              {taken ? <Check className="size-7" /> : <Icon className="size-7" />}
+              {taken ? (
+                <Check className={compact ? 'size-5' : 'size-7'} />
+              ) : (
+                <Icon className={compact ? 'size-5' : 'size-7'} />
+              )}
             </span>
 
-            <span className="font-heading text-lg font-medium">{cfg.label}</span>
+            <span
+              className={cn('font-heading font-medium', compact ? 'text-sm' : 'text-lg')}
+            >
+              {compact ? cfg.shortLabel : cfg.label}
+            </span>
 
             {cfg.time && (
-              <span className="text-sm text-slate-soft">u {cfg.time}</span>
+              <span className={cn('text-slate-soft', compact ? 'text-xs' : 'text-sm')}>
+                u {cfg.time}
+              </span>
             )}
 
             <span
               className={cn(
-                'mt-1 inline-flex items-center gap-1.5 text-sm font-medium',
+                'inline-flex items-center gap-1.5 font-medium',
+                compact ? 'text-xs' : 'mt-1 text-sm',
                 taken ? 'text-ink' : 'text-slate-mid',
               )}
             >
@@ -134,6 +159,8 @@ export function DoseCheckin({
                 <>
                   Uzeto <Undo2 className="size-3.5 opacity-60" />
                 </>
+              ) : compact ? (
+                'Označi'
               ) : (
                 'Označi kao uzeto'
               )}

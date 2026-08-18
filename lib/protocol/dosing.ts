@@ -25,3 +25,9 @@ export function estimateDaysRemaining(capsulesRemaining: number): number {
 export function estimateRunoutDate(startDateIso: string, capsulesRemaining: number): string {
   return addDaysIso(startDateIso, estimateDaysRemaining(capsulesRemaining))
 }
+
+/**
+ * Prag ispod kog su zalihe "pri kraju": 14 kapsula ≈ 3.5 dana na 4 kapsule/dan.
+ * Jedini izvor istine — koriste ga i UI kartice i low-stock cron.
+ */
+export const LOW_STOCK_THRESHOLD = 14

@@ -35,8 +35,16 @@ export interface WeekStripDay {
 export interface ProtocolState {
   streak: StreakResult
   todayDoses: TodayDoses
+  /** Poslednjih N dana zaključno sa danas (N = `stripDays`, default 7). */
   weekStrip: WeekStripDay[]
 }
+
+export interface ProtocolStateOptions {
+  /** Dužina stripa u danima: 7 za protokol stranicu, 14 za dashboard grafikon. */
+  stripDays?: number
+}
+
+const DEFAULT_STRIP_DAYS = 7
 
 /** Grupiše logove po datumu → { morning, evening } statusi. */
 function indexLogsByDate(
@@ -62,10 +70,15 @@ function dayStatus(entry: TodayDoses | undefined, covered: boolean): DayStatus {
 
 /**
  * Sastavlja kompletno stanje protokola za jedan profil: streak (uz pauzu za
- * inactive periode), današnje doze i 7-dnevni strip. Jedini DB dodir za
- * protokol UI — čita logove + datume porudžbina, ostalo je čista logika.
+ * inactive periode), današnje doze i dnevni strip (`stripDays`, default 7).
+ * Jedini DB dodir za protokol UI — čita logove + datume porudžbina, ostalo je
+ * čista logika.
  */
-export async function getProtocolState(profile: Profile): Promise<ProtocolState> {
+export async function getProtocolState(
+  profile: Profile,
+  options: ProtocolStateOptions = {},
+): Promise<ProtocolState> {
+  const stripDays = options.stripDays ?? DEFAULT_STRIP_DAYS
   const today = belgradeToday()
   const since = addDaysIso(today, -LOOKBACK_DAYS)
 
@@ -105,7 +118,7 @@ export async function getProtocolState(profile: Profile): Promise<ProtocolState>
   })
 
   const weekStrip: WeekStripDay[] = []
-  for (let i = 6; i >= 0; i--) {
+  for (let i = stripDays - 1; i >= 0; i--) {
     const date = addDaysIso(today, -i)
     const entry = byDate.get(date)
     weekStrip.push({

@@ -20,22 +20,13 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
-import { CAPSULES_PER_PACKAGE, estimateDaysRemaining } from '@/lib/protocol/dosing'
+import { formatIsoDateSr } from '@/lib/dates'
+import {
+  CAPSULES_PER_PACKAGE,
+  LOW_STOCK_THRESHOLD,
+  estimateDaysRemaining,
+} from '@/lib/protocol/dosing'
 import { cn } from '@/lib/utils'
-
-/** Ispod ovoga (u kapsulama) zalihe su pri kraju — ~3.5 dana pri 4 kapsule/dan. */
-const LOW_STOCK_THRESHOLD = 14
-
-/** 'YYYY-MM-DD' → 'dd. mmm yyyy.' (srpski, latinica). Parse kao UTD da nema drifta. */
-function formatRunout(iso: string | null): string | null {
-  if (!iso) return null
-  const [y, m, d] = iso.split('-').map(Number)
-  return new Intl.DateTimeFormat('sr-Latn-RS', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(new Date(Date.UTC(y, m - 1, d)))
-}
 
 export function SupplyCard({
   capsulesRemaining,
@@ -52,7 +43,7 @@ export function SupplyCard({
   const [value, setValue] = useState(String(capsulesRemaining))
 
   const daysRemaining = estimateDaysRemaining(capsulesRemaining)
-  const runoutLabel = formatRunout(estimatedRunoutDate)
+  const runoutLabel = estimatedRunoutDate ? formatIsoDateSr(estimatedRunoutDate) : null
   const isLow = capsulesRemaining <= LOW_STOCK_THRESHOLD
   // Referentni "pun" = jedno pakovanje (60 kapsula / 15 dana). Preko toga bar ostaje pun.
   const percent = Math.min(100, Math.round((capsulesRemaining / CAPSULES_PER_PACKAGE) * 100))
