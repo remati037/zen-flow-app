@@ -3,6 +3,7 @@
 import { BellRing } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { IosInstallHint } from '@/components/push/ios-install-hint'
 import { PushToggle } from '@/components/push/push-toggle'
 
 import { StepHeading } from './step-heading'
@@ -51,6 +52,7 @@ export function NotificationsStep({
             <strong className="text-ink">{doseEveningTime}</strong>, plus upozorenje kad zalihe padnu nisko.
           </p>
         </div>
+        <IosInstallHint />
         <div className="rounded-lg bg-white px-3 py-2.5 ring-1 ring-foreground/10">
           <PushToggle />
         </div>

@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 
 import { AccountCard } from '@/components/settings/account-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { IosInstallHint } from '@/components/push/ios-install-hint'
 import { PushToggle } from '@/components/push/push-toggle'
 import { SettingsForm } from '@/components/settings/settings-form'
 import type { AccessStatus } from '@/lib/access/status'
@@ -76,7 +77,8 @@ export default async function PodesavanjaPage() {
         <CardHeader>
           <CardTitle>Notifikacije</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <IosInstallHint />
           <PushToggle initialEnabled={hasPush} />
         </CardContent>
       </Card>

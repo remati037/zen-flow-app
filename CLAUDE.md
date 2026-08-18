@@ -60,16 +60,29 @@ Ovo nije dekoracija — to je retencioni motor proizvoda.
 
 ---
 
-## Faza 1 — MVP scope
+## Faza 1 — MVP scope ✅ ZATVORENA
 
-- Protocol tracker sa **streak mehanikom**
-- Supply tracking sa **low-stock push/email alertima**
-- **Pomodoro timer**
-- Osnovni dashboard sa **bedževima**
-- **Admin panel**
-- **WooCommerce order sync** za verifikaciju pristupa
+Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se loguje preko Clerk-a, sistem verifikuje VIP status preko WooCommerce porudžbine, prati dnevni protokol sa streak-om, dobija alerte za niske zalihe (push + email), i koristi Pomodoro timer. Admin vidi i upravlja korisnicima.
 
-**Definicija gotovo (Faza 1):** korisnik se loguje preko Clerk-a, sistem verifikuje VIP status preko WooCommerce porudžbine, prati dnevni protokol sa streak-om, dobija alerte za niske zalihe, i koristi Pomodoro timer. Admin vidi i upravlja korisnicima.
+Šta je isporučeno:
+
+- **Protocol tracker sa streak mehanikom** — `/protokol`, check-in obe doze, 7-dnevni strip, backfill do 7 dana. Streak se pauzira dok je korisnik `inactive` (vidi „Poznata ograničenja" u README).
+- **Supply tracking** — `/zalihe`, check-in troši kapsule, Woo porudžbina top-upuje tačno jednom, low-stock alert na push + email.
+- **Pomodoro timer + 3 dnevna zadatka** — `/fokus`, timestamp-based countdown, limit zadataka enforce-ovan server-side.
+- **Dashboard sa bedževima** — `/dashboard` (agregat + Recharts doslednost 14d), `/bedzevi` (9 bedževa, award engine).
+- **Web Push** — VAPID, SW `push`/`notificationclick` handleri, dispatcher na 15 min (eksterni scheduler), dedup po beogradskom danu.
+- **Admin panel** — `/admin` metrike, korisnici sa streak-ovima + access override, porudžbine + backfill.
+- **WooCommerce order sync** — webhook + backfill, isti `upsertOrder` za oba puta.
+- **PWA** — instalabilna, offline fallback, iOS install hint.
+
+**Ključne konvencije koje MORAŠ da poštuješ u svakom novom kodu:**
+
+- „Danas" je **isključivo** `belgradeToday()` iz `lib/dates.ts`. Nikad `toISOString().slice(0,10)` — grep mora ostati čist.
+- Sve server akcije idu kroz `createAction` iz `lib/actions/safe-action.ts` (auth + zod + hvatanje grešaka → `ActionResult`).
+- Šema je kompletna za Fazu 1 — nema novih migracija bez eksplicitne potrebe.
+- Boje samo kroz Tailwind brand tokene (`@theme` u `app/globals.css`). Hardkodovani hex je dozvoljen **samo** u: `app/manifest.ts`, Clerk `appearance` u `app/layout.tsx`, `app/style-guide/page.tsx`, `lib/email/templates/*` (email klijenti nemaju Tailwind), `lib/confetti.ts`.
+- Build ide kroz **webpack** (`next build --webpack`), ne Turbopack — Serwist injector mod.
+- QA harness za datume/streak: `npx tsx scripts/qa-dates.mts` (47 provera, mora ostati zeleno).
 
 ---
 
@@ -109,3 +122,6 @@ Brand tokeni idu u Tailwind config; ne hardkoduj boje po komponentama.
 - Drži PRD i implementacioni plan u `/docs`.
 - Faze prati kao Faza 0 (setup) → Faza 1 (MVP) → Faza 2.
 - Kad zatvoriš fazu, ažuriraj sekcije iznad u ovom fajlu.
+- Pre commita: `npm run build` (webpack) + `npm run lint` + `npx tsx scripts/qa-dates.mts`.
+- Env varijable: launch lista je u README (`Env varijable (Vercel launch lista)`); scheduler u `docs/cron-setup.md`.
+- Precache PWA ruta: `/~offline` se dodaje kroz `manifestTransforms` u `next.config.ts` (NE kroz `additionalPrecacheEntries` — ta opcija zamenjuje glob nad `public/` i izbacila bi ikone). Bumpuj `SW_VERSION` kad se offline stranica menja.

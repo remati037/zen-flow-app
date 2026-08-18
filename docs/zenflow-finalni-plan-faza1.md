@@ -436,9 +436,11 @@ Paralelizabilno: 1.10 posle 1.5; 1.14 posle 1.8.
 | 1.13 Onboarding rework | ✅ | `64a88b3` |
 | 1.14 Podešavanja UI | ✅ | `bec7646`, `ed02015` |
 | 1.15 Admin panel | ✅ | `0562743` |
-| 1.16 QA + launch | ⬜ | — |
+| 1.16 QA + launch | ✅ | _ovaj commit_ |
 
-Svaki nezavršen korak ima **„Prompt za novu sesiju"** blok u svojoj sekciji — copy/paste u novu sesiju.
+**Faza 1 je zatvorena.** Nalazi, popravke i E2E checklista iz 1.16 su u [`docs/qa-faza1.md`](./qa-faza1.md).
+
+Svi koraci su zatvoreni. „Prompt za novu sesiju" blokovi ostaju u sekcijama kao istorijski zapis.
 
 ## Verifikacija (po koraku + finalno)
 

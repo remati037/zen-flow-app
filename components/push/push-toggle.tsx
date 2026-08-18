@@ -49,13 +49,13 @@ export function PushToggle({ initialEnabled = false }: PushToggleProps) {
     })
   }
 
+  // Uputstvo za iOS nosi `IosInstallHint` (renderuje se iznad toggle-a) — ovde
+  // ostaje samo kratka poruka za ostale browsere bez push podrške.
   if (!supported) {
     return (
-      <div className="rounded-lg bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
-        <p className="font-medium text-foreground">Push notifikacije nisu dostupne</p>
-        <p className="mt-1">
-          Na iOS-u dodaj aplikaciju na početni ekran (Share → Add to Home Screen) da bi podsetnici radili.
-        </p>
+      <div className="rounded-lg bg-muted/50 px-4 py-3 text-sm text-slate-mid">
+        <p className="font-medium text-ink">Push notifikacije nisu dostupne</p>
+        <p className="mt-1">Ovaj browser ih ne podržava. Podsetnike i dalje dobijaš mejlom.</p>
       </div>
     )
   }

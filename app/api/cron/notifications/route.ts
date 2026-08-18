@@ -28,6 +28,10 @@ const WINDOW_MIN = 30
 const STREAK_RISK_EARLIEST_MIN = 21 * 60
 /** Streak-at-risk: koliko posle večernje doze počinje prozor. */
 const STREAK_RISK_AFTER_EVENING_MIN = 90
+/** Minuta u danu — poslednji prozor mora da stane pre ponoći. */
+const MINUTES_PER_DAY = 24 * 60
+/** Najkasniji početak streak-at-risk prozora (23:30), da se ceo prozor ispuni do ponoći. */
+const LAST_RISK_WINDOW_START_MIN = MINUTES_PER_DAY - WINDOW_MIN
 
 /** Da li je `nowMin` u [start, start+WINDOW_MIN). */
 function inWindow(nowMin: number, start: number): boolean {
@@ -88,9 +92,14 @@ export async function GET(req: NextRequest) {
     // Streak-at-risk: dan nekompletan + u večernjem prozoru. Streak ≥ 1 se proverava
     // tek dole (getProtocolState), samo za one koji su prošli vremenski filter.
     const dayComplete = taken.morning && taken.evening
-    const riskStart = Math.max(
-      STREAK_RISK_EARLIEST_MIN,
-      p.doseEveningTime ? hmToMinutes(p.doseEveningTime) + STREAK_RISK_AFTER_EVENING_MIN : 0,
+    // Clamp na kraj dana: bez njega bi večernja doza ≥ 22:30 gurnula prozor preko
+    // ponoći (≥ 1440 min), a `nowMin` nikad ne pređe 1439 → alert se ne bi poslao.
+    const riskStart = Math.min(
+      LAST_RISK_WINDOW_START_MIN,
+      Math.max(
+        STREAK_RISK_EARLIEST_MIN,
+        p.doseEveningTime ? hmToMinutes(p.doseEveningTime) + STREAK_RISK_AFTER_EVENING_MIN : 0,
+      ),
     )
     if (!dayComplete && inWindow(nowMin, riskStart)) {
       streakRiskCandidates.push(p)

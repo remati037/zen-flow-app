@@ -50,19 +50,41 @@ export function hmToMinutes(hm: string): number {
 }
 
 /**
+ * Offset beogradske zone u ms za dati instant (+1h zimi, +2h leti).
+ * Trik: isti instant se formatira kao beogradsko zidno vreme, pa se pročita
+ * kao da je UTC — razlika je tačno offset zone u tom trenutku.
+ */
+function belgradeOffsetMs(at: Date): number {
+  const wall = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: BELGRADE_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(at)
+  // 'YYYY-MM-DD HH:mm:ss' → parsiraj kao UTC
+  return Date.parse(`${wall.replace(' ', 'T')}Z`) - at.getTime()
+}
+
+/**
  * UTC timestamp početka TEKUĆEG beogradskog kalendarskog dana (00:00 po Beogradu).
  * Koristi se kao granica za "danas" dedup nad `notifications_log`.
  *
- * DST-safe bez offset matematike: oduzima proteklo vreme od ponoći. `H:M` su
- * beogradski sati/minuti; sekunde i milisekunde su iste u UTC i Beogradu jer je
- * offset ceo sat (+1/+2), pa ih čitamo direktno sa `Date`.
+ * Ne oduzima proteklo vreme od ponoći — na dan DST prelaza dan nema 24h, pa bi
+ * to promašilo granicu za ceo sat (29.03. unazad u prethodni dan, 25.10. unapred
+ * u tekući). Umesto toga uzima ponoć kao "naivni" UTC timestamp i koriguje je
+ * offsetom zone; drugi prolaz hvata slučaj kad prvi offset padne sa pogrešne
+ * strane prelaza.
  */
 export function belgradeDayStart(): Date {
-  const now = new Date()
-  const [h, m] = belgradeTimeHM().split(':').map(Number)
-  const msSinceMidnight =
-    (h * 3600 + m * 60 + now.getUTCSeconds()) * 1000 + now.getUTCMilliseconds()
-  return new Date(now.getTime() - msSinceMidnight)
+  const [y, m, d] = belgradeToday().split('-').map(Number)
+  const naiveMidnight = Date.UTC(y, m - 1, d)
+  let ts = naiveMidnight - belgradeOffsetMs(new Date(naiveMidnight))
+  ts = naiveMidnight - belgradeOffsetMs(new Date(ts))
+  return new Date(ts)
 }
 
 /**

@@ -37,6 +37,8 @@ Ne šalje `inactive` niti ne-onboardovanim korisnicima. DST se rešava sam (pore
 
 ## Potrebne env varijable (Vercel → Production)
 
+Za cron-ove i notifikacije:
+
 | Var | Koristi |
 |---|---|
 | `CRON_SECRET` | Auth za sve cron rute (Bearer token) |
@@ -44,6 +46,8 @@ Ne šalje `inactive` niti ne-onboardovanim korisnicima. DST se rešava sam (pore
 | `VAPID_PRIVATE_KEY` | Push (VAPID) |
 | `VAPID_SUBJECT` | Push (default `mailto:podrska@nurolab.rs`) |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Email (low-stock, welcome) |
+
+Kompletnu launch listu (svih 21 varijablu) vidi u [README → Env varijable](../README.md#env-varijable-vercel-launch-lista).
 
 Posle izmene env varijabli → **Redeploy**.
 
