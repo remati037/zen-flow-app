@@ -142,7 +142,7 @@ Svih 21 varijabli koje kod čita. **Obavezno** = bez nje feature pada ili se tih
 | `WOO_CONSUMER_KEY` | ✅ | backfill ne radi | WooCommerce → Settings → Advanced → REST API |
 | `WOO_CONSUMER_SECRET` | ✅ | backfill ne radi | isto |
 
-Uz env varijable, za pun launch treba i **eksterni scheduler** za `/api/cron/notifications` — vidi [`docs/cron-setup.md`](./docs/cron-setup.md). Posle svake izmene env varijabli → **Redeploy**.
+Uz env varijable, za pun launch treba i **scheduler** za `/api/cron/notifications` (Vercel ga ne pokreće — vozi ga GitHub Actions workflow u repou, treba mu samo `CRON_SECRET` kao **repo secret**). Vidi [`docs/cron-setup.md`](./docs/cron-setup.md). Posle svake izmene env varijabli → **Redeploy**.
 
 ---
 

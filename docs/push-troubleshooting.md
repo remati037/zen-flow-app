@@ -66,8 +66,12 @@ uključi podsetnike. Uključivanje u Safariju pre instalacije ne radi.
 ## 4. Test push stiže, ali podsetnici za doze ne
 
 **Ovo je odvojen problem.** Podsetnike šalje `/api/cron/notifications`, koji **Vercel NE pokreće** —
-namerno nije u `vercel.json` jer su vremena doza individualna, pa mora da se zove na 15 min. To radi
-**eksterni scheduler** (cron-job.org). Setup: [`docs/cron-setup.md`](./cron-setup.md).
+namerno nije u `vercel.json` jer su vremena doza individualna, pa mora da se zove na 15 min.
+
+Scheduler je GitHub Actions workflow u repou
+([`.github/workflows/notifications-dispatcher.yml`](../.github/workflows/notifications-dispatcher.yml)) —
+radi čim dodaš `CRON_SECRET` kao repo secret. Puna uputstva (i cron-job.org alternativa):
+[`docs/cron-setup.md`](./cron-setup.md).
 
 Dijagnostika ima **dry-run**: za ulogovanog admina računa — istim funkcijama koje koristi i cron
 (`lib/push/dispatch-rules.ts`) — da li bi podsetnik bio poslat **baš sada**, i ako ne bi, zašto

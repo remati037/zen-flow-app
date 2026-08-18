@@ -15,9 +15,31 @@ Ne zahtevaju ručno podešavanje — dovoljno je da je `CRON_SECRET` postavljen 
 
 ## 2. Notification dispatcher — eksterni scheduler (cron-job.org)
 
-`/api/cron/notifications` mora da se poziva **na 15 min** (vremena doza su individualna, pa reminderi ne mogu na fiksni dnevni cron). Ova ruta **NIJE** u `vercel.json` — vozi je eksterni scheduler.
+`/api/cron/notifications` mora da se poziva **na 15 min** (vremena doza su individualna, pa reminderi ne mogu na fiksni dnevni cron). Ova ruta **NIJE** u `vercel.json` — Vercel Cron na Hobby planu vozi samo dnevne rasporede, pa je vozi eksterni scheduler.
 
-### cron-job.org podešavanje
+Dva načina; oba rade. **GitHub Actions je već podešen u repou** — treba samo secret.
+
+### A) GitHub Actions (preporučeno — nema trećeg naloga)
+
+Workflow je u [`.github/workflows/notifications-dispatcher.yml`](../.github/workflows/notifications-dispatcher.yml).
+Repo je public, pa su Actions minuti besplatni i neograničeni.
+
+1. **Settings → Secrets and variables → Actions → New repository secret**
+   - Name: `CRON_SECRET`
+   - Value: **ista vrednost** kao `CRON_SECRET` na Vercelu
+2. (Opciono) **Variables → New variable**: `APP_URL`, ako domen nije `https://app.nurolab.rs`.
+3. Test odmah: **Actions → „Notification dispatcher" → Run workflow**. Zeleno + `HTTP 200` u logu = radi.
+
+Workflow puca sa jasnom porukom na `401` (secret se ne poklapa) i na redirect (pogrešan `APP_URL`),
+pa neuspeh ne prođe tiho.
+
+**Dve zamke GitHub cron-a:**
+- Raspored **nije precizan** — run zna da kasni nekoliko minuta. Prozor podsetnika je 30 min, a
+  pozivi idu na 15, pa jedno kašnjenje ne gubi notifikaciju. Ako ti treba minut-u-minut, uzmi cron-job.org.
+- GitHub **automatski gasi** zakazane workflow-e posle **60 dana neaktivnosti repoa**. Za projekat u
+  razvoju nije problem; ako repo miruje, proveri da je workflow i dalje uključen.
+
+### B) cron-job.org podešavanje
 
 1. Napravi (besplatan) nalog na https://cron-job.org.
 2. **Create cronjob:**
