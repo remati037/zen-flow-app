@@ -40,7 +40,18 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             Admin
           </Link>
           <div className="hidden md:block" />
-          <UserButton />
+
+          <div className="flex items-center gap-1">
+            {/* Povratak u app na mobilnom — na desktopu isti link stoji u sidebar-u. */}
+            <Link
+              href="/dashboard"
+              className="flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-slate-mid transition-colors hover:bg-white hover:text-ink md:hidden"
+            >
+              <ArrowLeft aria-hidden className="h-4 w-4" />
+              Nazad na app
+            </Link>
+            <UserButton />
+          </div>
         </header>
         <div className="border-b border-ink/10 bg-paper/80 px-4 py-2 md:hidden">
           <AdminNav variant="mobile" />

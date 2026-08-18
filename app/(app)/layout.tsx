@@ -21,7 +21,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // Login put: osveži VIP/inactive status pri ulasku u app (hvata istek pre dnevnog cron-a).
   // Rola iz Clerk session claim-a je izvor istine — sinhronizuje DB ako webhook nije stigao.
-  const authoritativeRole = (await isAdmin()) ? 'admin' : 'user'
+  const admin = await isAdmin()
+  const authoritativeRole = admin ? 'admin' : 'user'
   const status = await refreshAccessStatusForProfile(profile, authoritativeRole)
 
   // Korak 1.3 — gejt pristupa: samo važeći kupci (vip / subscriber / admin→vip) ulaze.
@@ -38,10 +39,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-dvh bg-paper">
-      <Sidebar />
+      <Sidebar isAdmin={admin} />
 
       <div className="md:pl-64">
-        <AppHeader />
+        <AppHeader isAdmin={admin} />
         <main className="mx-auto max-w-3xl px-4 pt-6 pb-28 md:pb-10">{children}</main>
       </div>
 

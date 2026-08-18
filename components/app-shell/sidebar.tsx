@@ -1,6 +1,6 @@
 'use client'
 
-import { Settings } from 'lucide-react'
+import { Settings, ShieldCheck } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -9,9 +9,9 @@ import { NAV_ITEMS } from './nav-items'
 
 /**
  * Levi sidebar — desktop (hidden md:flex). Ista NAV_ITEMS lista kao bottom-nav
- * + link na Podešavanja na dnu.
+ * + Podešavanja na dnu, i link na admin panel kad je korisnik admin.
  */
-export function Sidebar() {
+export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname()
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`)
@@ -46,19 +46,31 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      <Link
-        href="/podesavanja"
-        aria-current={isActive('/podesavanja') ? 'page' : undefined}
-        className={cn(
-          'flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition-colors',
-          isActive('/podesavanja')
-            ? 'bg-lime text-ink'
-            : 'text-slate-mid hover:bg-paper hover:text-ink',
+      <div className="space-y-1">
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className="flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium text-ink ring-1 ring-ink/10 transition-colors hover:bg-lime-soft"
+          >
+            <ShieldCheck aria-hidden className="h-5 w-5" />
+            Admin panel
+          </Link>
         )}
-      >
-        <Settings className="h-5 w-5" />
-        Podešavanja
-      </Link>
+
+        <Link
+          href="/podesavanja"
+          aria-current={isActive('/podesavanja') ? 'page' : undefined}
+          className={cn(
+            'flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition-colors',
+            isActive('/podesavanja')
+              ? 'bg-lime text-ink'
+              : 'text-slate-mid hover:bg-paper hover:text-ink',
+          )}
+        >
+          <Settings className="h-5 w-5" />
+          Podešavanja
+        </Link>
+      </div>
     </aside>
   )
 }
