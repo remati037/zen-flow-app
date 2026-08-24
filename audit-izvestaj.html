@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZenFlow App — Audit izveštaj i roadmap (avgust 2026)</title>
+<meta name="description" content="Sveobuhvatan audit ZenFlow Companion PWA: UI, UX, bezbednost, logika, podaci, PWA. Sa roadmap-om u 4 faze.">
+<style>
+  :root {
+    --paper: #ecf0f3;
+    --ink: #203849;
+    --slate: #304f60;
+    --slate-mid: #445662;
+    --slate-soft: #597080;
+    --lime: #defe9c;
+    --lime-deep: #dcf39e;
+    --lime-soft: #f0ffd0;
+    --mint: #d3fbd8;
+    --white: #ffffff;
+    --line: rgba(32,56,73,.12);
+    --line-strong: rgba(32,56,73,.2);
+    --shadow-soft: 0 6px 30px rgba(32,56,73,.08);
+    --shadow-lift: 0 18px 60px rgba(32,56,73,.16);
+    --red: #c0392b;
+    --red-bg: #fdecea;
+    --amber: #b7791f;
+    --amber-bg: #fdf3e3;
+    --green: #1e7d45;
+    --green-bg: #e6f6ec;
+    --radius: 20px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4 { letter-spacing: -0.02em; line-height: 1.15; margin: 0; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 20px; }
+
+  /* Header */
+  .hero {
+    background: linear-gradient(160deg, #203849 0%, #2c4657 60%, #304f60 100%);
+    color: var(--paper);
+    padding: 64px 0 48px;
+    border-radius: 0 0 32px 32px;
+  }
+  .hero .eyebrow {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-size: 12px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--lime);
+  }
+  .hero .eyebrow::before { content: ""; width: 28px; height: 1px; background: var(--lime); opacity: .6; }
+  .hero h1 { font-size: clamp(28px, 5vw, 44px); font-weight: 600; margin: 14px 0 10px; }
+  .hero p.sub { color: rgba(236,240,243,.75); max-width: 640px; font-size: 16px; margin: 0 0 18px; }
+  .hero .meta { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: rgba(236,240,243,.65); }
+  .hero .meta b { color: var(--paper); font-weight: 600; }
+  .pill { display: inline-block; padding: 3px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .pill-lime { background: var(--lime); color: var(--ink); }
+
+  /* TOC */
+  .toc {
+    background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow-soft);
+    padding: 22px 26px; margin: -28px 0 34px; border: 1px solid var(--line);
+  }
+  .toc h2 { font-size: 15px; font-weight: 600; margin-bottom: 10px; color: var(--slate-mid); }
+  .toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 34px; font-size: 14px; }
+  .toc a { color: var(--slate); text-decoration: none; border-bottom: 1px solid transparent; }
+  .toc a:hover { border-bottom-color: var(--slate); }
+  @media (max-width: 640px) { .toc ol { columns: 1; } }
+
+  section { margin-bottom: 44px; }
+  .sec-head { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+  .sec-head .num {
+    flex: none; width: 42px; height: 42px; border-radius: 14px;
+    background: var(--ink); color: var(--lime);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 17px;
+  }
+  .sec-head h2 { font-size: 24px; font-weight: 600; }
+  .sec-head p { margin: 2px 0 0; font-size: 13px; color: var(--slate-soft); }
+
+  .card {
+    background: var(--white); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow-soft); padding: 22px 26px; margin-bottom: 16px;
+  }
+  .card h3 { font-size: 17px; font-weight: 600; margin-bottom: 8px; }
+  .card p, .card li { font-size: 14.5px; }
+  .muted { color: var(--slate-soft); }
+  .small { font-size: 13px; }
+  code {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 6px;
+    padding: 1px 6px; font-size: 12.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .file { color: var(--slate); font-weight: 600; }
+
+  /* Scorecards */
+  .scores { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+  .score {
+    background: var(--white); border: 1px solid var(--line); border-radius: 16px;
+    padding: 18px 20px; box-shadow: var(--shadow-soft);
+  }
+  .score .label { font-size: 13px; font-weight: 600; color: var(--slate-mid); }
+  .score .bar { height: 8px; border-radius: 999px; background: var(--paper); margin: 10px 0 6px; overflow: hidden; }
+  .score .bar > div { height: 100%; border-radius: 999px; background: var(--lime-deep); }
+  .score .val { font-size: 22px; font-weight: 700; }
+  .score .note { font-size: 11.5px; color: var(--slate-soft); }
+
+  /* Verdict strip */
+  .verdict {
+    display: grid; gap: 14px; grid-template-columns: 1fr 1fr;
+  }
+  @media (max-width: 700px) { .verdict { grid-template-columns: 1fr; } }
+  .verdict-box {
+    border-radius: 16px; padding: 18px 22px; border: 1px solid var(--line);
+    background: var(--white);
+  }
+  .verdict-box.ok { border-left: 4px solid var(--green); }
+  .verdict-box.warn { border-left: 4px solid var(--amber); }
+  .verdict-box h4 { font-size: 15px; margin-bottom: 6px; }
+  .verdict-box p { margin: 0; font-size: 13.5px; color: var(--slate-mid); }
+
+  /* Good list */
+  .good { list-style: none; padding: 0; margin: 0; }
+  .good li {
+    display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line);
+    font-size: 14.5px;
+  }
+  .good li:last-child { border-bottom: none; }
+  .good .check {
+    flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--lime);
+    color: var(--ink); display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; margin-top: 2px;
+  }
+  .good b { font-weight: 600; }
+
+  /* Findings tables */
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .findings-table { overflow-x: auto; border-radius: 14px; border: 1px solid var(--line); background: var(--white); }
+  th, td { text-align: left; padding: 10px 14px; vertical-align: top; border-bottom: 1px solid var(--line); }
+  thead th {
+    background: var(--paper); font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--slate-soft); position: sticky; top: 0;
+  }
+  tr:last-child td { border-bottom: none; }
+  .sev { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+  .sev.h { background: var(--red-bg); color: var(--red); }
+  .sev.m { background: var(--amber-bg); color: var(--amber); }
+  .sev.l { background: var(--paper); color: var(--slate-soft); }
+  .sev.ok { background: var(--green-bg); color: var(--green); }
+  .id { font-weight: 700; font-size: 12px; white-space: nowrap; color: var(--slate); }
+  td .finding-title { font-weight: 600; }
+  td .where { display: block; margin-top: 4px; font-size: 12px; color: var(--slate-soft); }
+  td .fix { display: block; margin-top: 6px; color: var(--slate-mid); }
+  td .fix b { color: var(--ink); }
+
+  /* Category tabs via headings */
+  .cat { margin-top: 30px; }
+  .cat > h3 {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-size: 16px; font-weight: 700; padding: 8px 18px; border-radius: 999px;
+    background: var(--lime-soft); color: var(--ink); border: 1px solid var(--line);
+  }
+  .cat .cat-score { margin-left: 6px; font-size: 12.5px; color: var(--slate-soft); font-weight: 600; }
+
+  /* Roadmap phases */
+  .phase { margin-bottom: 18px; }
+  .phase-head {
+    display: flex; align-items: center; gap: 14px; padding: 16px 22px;
+    background: var(--ink); color: var(--paper); border-radius: 16px;
+  }
+  .phase-head .tag {
+    flex: none; width: 40px; height: 40px; border-radius: 12px; background: var(--lime);
+    color: var(--ink); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px;
+  }
+  .phase-head h3 { font-size: 17px; font-weight: 600; }
+  .phase-head p { margin: 2px 0 0; font-size: 13px; color: rgba(236,240,243,.7); }
+  .phase-body { background: var(--white); border: 1px solid var(--line); border-top: none; border-radius: 0 0 16px 16px; padding: 14px 22px 18px; }
+  .phase-body ul { list-style: none; padding: 0; margin: 0; }
+  .phase-body li {
+    display: flex; gap: 12px; padding: 9px 0; border-bottom: 1px dashed var(--line); font-size: 14px; align-items: flex-start;
+  }
+  .phase-body li:last-child { border-bottom: none; }
+  .phase-body input[type=checkbox] {
+    flex: none; width: 17px; height: 17px; margin-top: 3px; accent-color: var(--ink);
+  }
+  .phase-body .task-id { font-size: 11.5px; font-weight: 700; color: var(--slate-soft); min-width: 52px; }
+
+  .flag { margin-top: 26px; padding: 16px 22px; border-radius: 16px; border: 1px solid var(--line); background: var(--lime-soft); }
+  .flag h4 { font-size: 15px; margin-bottom: 6px; }
+  .flag ul { margin: 0; padding-left: 20px; font-size: 13.5px; }
+
+  footer { border-top: 1px solid var(--line); margin-top: 50px; padding: 26px 0 40px; color: var(--slate-soft); font-size: 13px; }
+
+  @media print {
+    body { background: #fff; }
+    .hero { border-radius: 0; }
+    .toc, .card, .score, .phase-body, .findings-table, .verdict-box, .flag { box-shadow: none; break-inside: avoid; }
+    .findings-table { font-size: 11px; }
+    th, td { padding: 6px 8px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="wrap">
+    <span class="eyebrow">NuroLab · Interni dokument</span>
+    <h1>ZenFlow App — Audit izveštaj</h1>
+    <p class="sub">Sveobuhvatan pregled Companion PWA (app.nurolab.rs): UI, UX, bezbednost, domenska logika, podaci, PWA i operacije — sa nalazima, ocenama i roadmap-om za izmene u 4 faze.</p>
+    <div class="meta">
+      <span>Datum: <b>19. avgust 2026.</b></span>
+      <span>Obim: <b>Faza 1 (MVP) — ceo repozitorijum</b></span>
+      <span>Status Faze 1: <span class="pill pill-lime">zatvorena ✅</span></span>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+<nav class="toc">
+  <h2>Sadržaj</h2>
+  <ol>
+    <li><a href="#metodologija">Metodologija i izvršene provere</a></li>
+    <li><a href="#ocena">Ukupna ocena po oblastima</a></li>
+    <li><a href="#dobro">Šta je dobro</a></li>
+    <li><a href="#bezbednost">Nalazi — Bezbednost</a></li>
+    <li><a href="#logika">Nalazi — Domenska logika</a></li>
+    <li><a href="#podaci">Nalazi — Podaci i performanse</a></li>
+    <li><a href="#uiux">Nalazi — UI / UX / A11y</a></li>
+    <li><a href="#pwa">Nalazi — PWA i infrastruktura</a></li>
+    <li><a href="#ops">Nalazi — Operacije i kvalitet</a></li>
+    <li><a href="#roadmap">Roadmap — faze izmena</a></li>
+    <li><a href="#skala">Pragovi za skalu i Faza 2 napomene</a></li>
+  </ol>
+</nav>
+
+<!-- ======================= METODOLOGIJA ======================= -->
+<section id="metodologija">
+  <div class="sec-head">
+    <div class="num">1</div>
+    <div><h2>Metodologija i izvršene provere</h2><p>Puna provera: statika + izvršavanje. Ništa u kodu nije menjano.</p></div>
+  </div>
+
+  <div class="card">
+    <p>Pročitano je <b>~11.500 linija</b> izvornog koda (app, components, lib, scripts), sve konfiguracije
+    (<code>next.config.ts</code>, <code>middleware.ts</code>, <code>vercel.json</code>, <code>drizzle.config.ts</code>,
+    <code>tsconfig.json</code>, ESLint), migracija baze, GitHub Actions workflow, dokumentacija i env šablon.
+    Postojeći <span class="file">docs/audit-roadmap-2026-08.md</span> (iz ranije sesije) korišćen je kao polazna lista;
+    <b>svaka tvrdnja iz njega je nezavisno proverena u kodu</b> — sve se poklapa, a dopunjeno je novim nalazima (bezbednosni headeri,
+    npm audit, deprecation upozorenja, PWA detalji i dr.).</p>
+
+    <h3 style="margin-top:16px">Izvršene provere (sve zabeleženo)</h3>
+    <table>
+      <thead><tr><th>Provera</th><th>Komanda</th><th>Rezultat</th></tr></thead>
+      <tbody>
+        <tr><td>QA harness — datumi / DST / streak / prozori dispatchera</td><td><code>npx tsx scripts/qa-dates.mts</code></td><td><span class="sev ok">62/62 prošlo</span></td></tr>
+        <tr><td>QA harness — klasifikacija ruta u middleware-u</td><td><code>npx tsx scripts/qa-routes.mts</code></td><td><span class="sev ok">26/26 prošlo</span></td></tr>
+        <tr><td>ESLint</td><td><code>npm run lint</code></td><td><span class="sev ok">0 grešaka</span> · 1 upozorenje (nepotreban parametar <code>font</code> u <span class="file">scripts/generate-icons.ts:47</span>)</td></tr>
+        <tr><td>Production build</td><td><code>npm run build</code> (webpack)</td><td><span class="sev ok">Uspešno</span>, 28 ruta · ⚠️ upozorenje: <code>middleware</code> konvencija deprecirana u Next 16 → <code>proxy.ts</code></td></tr>
+        <tr><td>Sigurnost zavisnosti</td><td><code>npm audit</code></td><td><span class="sev h">42 ranjivosti</span> (7 moderate, 35 high) — detalji u sekciji Bezbednost</td></tr>
+        <tr><td>Konvencije iz CLAUDE.md</td><td>grep: <code>toISOString().slice(0,10)</code>, hardkodovani hex, <code>any</code>, TODO/FIXME, <code>console.log</code></td><td><span class="sev ok">Čisto</span> — nijedna zabranjena pojava u app/lib/components</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ======================= OCENA ======================= -->
+<section id="ocena">
+  <div class="sec-head">
+    <div class="num">2</div>
+    <div><h2>Ukupna ocena po oblastima</h2><p>Skala 1–5. Srednja ocena ne postoji — svaka oblast gleda svoja merila.</p></div>
+  </div>
+
+  <div class="scores">
+    <div class="score"><div class="label">Arhitektura i kvalitet koda</div><div class="bar"><div style="width:90%"></div></div><div class="val">4.5</div><div class="note">createAction obrazac, čiste funkcije, strict TS, bez any/TODO</div></div>
+    <div class="score"><div class="label">Bezbednost</div><div class="bar"><div style="width:60%"></div></div><div class="val">3.0</div><div class="note">Dobri temelji (webhook potpisi, admin gating) — ali K1/K4/K5 + nema header-a</div></div>
+    <div class="score"><div class="label">Domenska logika</div><div class="bar"><div style="width:70%"></div></div><div class="val">3.5</div><div class="note">Jezgro sjajno testirano; rubni slučajevi (refund, prozori, replay) otvoreni</div></div>
+    <div class="score"><div class="label">Podaci i performanse</div><div class="bar"><div style="width:60%"></div></div><div class="val">3.0</div><div class="note">Nema indeksa van unique; admin metrike imaju cliff na ~300–500 korisnika</div></div>
+    <div class="score"><div class="label">UI / UX / A11y</div><div class="bar"><div style="width:70%"></div></div><div class="val">3.5</div><div class="note">Odličan dizajn sistem i mikro-interakcije; touch targeti i kontrast lime-a manjkaju</div></div>
+    <div class="score"><div class="label">PWA i pouzdanost isporuke</div><div class="bar"><div style="width:60%"></div></div><div class="val">3.0</div><div class="note">Solidna arhitektura; scheduler (GH Actions) je najkrhkija karika</div></div>
+    <div class="score"><div class="label">Operacije i opservabilnost</div><div class="bar"><div style="width:50%"></div></div><div class="val">2.5</div><div class="note">Samo console.error; nema error tracking-a ni CI-ja na PR</div></div>
+    <div class="score"><div class="label">Dokumentacija</div><div class="bar"><div style="width:100%"></div></div><div class="val">5.0</div><div class="note">CLAUDE.md, README sa env listom i ograničenjima, cron-setup, troubleshooting</div></div>
+    <div class="score"><div class="label">Testiranje</div><div class="bar"><div style="width:80%"></div></div><div class="val">4.0</div><div class="note">2 QA harness-a (88 provera) — retko za MVP; nema unit testova za award/quiz</div></div>
+  </div>
+
+  <div class="verdict" style="margin-top:18px">
+    <div class="verdict-box ok">
+      <h4>Zaključak</h4>
+      <p>Projekat je <b>iznad proseka za MVP</b>: disciplinovane konvencije, testirano jezgro, iskrena dokumentacija i ozbiljan pristup edge case-ovima (DST, ponoć, dedup). Nije „AI slop" — svaka odluka ima obrazloženje u kodu.</p>
+    </div>
+    <div class="verdict-box warn">
+      <h4>Pre launch-a — obavezno</h4>
+      <p><b>Faza 1 roadmap-a:</b> WooCommerce datumi (K1), dupli top-up na retry (K4), refund/cancel (K5), supply atomičnost (K3), coverage/VIP prozor (K6), indeksi (V1) i bezbednosni headeri + <code>npm audit fix</code>. Ove stavke direktno utiču na pristup, zalihe i novac.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= DOBRO ======================= -->
+<section id="dobro">
+  <div class="sec-head">
+    <div class="num">3</div>
+    <div><h2>Šta je dobro</h2><p>Vrednosti koje ne treba dirati pri izmenama.</p></div>
+  </div>
+
+  <div class="card">
+    <ul class="good">
+      <li><span class="check">✓</span><span><b>Jedinstveni obrazac za server akcije.</b> <code>createAction</code> (auth → zod → handler → ActionResult) koristi svaka mutacija; greške se nikad ne bacaju ka UI-u. Ovo je retko tako dosledno u MVP projektima.</span></li>
+      <li><span class="check">✓</span><span><b><code>lib/dates.ts</code> kao jedini izvor „danas".</b> Beogradski kalendarski dan, DST-safe, client-safe; grep je čist od <code>toISOString().slice(0,10)</code>. QA harness pokriva ponoć, DST i prozore (62 provere).</span></li>
+      <li><span class="check">✓</span><span><b>Bezbednosni temelji.</b> Svix verifikacija Clerk webhook-a, timing-safe HMAC za Woo (sa ping-handlerom), admin rute gejtovane i u middleware-u i u handleru (defense-in-depth), rola iz Clerk session claim-a (Edge-safe, bez DB poziva).</span></li>
+      <li><span class="check">✓</span><span><b>Retenciona logika je promišljena.</b> Streak sa „frozen" periodima, grace za danas, backfill 7 dana, top-up tačno jednom po porudžbini (načelno), dedup po beogradskom danu — sve dokumentovano i testirano.</span></li>
+      <li><span class="check">✓</span><span><b>UX mikro-interakcije.</b> Pomodoro je timestamp-based (preživljava throttling taba, sleep i refresh), sa localStorage restore, WebAudio beep i trepćućim naslovom taba; onboarding wizard sa progress barom, emoji skalom i auto-advance lock-om; optimistički update + revert na grešku.</span></li>
+      <li><span class="check">✓</span><span><b>A11y svest.</b> <code>aria-pressed</code>, <code>role="checkbox"</code>, <code>role="progressbar"</code>, <code>aria-current</code>, <code>fieldset/legend</code> u kvizu, <code>useReducedMotion</code> u result step-u, confetti sa <code>disableForReducedMotion</code>.</span></li>
+      <li><span class="check">✓</span><span><b>Admin dijagnostika.</b> Push diagnose ruta matematički proverava VAPID par (javni ključ se izvodi iz privatnog), radi dry-run dispatchera i nabraja „blockers"; postoji i reset-dedup alat za testiranje. Retko viđen nivo alata u MVP.</span></li>
+      <li><span class="check">✓</span><span><b>PWA pažnja na detalje.</b> Serwist sa precache-ovanim <code>/~offline</code> (kroz <code>manifestTransforms</code>, sa dokumentovanim zašto-ne-additionalPrecacheEntries), safe-area padding na bottom nav-u, iOS install hint sa detekcijom iPadOS-a, maskable ikone.</span></li>
+      <li><span class="check">✓</span><span><b>Higijena.</b> Nema <code>any</code>, TODO/FIXME, <code>console.log</code> u app kodu; boje samo kroz tokene (izuzeci dozvoljeni i dokumentovani u CLAUDE.md); TypeScript strict; build zelen.</span></li>
+      <li><span class="check">✓</span><span><b>Iskrena dokumentacija.</b> README sadrži launch env listu, poznata ograničenja i objašnjenja odluka; cron-setup i push-troubleshooting su korisni i tačni.</span></li>
+    </ul>
+  </div>
+</section>
+
+<!-- ======================= BEZBEDNOST ======================= -->
+<section id="bezbednost">
+  <div class="sec-head">
+    <div class="num">4</div>
+    <div><h2>Nalazi — Bezbednost</h2><p>Ocena: 3.0 / 5 · 3 visoka, 6 srednja, 5 niska</p></div>
+  </div>
+
+  <div class="findings-table">
+    <table>
+      <thead><tr><th>ID</th><th>Ozb.</th><th>Nalaz i dokaz</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="id">S-H1<br>(K1)</td><td><span class="sev h">Visok</span></td>
+          <td>
+            <span class="finding-title">WooCommerce datumi bez GMT → off-by-one dan za VIP prozor i coverage.</span>
+            <span class="where">Lokacija: <span class="file">lib/woocommerce/sync.ts:121</span> — <code>date_paid || date_created</code> se parsira kao lokalno vreme (na Vercelu = UTC), bez <code>_gmt</code> polja.</span>
+            <span class="fix"><b>Fix:</b> koristiti <code>date_paid_gmt || date_created_gmt</code> + <code>Z</code> sufiks; ažurirati <code>wooOrderSchema</code>; QA slučaj za večernje porudžbine.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">S-H2<br>(K4)</td><td><span class="sev h">Visok</span></td>
+          <td>
+            <span class="finding-title">TOCTOU u <code>upsertOrder</code> → dupli top-up zaliha na Woo retry / konkurentni poziv.</span>
+            <span class="where">Lokacija: <span class="file">lib/woocommerce/sync.ts:135-161</span> — select-pa-insert/update; dva paralelna webhook-a vide „ne postoji" i oba pozovu <code>topUpSupplyForEmail</code>.</span>
+            <span class="fix"><b>Fix:</b> <code>.onConflictDoUpdate(...).returning({ inserted: sql`(xmax = 0)` })</code> — top-up samo na pravi insert.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">S-H3<br>(K5)</td><td><span class="sev h">Visok</span></td>
+          <td>
+            <span class="finding-title">Refund / cancel ne oduzima pristup ni kapsule — kupac zadržava VIP 60 dana.</span>
+            <span class="where">Lokacija: <span class="file">lib/woocommerce/sync.ts:99-101</span> — <code>cancelled/refunded</code> padne u <code>skipped: status</code>, red u <code>orders</code> ostaje sa starim statusom, pa <code>getLatestOrderDate</code> i dalje vidi „aktivnu" porudžbinu.</span>
+            <span class="fix"><b>Fix:</b> za postojeći <code>wooOrderId</code> sa opozvanim statusom ažurirati status reda; filtrirati sinhronizovane statuse u pristupnoj logici; pozvati refresh. Odlučiti i dokumentovati da li se kapsule oduzimaju.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">S-M1<br>(K3)</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title">Supply matematika je read-modify-write bez transakcije: double-tap → −4 za jednu dozu; clamp asimetrija „kuje" kapsule (1 → check-in → 0 → undo → 2).</span>
+            <span class="where">Lokacija: <span class="file">app/(app)/protokol/actions.ts:31-81</span> — log upsert i supply update su dva odvojena upita; delta se računa iz prethodno pročitanog statusa.</span>
+            <span class="fix"><b>Fix:</b> SQL delta <code>greatest(0, capsules_remaining + delta)</code> + prethodni status iz upsert RETURNING; undo vraća samo stvarno potrošeno.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">S-M2<br>(K7)</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title">Paywall je samo layout redirect — <code>inactive</code> korisnik može direktno da poziva sve server akcije (<code>logDose</code>, <code>updateSupply</code>…).</span>
+            <span class="where">Lokacija: <span class="file">lib/actions/safe-action.ts:37-49</span> — proverava se samo sesija, ne i <code>accessStatus</code>.</span>
+            <span class="fix"><b>Fix:</b> <code>requireActiveAccess</code> u <code>createAction</code> (default za (app), admin izuzet).</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">S-M3<br>(S13)</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title">Tri stvari: (a) CRON_SECRET poređenje nije timing-safe; (b) push <code>endpoint</code> u zod šemi prihvata bilo koji URL → primitiv za blind SSRF; (c) admin LIKE pretraga ne escape-uje <code>%</code>/<code>_</code>.</span>
+            <span class="where">Lokacija: 3 cron rute (<code>auth !== 'Bearer …'</code>); <span class="file">lib/validations/push.ts:9</span>; <span class="file">lib/admin/users.ts:48</span>.</span>
+            <span class="fix"><b>Fix:</b> timing-safe compare; allowlist push servisa (fcm.googleapis.com, web.push.apple.com…) u šemi; escape <code>%_</code> + zagrade u LIKE.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">S-M4<br>(S12)</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title">Dedup je check-then-act → teoretski moguć duplikat podsetnika.</span>
+            <span class="where">Lokacija: <span class="file">lib/push/dedup.ts</span> + dispatcher — filter pa slanje; dva preklapajuća run-a mogu oba da prođu.</span>
+            <span class="fix"><b>Fix:</b> unique indeks (user, type, beogradski dan) + insert-pre-slanja sa skip-on-conflict (ili dokumentovati trade-off „duplikat > izgubljen").</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">S-M5</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title">Nema bezbednosnih header-a: nema CSP, X-Frame-Options, Referrer-Policy, Permissions-Policy; <code>poweredByHeader</code> nije isključen.</span>
+            <span class="where">Lokacija: <span class="file">next.config.ts</span> — nema <code>headers()</code>.</span>
+            <span class="fix"><b>Fix:</b> dodati <code>headers()</code> u next.config (CSP barem <code>default-src 'self'</code> sa dozvolama za push/ikonografiju, frame-ancestors 'none', Referrer-Policy strict-origin-when-cross-origin).</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">S-M6</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title"><code>savePushSubscription</code> na conflict preuzima <code>userId</code> postojeće pretplate — potencijalna otmica tuđeg endpoint-a.</span>
+            <span class="where">Lokacija: <span class="file">app/(app)/podesavanja/push-actions.ts:26-33</span> — <code>set: { userId: profile.id, … }</code>.</span>
+            <span class="fix"><b>Fix:</b> ne dirati tuđi red — ako endpoint pripada drugom korisniku, vratiti grešku (ili scoped unique (userId, endpoint)).</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">S-L1<br>(V11b)</td><td><span class="sev l">Nizak</span></td>
+          <td>
+            <span class="finding-title">VAPID rotacija: <code>subscribeToPush</code> reuse-uje postojeću pretplatu starog ključa → 403 zauvek (dijagnostika otkrije, ali ne popravi).</span>
+            <span class="where">Lokacija: <span class="file">lib/push/client.ts:52-58</span>.</span>
+            <span class="fix"><b>Fix:</b> porediti <code>existing.options.applicationServerKey</code> sa trenutnim; na mismatch → unsubscribe + fresh subscribe.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">S-L2<br>(V11a)</td><td><span class="sev l">Nizak</span></td>
+          <td>
+            <span class="finding-title">Clerk <code>user.created</code> retry preskače refresh + welcome mejl (<code>onConflictDoNothing</code> → prazan <code>returning()</code>).</span>
+            <span class="where">Lokacija: <span class="file">app/api/webhooks/clerk/route.ts:44-75</span>.</span>
+            <span class="fix"><b>Fix:</b> na conflict putu ipak refresh + welcome, sa idempotencijom kroz <code>notifications_log</code> (<code>type='welcome'</code>).</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">S-L3</td><td><span class="sev l">Nizak</span></td>
+          <td>
+            <span class="finding-title">Nema rate limiting-a na server akcijama ni cron rutama (resursna zloupotreba; spam u <code>notifications_log</code>).</span>
+            <span class="fix"><b>Fix:</b> tanak in-memory/Upstash limiter na mutacije (npr. logDose ≤ N/min) — dovoljno za MVP skalu.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">S-L4</td><td><span class="sev l">Nizak</span></td>
+          <td>
+            <span class="finding-title">npm audit: 42 ranjivosti (7 moderate, 35 high). Runtime-relevantne: <code>next</code> (preko postcss/nanoid i sharp) i <code>sharp</code> (libvips CVE-2026-33327/33328/35590/35591). Većina ostalog je dev-only (eslint lanac, esbuild, shadcn CLI → undici/dotenvx/MCP SDK).</span>
+            <span class="where">Napomena: app ne koristi <code>next/image</code>, pa je izloženost preko sharp-a minimalna, ali je i dalje runtime zavisnost.</span>
+            <span class="fix"><b>Fix:</b> <code>npm audit fix</code> za dostupne (sharp, undici); za <code>next</code> — ručni upgrade na najnoviju patch verziju (16.2.x); redovno ponavljati.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">S-L5</td><td><span class="sev l">Nizak</span></td>
+          <td>
+            <span class="finding-title">Higijena tajni: <code>.env.local</code> sadrži prave dev vrednosti (Clerk test ključevi, webhook secret, Woo REST ključevi, VAPID par) — nije commitovan (dobar), ali vredi rotirati pre produkcije.</span>
+            <span class="fix"><b>Fix:</b> pre launch-a generisati nove vrednosti za sve tajne; VAPID par obavezno zajedno (javni se ugrađuje u bundle).</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ======================= LOGIKA ======================= -->
+<section id="logika">
+  <div class="sec-head">
+    <div class="num">5</div>
+    <div><h2>Nalazi — Domenska logika</h2><p>Ocena: 3.5 / 5 · 1 visok, 4 srednja, 6 niska</p></div>
+  </div>
+
+  <div class="findings-table">
+    <table>
+      <thead><tr><th>ID</th><th>Ozb.</th><th>Nalaz i dokaz</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="id">L-H1<br>(K6)</td><td><span class="sev h">Visok</span></td>
+          <td>
+            <span class="finding-title">Coverage prozor (61 kalendarski dan, inkluzivno) ≠ VIP prozor (60×86400s ms-aritmetika) → poslednji pokriveni dan resetuje streak umesto freeze, sa DST driftom.</span>
+            <span class="where">Lokacija: <span class="file">lib/protocol/streak.ts:45</span> (<code>addDaysIso(d, 60)</code>) vs <span class="file">lib/access/status.ts:34,137</span> (<code>now - 60*DAY_MS</code>).</span>
+            <span class="fix"><b>Fix:</b> oba prozora na kalendarski dan po Beogradu; QA slučaj za granicu.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">L-M1<br>(V5)</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title"><code>completeOnboarding</code> je replayable: resetuje zalihe na packages×60, upisuje dupli <code>focus_quiz_results</code> red, pomera <code>protocolStartDate</code>; <code>startDate</code> nije ograničen.</span>
+            <span class="where">Lokacija: <span class="file">app/onboarding/actions.ts:21-66</span>.</span>
+            <span class="fix"><b>Fix:</b> early-return na <code>onboardingCompleted</code>; bound <code>startDate</code> na [danas−60, danas].</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">L-M2<br>(V6)</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title">Admin access override se poništava na sledećem page load-u korisnika (refresh u layout-u), ne noćnim cron-om kako copy tvrdi — u oba smera (vip i inactive).</span>
+            <span class="where">Lokacija: <span class="file">app/(app)/layout.tsx:26</span> + <span class="file">lib/access/status.ts:67-96</span>.</span>
+            <span class="fix"><b>Fix:</b> <code>access_override</code> kolona koju poštuju <code>resolveAccessStatus</code> i <code>maintainAccessStatuses</code>; minimalno: ispraviti copy i upozorenje.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">L-M3<br>(K2)</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title"><code>topUpSupplyForEmail</code> poredi mejl case-sensitively → top-up tiho preskočen za kupce sa mešanim case-om (Clerk čuva proizvoljan case).</span>
+            <span class="where">Lokacija: <span class="file">lib/woocommerce/sync.ts:34</span> — <code>eq(profiles.email, email)</code>.</span>
+            <span class="fix"><b>Fix:</b> <code>where(sql`lower(${profiles.email}) = ${email}`)</code>.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">L-M4<br>(S7)</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title"><code>addTask</code> je count-then-insert → race; moguće 4+ zadataka uprkos limitu 3.</span>
+            <span class="where">Lokacija: <span class="file">app/(app)/fokus/actions.ts:49-59</span>.</span>
+            <span class="fix"><b>Fix:</b> atomski <code>INSERT … WHERE (SELECT count(*) …) &lt; 3</code> (ili RETURNING provera).</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">L-M5<br>(V3)</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title">Dispatcher: streak-risk petlja nema per-user try/catch (jedan throw obara ceo batch); slanje je sekvencijalno; nema <code>maxDuration</code> ni timeout-a na web-push.</span>
+            <span class="where">Lokacija: <span class="file">app/api/cron/notifications/route.ts:116-149</span>; isto važi za low-stock rutu.</span>
+            <span class="fix"><b>Fix:</b> per-user try/catch, chunked <code>Promise.allSettled</code>, <code>{ timeout: 5000 }</code> na sendNotification, <code>export const maxDuration</code>.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">L-L1<br>(S8)</td><td><span class="sev l">Nizak</span></td>
+          <td>
+            <span class="finding-title">Fokus bedževi se mogu farmovati: <code>completed</code> flag stiže od klijenta (moguće slati <code>completed:true</code> bez stvarnog bloka); dupli persist iz 2 taba u localStorage.</span>
+            <span class="where">Lokacija: <span class="file">app/(app)/fokus/actions.ts:25-43</span>, <span class="file">components/focus/pomodoro-timer.tsx</span>.</span>
+            <span class="fix"><b>Fix:</b> slati <code>startedAt</code> iz klijenta i validirati (≤ now, trajanje konzistentno); sinhroni clear localStorage pre persist.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">L-L2<br>(S10/S11)</td><td><span class="sev l">Nizak</span></td>
+          <td>
+            <span class="finding-title">Admin porudžbine: limit 100 bez pretrage (istorija nevidljiva); backfill bez server-side lock-a (409).</span>
+            <span class="fix"><b>Fix:</b> pretraga po mejlu/Woo ID-u + paginacija; lock red/flag za backfill.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">L-L3<br>(S1)</td><td><span class="sev l">Nizak</span></td>
+          <td>
+            <span class="finding-title">Onboarding koristi <code>toLocaleDateString('sr-RS')</code> → ćirilica (ostatak app-a je sr-Latn) + UTC-parse pomak dana.</span>
+            <span class="where">Lokacija: <span class="file">app/onboarding/onboarding-wizard.tsx:49-53</span>.</span>
+            <span class="fix"><b>Fix:</b> <code>formatIsoDateSr</code> (isti helper kao ostatak app-a).</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">L-L4<br>(S9)</td><td><span class="sev l">Nizak</span></td>
+          <td>
+            <span class="finding-title">Stale <code>today</code> prop preko ponoći: check-in posle ponoći bez refresha tiho upada u „juče" (unutar je backfill prozora, pa ne baca grešku).</span>
+            <span class="where">Lokacija: <code>DoseCheckin</code> prima <code>today</code> iz server render-a.</span>
+            <span class="fix"><b>Fix:</b> <code>visibilitychange</code> → <code>router.refresh()</code> u shell-u.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">L-L5<br>(N3)</td><td><span class="sev l">Nizak</span></td>
+          <td>
+            <span class="finding-title"><code>logDose</code> dozvoljava check-in pre <code>protocolStartDate</code> i u frozen danima (troši kapsule, ne ulazi u streak).</span>
+            <span class="fix"><b>Fix:</b> odbiti dane pre starta/zamrznute; dokumentovati 1-day-gap u <code>mergeCoveredRanges</code> i DST 02:xx rupe.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">L-L6</td><td><span class="sev l">Nizak</span></td>
+          <td>
+            <span class="finding-title">Dedup retry spam: failed push (403) se retry-uje svakih 15 min unutar prozora → <code>notifications_log</code> raste i povećava troškove.</span>
+            <span class="fix"><b>Fix:</b> cooldown na failed tip (npr. ne retry-ovati isti tip unutar sat vremena).</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ======================= PODACI ======================= -->
+<section id="podaci">
+  <div class="sec-head">
+    <div class="num">6</div>
+    <div><h2>Nalazi — Podaci i performanse</h2><p>Ocena: 3.0 / 5 · 2 srednja, 3 niska</p></div>
+  </div>
+
+  <div class="findings-table">
+    <table>
+      <thead><tr><th>ID</th><th>Ozb.</th><th>Nalaz i dokaz</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="id">D-M1<br>(V1)</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title">Nema indeksa van unique constraint-a (migracija sadrži samo UNIQUE).</span>
+            <span class="where">Najkritičnije: <code>orders.email</code> — koristi se <code>lower(email)</code> pri svakom loginu i page load-u (čak ni funkcionalni indeks); <code>notifications_log</code> — najbrže rastuća tabela, dedup upiti = seq scan; <code>focus_sessions.user_id</code>, <code>daily_tasks(user_id,date)</code>, <code>focus_quiz_results(user_id,date)</code>.</span>
+            <span class="fix"><b>Fix:</b> jedna migracija sa 3–5 indeksa: <code>orders (lower(email), order_date DESC)</code>, parcijalni <code>protocol_logs (date) WHERE status='taken'</code>, <code>notifications_log (user_id, type, status, sent_at)</code>.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">D-M2<br>(V2)</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title"><code>averageStreak</code> na adminu vuče logove svih korisnika (2 bulk upita + computeStreak u JS) pri svakom otvaranju → cliff na ~300–500 korisnika.</span>
+            <span class="where">Lokacija: <span class="file">lib/admin/metrics.ts:111-122</span> + <span class="file">lib/admin/user-stats.ts</span>.</span>
+            <span class="fix"><b>Fix:</b> računati u noćnom cron-u / <code>current_streak</code> kolona; isključiti admine iz proseka (<code>alwaysCovered</code> ga naduvava).</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">D-M3<br>(N4)</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title"><code>notifications_log</code> raste neograničeno — svaki push/mejl dodaje red zauvek; nema pruning-a.</span>
+            <span class="fix"><b>Fix:</b> dnevni/periodični pruning starijih od 90 dana (isti cron prozor).</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">D-L1</td><td><span class="sev l">Nizak</span></td>
+          <td>
+            <span class="finding-title">neon-http drajver ne podržava transakcije — strukturno ograničenje za Fazu 2 (Stripe).</span>
+            <span class="fix"><b>Fix:</b> pre Stripe integracije preći na neon-serverless (WebSocket Pool) za write puteve, ili single-statement CTE-ovi; ne pretpostavljati da <code>db.transaction()</code> radi.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">D-L2<br>(V4)</td><td><span class="sev l">Nizak</span></td>
+          <td>
+            <span class="finding-title">GH Actions jitter (10–20 min, pa i preskočeni run) može da pojede 30-min prozor podsetnika.</span>
+            <span class="fix"><b>Fix:</b> <code>NOTIFICATION_WINDOW_MIN=45</code> (dnevni dedup već sprečava duplikate) ili cron-job.org; dijagnostika da beleži rupe &gt; prozora (i da koristi <code>WINDOW_MIN</code> umesto hardkodovanog +30).</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ======================= UI/UX ======================= -->
+<section id="uiux">
+  <div class="sec-head">
+    <div class="num">7</div>
+    <div><h2>Nalazi — UI / UX / A11y</h2><p>Ocena: 3.5 / 5 · 7 srednjih, 5 niskih</p></div>
+  </div>
+
+  <div class="findings-table">
+    <table>
+      <thead><tr><th>ID</th><th>Ozb.</th><th>Nalaz i dokaz</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="id">U-M1<br>(V7)</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title">Nema loading/error stanja: nema <code>loading.tsx</code>, <code>error.tsx</code> ni <code>global-error.tsx</code> — prazna stranica na sporijim upitima i generička greška na crash.</span>
+            <span class="where">Skeleton komponenta postoji (<span class="file">components/ui/skeleton.tsx</span>) ali se ne koristi.</span>
+            <span class="fix"><b>Fix:</b> dodati <code>app/(app)/loading.tsx</code> + <code>error.tsx</code> + root <code>global-error.tsx</code>.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">U-M2<br>(V9)</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title"><code>DoseCheckin</code> ne resync-uje props: state se inicijalizuje jednom iz <code>useState(doses…)</code> → desync posle backfill-a današnjeg dana iz WeekStrip dijaloga.</span>
+            <span class="where">Lokacija: <span class="file">components/protocol/dose-checkin.tsx:53</span>.</span>
+            <span class="fix"><b>Fix:</b> seed pattern iz <code>daily-tasks.tsx:24-28</code>.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">U-M3<br>(S2)</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title">Touch targeti ispod 44px: shadcn Button default h-8 (32px), <code>lg</code> h-9 (36px) — CTA dugmad („Naruči dopunu", „Sačuvaj"…) ispod WCAG 2.5.5 i Apple HIG.</span>
+            <span class="where">Lokacija: <span class="file">components/ui/button.tsx:25-37</span>.</span>
+            <span class="fix"><b>Fix:</b> dodati <code>xl</code> size (h-11/h-12 pill) za primarne CTA; per-dose pending umesto zajedničkog <code>isPending</code> u DoseCheckin.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">U-M4<br>(S3)</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title">Lime kontrast ~1.1:1 za non-text elemente (WCAG 1.4.11): ring-ovi/fill-ovi na karticama, statusne tačke u WeekStrip oslanjaju se samo na boju (bez <code>aria-label</code> po danu).</span>
+            <span class="fix"><b>Fix:</b> <code>ring-1 ring-ink/20</code> na lime fill-ovima; check glyph u complete tačkama; <code>aria-label</code> po danu + caption „Dodirni dan da ispraviš".</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">U-M5<br>(V8)</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title">Sticky headeri bez <code>pt-[env(safe-area-inset-top)]</code> → sudar sa iOS status barom u standalone PWA (notch/Dynamic Island).</span>
+            <span class="where">Lokacija: <span class="file">components/app-shell/app-header.tsx:15</span>, <span class="file">app/(admin)/admin/layout.tsx:38</span>.</span>
+            <span class="fix"><b>Fix:</b> dodati safe-area padding top.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">U-M6<br>(S5)</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title"><code>/nemas-pristup</code> nema „Proveri ponovo" dugme, a <code>/~offline</code> nema „Pokušaj ponovo" — u standalone PWA-u nema pull-to-refresh ni reload UI-ja.</span>
+            <span class="fix"><b>Fix:</b> dodati oba dugmeta (refresh / location.reload).</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">U-M7<br>(S4)</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title">Onboarding state se gubi na refresh — svih 8 odgovora kviza + podešavanja žive samo u useState-u.</span>
+            <span class="fix"><b>Fix:</b> sessionStorage perzistencija wizard-a.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">U-L1<br>(N1)</td><td><span class="sev l">Nizak</span></td>
+          <td>
+            <span class="finding-title">Copy/i18n sitnice: <code>lang="sr"</code> (treba <code>sr-Latn</code>), generički errori u <code>safe-action.ts</code> („Došlo je do greške…"), iOS hint delom na engleskom („Share", „Add to Home Screen").</span>
+            <span class="fix"><b>Fix:</b> <code>lang="sr-Latn"</code>, ti-forma u greškama, lokalizovan iOS copy.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">U-L2<br>(N2)</td><td><span class="sev l">Nizak</span></td>
+          <td>
+            <span class="finding-title">Dizajn doslednost: <code>amber-*</code> van brand tokena (supply-card, push dijagnostika) umesto <code>--color-warn</code>; <code>--font-sans: var(--font-sans)…</code> self-reference u <code>@theme inline</code> (radi preko Next font varijable, ali krhko); nema globalnog <code>MotionConfig reducedMotion="user"</code>; kartice negde <code>shadow-soft ring-1</code> na div, negde shadcn Card.</span>
+            <span class="fix"><b>Fix:</b> warn token; popraviti font var definiciju; MotionConfig; ujednačiti card sisteme.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">U-L3</td><td><span class="sev l">Nizak</span></td>
+          <td>
+            <span class="finding-title">Recharts na dashboardu je ~100 kB (gzip) eager u client bundle-u za jedan mali bar chart.</span>
+            <span class="fix"><b>Fix:</b> <code>next/dynamic</code> lazy import ili čist CSS bar row.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">U-L4</td><td><span class="sev l">Nizak</span></td>
+          <td>
+            <span class="finding-title">Fokus stranica: gramatika plurala u headeru je netačna za 21+ („21 sesije") — koristiti <code>pluralSr</code>.</span>
+            <span class="where">Lokacija: <span class="file">app/(app)/fokus/page.tsx:42</span>.</span>
+            <span class="fix"><b>Fix:</b> <code>pluralSr(sessions, 'sesija', 'sesije', 'sesija')</code> (funkcija već postoji u <code>lib/format.ts</code>).</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">U-L5</td><td><span class="sev l">Nizak</span></td>
+          <td>
+            <span class="finding-title">„Danas" na fokus/zalihama: nema indikacije da su podaci vezani za beogradski dan; korisnik u drugoj vremenskoj zoni može da se zbuni.</span>
+            <span class="fix"><b>Fix:</b> (opciono) subtilan „Beogradsko vreme" hint u headeru podešavanja.</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ======================= PWA ======================= -->
+<section id="pwa">
+  <div class="sec-head">
+    <div class="num">8</div>
+    <div><h2>Nalazi — PWA i infrastruktura</h2><p>Ocena: 3.0 / 5 · 3 srednja, 3 niska</p></div>
+  </div>
+
+  <div class="findings-table">
+    <table>
+      <thead><tr><th>ID</th><th>Ozb.</th><th>Nalaz i dokaz</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="id">P-M1<br>(K8)</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title">Nema <code>pushsubscriptionchange</code> handlera — posle rotacije endpoint-a (browser/uređaj) korisnik trajno i tiho gubi push; stara pretplata ostaje u bazi.</span>
+            <span class="where">Lokacija: <span class="file">app/sw.ts</span> — samo <code>push</code> i <code>notificationclick</code>.</span>
+            <span class="fix"><b>Fix:</b> handler u SW (resubscribe + POST) + re-upsert pretplate na app load.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">P-M2</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title">Next 16 deprecation: <code>middleware.ts</code> konvencija → <code>proxy.ts</code> (build upozorava). Nije hitno, ali je tehnički dug koji će postati breaking.</span>
+            <span class="fix"><b>Fix:</b> preimenovati u <code>proxy.ts</code> uz proveru Clerk API-ja za novu konvenciju (pročitati <code>node_modules/next/dist/docs/</code> pre migracije).</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">P-M3<br>(V4)</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title">Dispatcher zavisi od eksternog schedulera (GH Actions na public repou). Dokumentovano dobro, ali je to jedina tačka otkaza za podsetnike — retencioni motor proizvoda.</span>
+            <span class="fix"><b>Fix:</b> proširiti prozor (45 min) odmah; plaćeni cron (cron-job.org ili Vercel Pro) čim korisnici porastu; alert ako dispatcher nije pozvan N sati.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">P-L1</td><td><span class="sev l">Nizak</span></td>
+          <td>
+            <span class="finding-title">SW: <code>skipWaiting: true, clientsClaim: true</code> — novi SW preuzima odmah i može preseći in-flight zahteve pri deploy-u.</span>
+            <span class="fix"><b>Fix:</b> prihvatljivo za MVP; opciono <code>skipWaiting</code> samo uz prompt.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">P-L2</td><td><span class="sev l">Nizak</span></td>
+          <td>
+            <span class="finding-title">Nema <code>robots.txt</code> ni <code>sitemap.xml</code> — nekritično za autentikovanu app, ali javna stranica (landing, style-guide) može da privuče indeksiranje.</span>
+            <span class="fix"><b>Fix:</b> robots.txt sa disallow za /admin, /api.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">P-L3</td><td><span class="sev l">Nizak</span></td>
+          <td>
+            <span class="finding-title">Higijena paketa: <code>shadcn</code> (CLI) je u <code>dependencies</code> umesto <code>devDependencies</code>; <code>scripts/generate-icons.ts</code> ima lint warning (nepotreban parametar <code>font</code>).</span>
+            <span class="fix"><b>Fix:</b> premestiti u devDependencies; obrisati parametar.</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ======================= OPS ======================= -->
+<section id="ops">
+  <div class="sec-head">
+    <div class="num">9</div>
+    <div><h2>Nalazi — Operacije i kvalitet</h2><p>Ocena: 2.5 / 5 · 2 srednja, 2 niska</p></div>
+  </div>
+
+  <div class="findings-table">
+    <table>
+      <thead><tr><th>ID</th><th>Ozb.</th><th>Nalaz i dokaz</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="id">O-M1</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title">Opservabilnost: samo <code>console.error</code>; nema error tracking-a (Sentry i sl.), nema strukturnih logova ni metrika isporuke (koliko podsetnika stvarno isporučeno dnevno).</span>
+            <span class="fix"><b>Fix:</b> Sentry (ili Vercel Logs + jednostavan cron izveštaj); agregacija <code>notifications_log</code> po danu kao „isporučenost".</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">O-M2</td><td><span class="sev m">Srednji</span></td>
+          <td>
+            <span class="finding-title">Nema CI na PR: lint + QA harness + build se pokreću samo ručno (CLAUDE.md pre-commit lista) — lako se preskoči.</span>
+            <span class="fix"><b>Fix:</b> GitHub Actions workflow (lint + qa-dates + qa-routes + build) na push/PR.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">O-L1</td><td><span class="sev l">Nizak</span></td>
+          <td>
+            <span class="finding-title">Testovi pokrivaju datume/streak/rute, ali ne i award engine, quiz scoring, supply matematiku i Woo payload mapping (osim kroz integraciju u qa-dates).</span>
+            <span class="fix"><b>Fix:</b> unit testovi (vitest) za <code>lib/badges/award.ts</code>, <code>lib/quiz/focus-quiz.ts</code>, <code>lib/woocommerce/products.ts</code>, <code>lib/protocol/dosing.ts</code>.</span>
+          </td>
+        </tr>
+        <tr>
+          <td class="id">O-L2</td><td><span class="sev l">Nizak</span></td>
+          <td>
+            <span class="finding-title">Nema <code>docs/audit-roadmap-2026-08.md</code> u git-u (untracked) — nalazi iz ranije sesije nisu verzionisani.</span>
+            <span class="fix"><b>Fix:</b> commit-ovati audit roadmap (ili ovaj izveštaj) u <code>docs/</code>.</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ======================= ROADMAP ======================= -->
+<section id="roadmap">
+  <div class="sec-head">
+    <div class="num">10</div>
+    <div><h2>Roadmap — faze izmena</h2><p>Redosled prati rizik i zavisnosti. Štikliraj stavke dok se rade. Svaka faza se zatvara zelenim <code>qa-dates</code> + <code>qa-routes</code> + build.</p></div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-head">
+      <div class="tag">1</div>
+      <div><h3>Novac, pristup i core mehanika</h3><p>~1–2 nedelje · Kritično pre launch-a / prve prave prodaje</p></div>
+    </div>
+    <div class="phase-body">
+      <ul>
+        <li><input type="checkbox"><span class="task-id">S-H1</span><span><b>Woo datumi iz GMT polja</b> (<code>date_paid_gmt || date_created_gmt</code>) + QA granica — ispravlja off-by-one dan VIP prozora.</span></li>
+        <li><input type="checkbox"><span class="task-id">S-H2</span><span><b>TOCTOU u <code>upsertOrder</code></b> — top-up samo na pravi insert (<code>xmax = 0</code>).</span></li>
+        <li><input type="checkbox"><span class="task-id">S-H3</span><span><b>Refund/cancel obrada</b> — ažurirati status reda, filtrirati u pristupnoj logici, odlučiti o kapsulama.</span></li>
+        <li><input type="checkbox"><span class="task-id">S-M1</span><span><b>Supply atomičnost</b> — SQL delta <code>greatest(0, …)</code>, prev iz upsert RETURNING, undo samo stvarno potrošeno.</span></li>
+        <li><input type="checkbox"><span class="task-id">L-M3</span><span><b>Case-insensitive top-up po mejlu</b> (<code>lower()</code> u where).</span></li>
+        <li><input type="checkbox"><span class="task-id">L-H1</span><span><b>Poklapanje coverage i VIP prozora</b> na kalendarski dan po Beogradu + QA slučaj.</span></li>
+        <li><input type="checkbox"><span class="task-id">S-M2</span><span><b><code>requireActiveAccess</code> u <code>createAction</code></b> — server akcije zatvorene za <code>inactive</code>.</span></li>
+        <li><input type="checkbox"><span class="task-id">D-M1</span><span><b>Migracija sa indeksima</b> (orders email, protocol_logs date, notifications_log) — jedina „eksplicitna potreba" za migraciju.</span></li>
+        <li><input type="checkbox"><span class="task-id">L-M1</span><span><b>Onboarding anti-replay</b> + bound <code>startDate</code> na [danas−60, danas].</span></li>
+        <li><input type="checkbox"><span class="task-id">S-M5</span><span><b>Bezbednosni headeri</b> u <code>next.config.ts</code> (CSP, frame-ancestors, Referrer-Policy) + <code>poweredByHeader: false</code>.</span></li>
+        <li><input type="checkbox"><span class="task-id">S-L4</span><span><b><code>npm audit fix</code></b> + upgrade <code>next</code> na najnoviju 16.2.x patch.</span></li>
+        <li><input type="checkbox"><span class="task-id">S-M3</span><span><b>Timing-safe CRON_SECRET</b>, allowlist push servisa u zod šemi, LIKE escape u admin pretrazi.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-head">
+      <div class="tag">2</div>
+      <div><h3>Pouzdanost isporuke i pristupa</h3><p>~2–3 nedelje · Retencioni motor mora da bude pouzdan</p></div>
+    </div>
+    <div class="phase-body">
+      <ul>
+        <li><input type="checkbox"><span class="task-id">L-M2</span><span><b><code>access_override</code> kolona</b> (ili minimalno: ispraviti copy i upozorenje u admin dijalogu).</span></li>
+        <li><input type="checkbox"><span class="task-id">L-M5</span><span><b>Dispatcher hardening</b>: per-user try/catch, chunked <code>Promise.allSettled</code>, timeout 5s na web-push, <code>maxDuration</code> (i za low-stock).</span></li>
+        <li><input type="checkbox"><span class="task-id">D-L2</span><span><b><code>NOTIFICATION_WINDOW_MIN=45</code></b> ili prelazak na cron-job.org; dijagnostika koristi <code>WINDOW_MIN</code>.</span></li>
+        <li><input type="checkbox"><span class="task-id">P-M1</span><span><b><code>pushsubscriptionchange</code></b> handler + re-upsert pretplate na app load.</span></li>
+        <li><input type="checkbox"><span class="task-id">S-L2</span><span><b>Welcome mejl na Clerk retry</b> (idempotentno kroz <code>notifications_log</code>).</span></li>
+        <li><input type="checkbox"><span class="task-id">S-L1</span><span><b>VAPID rotacija</b> — provera <code>applicationServerKey</code> pre reuse-a pretplate.</span></li>
+        <li><input type="checkbox"><span class="task-id">S-M4</span><span><b>Dedup bez race-a</b>: unique indeks (user, type, beogradski dan) + insert-pre-slanja.</span></li>
+        <li><input type="checkbox"><span class="task-id">V10</span><span><b>Email opt-out</b>: <code>email_alerts</code> preferenca + <code>List-Unsubscribe</code> + cap (max 3 po epizodi, reset na top-up).</span></li>
+        <li><input type="checkbox"><span class="task-id">O-M1</span><span><b>Error tracking + dnevni izveštaj isporuke</b> (koliko podsetnika stvarno poslato).</span></li>
+        <li><input type="checkbox"><span class="task-id">O-M2</span><span><b>CI na PR</b>: lint + qa-dates + qa-routes + build.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-head">
+      <div class="tag">3</div>
+      <div><h3>Dnevni UX temelji</h3><p>~2–3 nedelje · Pristupačnost, otpornost i osećaj kvaliteta</p></div>
+    </div>
+    <div class="phase-body">
+      <ul>
+        <li><input type="checkbox"><span class="task-id">U-M1</span><span><b>loading.tsx + error.tsx + global-error.tsx</b> (iskoristiti postojeći Skeleton).</span></li>
+        <li><input type="checkbox"><span class="task-id">U-M5</span><span><b>Safe-area top</b> na sticky headerima (iOS PWA).</span></li>
+        <li><input type="checkbox"><span class="task-id">U-M2</span><span><b>DoseCheckin prop resync</b> (seed pattern).</span></li>
+        <li><input type="checkbox"><span class="task-id">U-M3</span><span><b>44px CTA</b>: <code>xl</code> button size; per-dose pending.</span></li>
+        <li><input type="checkbox"><span class="task-id">U-M4</span><span><b>Lime kontrast i statusi bez boje</b>: ring-ovi, check glyph, aria-label po danu u WeekStrip.</span></li>
+        <li><input type="checkbox"><span class="task-id">U-M7</span><span><b>sessionStorage perzistencija</b> onboarding wizard-a.</span></li>
+        <li><input type="checkbox"><span class="task-id">U-M6</span><span><b>„Proveri ponovo"</b> na /nemas-pristup + <b>„Pokušaj ponovo"</b> na /~offline.</span></li>
+        <li><input type="checkbox"><span class="task-id">L-L4</span><span><b>Stale „danas" preko ponoći</b>: <code>visibilitychange</code> → <code>router.refresh()</code>.</span></li>
+        <li><input type="checkbox"><span class="task-id">L-L3</span><span><b><code>formatIsoDateSr</code></b> u onboarding (ćirilica → latinica).</span></li>
+        <li><input type="checkbox"><span class="task-id">U-L1</span><span><b>Copy i lokalizacija</b>: <code>lang="sr-Latn"</code>, ti-forma u greškama, iOS hint na srpskom.</span></li>
+        <li><input type="checkbox"><span class="task-id">U-L2</span><span><b>Dizajn doslednost</b>: <code>--color-warn</code>, font var fix, <code>MotionConfig reducedMotion="user"</code>, ujednačene kartice.</span></li>
+        <li><input type="checkbox"><span class="task-id">U-L4</span><span><b><code>pluralSr</code></b> u fokus headeru i mini-kartici.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-head">
+      <div class="tag">4</div>
+      <div><h3>Admin, performanse i polish</h3><p>Kontinuirano · Pokreće se pre dostizanja pragova skale</p></div>
+    </div>
+    <div class="phase-body">
+      <ul>
+        <li><input type="checkbox"><span class="task-id">D-M2</span><span><b>averageStreak u noćnom cron-u</b> / <code>current_streak</code> kolona; isključiti admine iz proseka.</span></li>
+        <li><input type="checkbox"><span class="task-id">L-L2</span><span><b>Pretraga porudžbina</b> u adminu + <b>backfill lock</b> (flag + 409).</span></li>
+        <li><input type="checkbox"><span class="task-id">U-L3</span><span><b>Recharts lazy import</b> na dashboardu.</span></li>
+        <li><input type="checkbox"><span class="task-id">L-M4</span><span><b>addTask atomski limit</b> (INSERT … WHERE count &lt; 3).</span></li>
+        <li><input type="checkbox"><span class="task-id">L-L1</span><span><b>Fokus integritet</b>: client <code>startedAt</code> validiran ≤ now; sinhroni clear localStorage.</span></li>
+        <li><input type="checkbox"><span class="task-id">D-M3</span><span><b>Pruning <code>notifications_log</code></b> (90 dana).</span></li>
+        <li><input type="checkbox"><span class="task-id">L-L5</span><span><b>logDose date bounds</b> (pre starta / frozen); dokumentovati mergeCoveredRanges 1-day-gap.</span></li>
+        <li><input type="checkbox"><span class="task-id">L-L6</span><span><b>Cooldown na failed push</b> (anti-spam u logovima).</span></li>
+        <li><input type="checkbox"><span class="task-id">O-L1</span><span><b>Unit testovi</b> za award/quiz/products/dosing.</span></li>
+        <li><input type="checkbox"><span class="task-id">P-M2</span><span><b>Middleware → proxy</b> migracija (uz čitanje Next 16 docs).</span></li>
+        <li><input type="checkbox"><span class="task-id">P-L3</span><span><b>shadcn u devDependencies</b>; lint warning u generate-icons.ts.</span></li>
+        <li><input type="checkbox"><span class="task-id">O-L2</span><span><b>Commit audit dokumentacije</b> u <code>docs/</code>.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="flag">
+    <h4>Pre Faze 2 proizvoda (Stripe) — strukturni preduslovi</h4>
+    <ul>
+      <li><b>Transakcije:</b> neon-http ne podržava <code>db.transaction()</code> — preći na neon-serverless (WebSocket Pool) za write puteve koji traže atomičnost (check-in + supply, onboarding + quiz, Stripe callback + order).</li>
+      <li><b>Jedna migracija za Fazu 2:</b> <code>access_override</code>, <code>email_alerts</code>, eventualno <code>current_streak</code> — dodati zajedno sa Stripe kolonama.</li>
+      <li><b>Scheduler:</b> plaćeni cron čim korisnici porastu — pouzdanost podsetnika je retencioni motor.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ======================= SKALA ======================= -->
+<section id="skala">
+  <div class="sec-head">
+    <div class="num">11</div>
+    <div><h2>Pragovi za skalu</h2><p>Kad šta postaje hitno — grube granice na osnovu trenutne šeme i upita.</p></div>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead><tr><th>Prag</th><th>Šta puca</th><th>Reakcija</th></tr></thead>
+      <tbody>
+        <tr><td><b>~300–500 aktivnih</b></td><td>Admin dashboard (averageStreak vuče sve logove pri svakom otvaranju)</td><td>D-M2: streak u cron-u / current_streak kolona</td></tr>
+        <tr><td><b>~10k porudžbina</b></td><td>Svaki page load radi <code>lower(email)</code> scan nad <code>orders</code></td><td>D-M1: indeksi (već u Fazi 1)</td></tr>
+        <tr><td><b>&gt;100 porudžbina</b></td><td>Admin istorija porudžbina nevidljiva (limit 100, bez pretrage)</td><td>L-L2: pretraga + paginacija (već u Fazi 4)</td></tr>
+        <tr><td><b>Neon free tier</b></td><td>Autosuspend čuva compute sate; scheduler na 1 min budi bazu 24/7</td><td>Ostati na 15 min dok nije potrebna veća preciznost</td></tr>
+        <tr><td><b>Public repo</b></td><td>GH Actions besplatni; ali tajne moraju kao repo secrets</td><td>Već ispravno podešeno; rotirati tajne pre launch-a</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p><b>ZenFlow App — Audit izveštaj</b> · NuroLab · Generisano 19. avgusta 2026.</p>
+    <p>Metodologija: statička analiza ~11.500 linija koda + izvršavanje QA harness-a, lint-a, build-a i npm audit-a. Nijedna izmena koda nije napravljena tokom audita. IDs (K1–K8, V1–V11, S1–S13, N1–N5) referenciraju <span class="file">docs/audit-roadmap-2026-08.md</span>; ostali ID-jevi su novi nalazi ovog izveštaja.</p>
+    <p>Preporučeni sledeći korak: pokrenuti <b>Fazu 1</b> roadmap-a (kritične ispravke), pa nakon toga ponoviti QA harness + build i zatvoriti fazu.</p>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>
