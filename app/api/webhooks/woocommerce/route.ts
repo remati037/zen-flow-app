@@ -11,7 +11,8 @@ export const runtime = 'nodejs'
 /**
  * WooCommerce webhook — sinhronizuje porudžbine u `orders`.
  *
- * Topic: `order.created` + `order.updated` (sync na processing/completed — vidi SYNCED_STATUSES).
+ * Topic: `order.created` + `order.updated` (sync na processing/completed — vidi SYNCED_STATUSES;
+ * cancelled/refunded/failed obaraju status postojećeg reda — vidi REVOKED_STATUSES).
  * Potpis: WooCommerce šalje base64 HMAC-SHA256 sirovog tela u headeru `x-wc-webhook-signature`,
  * sa secret-om iz WOO_WEBHOOK_SECRET. Verifikujemo timing-safe poređenjem.
  *
@@ -61,9 +62,9 @@ export async function POST(req: NextRequest) {
   try {
     const outcome = await upsertOrder(payload)
 
-    // Nova/ažurirana porudžbina može da promeni VIP status korisnika → osveži.
+    // Nova/ažurirana/opozvana porudžbina može da promeni VIP status korisnika → osveži.
     // Greška ovde se loguje ali ne ruši webhook (i dalje 200, da Woo ne retry-uje).
-    if (outcome.result === 'created' || outcome.result === 'updated') {
+    if (outcome.result !== 'skipped') {
       try {
         await refreshAccessStatusForEmail(outcome.email)
       } catch (err) {

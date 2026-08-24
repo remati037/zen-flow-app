@@ -6,9 +6,10 @@ import { IosInstallHint } from '@/components/push/ios-install-hint'
 import { PushToggle } from '@/components/push/push-toggle'
 import { SettingsForm } from '@/components/settings/settings-form'
 import type { AccessStatus } from '@/lib/access/status'
-import { VIP_WINDOW_DAYS, getLatestOrderDate, resolveAccessStatus } from '@/lib/access/status'
+import { getLatestOrderDate, resolveAccessStatus } from '@/lib/access/status'
+import { accessWindowEnd } from '@/lib/access/window'
 import { getCurrentProfile, isAdmin } from '@/lib/auth'
-import { addDaysIso, formatIsoDateSr, toBelgradeIso } from '@/lib/dates'
+import { formatIsoDateSr, toBelgradeIso } from '@/lib/dates'
 import { db, pushSubscriptions } from '@/lib/db'
 
 export default async function PodesavanjaPage() {
@@ -39,11 +40,9 @@ export default async function PodesavanjaPage() {
       latestOrderDate,
       now: new Date(),
     })
-    // "VIP do" = dan poslednje porudžbine + 60 dana (VIP_WINDOW_DAYS), u beogradskom kalendaru.
+    // "VIP do" = poslednji dan prozora pristupa, u beogradskom kalendaru.
     if (latestOrderDate) {
-      vipUntilLabel = formatIsoDateSr(
-        addDaysIso(toBelgradeIso(latestOrderDate), VIP_WINDOW_DAYS),
-      )
+      vipUntilLabel = formatIsoDateSr(accessWindowEnd(toBelgradeIso(latestOrderDate)))
     }
   }
 

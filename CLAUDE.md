@@ -78,15 +78,66 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
 **Ključne konvencije koje MORAŠ da poštuješ u svakom novom kodu:**
 
 - „Danas" je **isključivo** `belgradeToday()` iz `lib/dates.ts`. Nikad `toISOString().slice(0,10)` — grep mora ostati čist.
-- Sve server akcije idu kroz `createAction` iz `lib/actions/safe-action.ts` (auth + zod + hvatanje grešaka → `ActionResult`).
-- Šema je kompletna za Fazu 1 — nema novih migracija bez eksplicitne potrebe.
+- Sve server akcije idu kroz `createAction` iz `lib/actions/safe-action.ts` (auth + **gejt pristupa** +
+  zod + hvatanje grešaka → `ActionResult`).
+- **Paywall je server-side, ne samo redirect.** `createAction` po defaultu zove
+  `requireActiveAccess` (`lib/access/status.ts`) i neaktivnom korisniku vraća `ActionResult`
+  grešku. Redirect u `(app)/layout.tsx` štiti samo render — server akcija je zaseban POST
+  endpoint i bez ovoga je bila otvorena. Gejt koristi ISTI izvor istine kao layout
+  (`refreshAccessStatusForProfile` + Clerk rola), ne zastareli `profile.accessStatus`.
+  Opt-out je EKSPLICITAN po akciji (`allowInactive: true`) — trenutno ga nijedna ne koristi;
+  `admin: true` akcije su izuzete (rola je izvor istine, admin je uvek `vip`).
+- Šema je kompletna za Fazu 1. Jedina odobrena naknadna migracija je `0001` (indeksi) —
+  nema novih bez eksplicitne potrebe. `orders_email_lower_date_idx` je funkcionalni
+  (`lower(email)`, `order_date DESC`) jer svaki upit za pristup poredi mejl case-insensitive;
+  `protocol_logs_date_taken_idx` je parcijalni (`WHERE status = 'taken'`).
 - Boje samo kroz Tailwind brand tokene (`@theme` u `app/globals.css`). Hardkodovani hex je dozvoljen **samo** u: `app/manifest.ts`, Clerk `appearance` u `app/layout.tsx`, `app/style-guide/page.tsx`, `lib/email/templates/*` (email klijenti nemaju Tailwind), `lib/confetti.ts`.
 - Build ide kroz **webpack** (`next build --webpack`), ne Turbopack — Serwist injector mod.
-- QA harness: `npx tsx scripts/qa-dates.mts` (datumi/streak/prozori dispatchera, 57 provera) i
-  `npx tsx scripts/qa-routes.mts` (klasifikacija ruta u middleware-u, 26 provera). Oba moraju ostati zelena.
+- QA harness: `npx tsx scripts/qa-dates.mts` (datumi/streak/prozori dispatchera/Woo integritet, 156 provera) i
+  `npx tsx scripts/qa-routes.mts` (klasifikacija ruta u middleware-u, 27 provera). Oba moraju ostati zelena.
+- **Woo statusi imaju tri klase** (`lib/woocommerce/order-rules.ts` — čist modul, bez `server-only`,
+  da ga QA može importovati): `processing`/`completed` = daju pristup, `cancelled`/`refunded`/`failed`
+  = opozivaju (ažuriraju status postojećeg reda), ostalo se ignoriše. **Svaki novi upit koji iz
+  `orders` izvodi PRISTUP mora da filtrira po `SYNCED_STATUSES`** — inače refund i dalje drži VIP.
+  Admin prikaz namerno ne filtrira.
+- **Datum Woo porudžbine ide isključivo kroz `resolveOrderDate`** (`*_gmt` polja + eksplicitni `Z`).
+  Woo GMT polja nemaju oznaku zone, pa ih `new Date()` parsira kao lokalno vreme procesa.
+- **Prozor pristupa ima JEDAN izvor istine:** `lib/access/window.ts` (client-safe, bez
+  `server-only`). VIP gejt i coverage streak-a moraju koristiti iste helpere
+  (`accessWindowEnd` / `accessWindowCutoff` / `isWithinAccessWindow`) — nikad `now - N*DAY_MS`.
+  Prozor se meri u **beogradskim kalendarskim danima**; ms-aritmetika drifta na DST-u i na
+  satnici porudžbine, pa su se dva prozora razilazila za ceo dan (streak je resetovao
+  poslednji pokriveni dan umesto da ga zamrzne).
+- **Upis koji menja dve tabele mora biti JEDNA SQL izjava** (CTE lanac + `RETURNING`) —
+  neon-http nema `db.transaction()`. Obrazac je u `app/(app)/protokol/actions.ts`:
+  `on conflict do update ... where <kolona> is distinct from excluded.<kolona>` (red se vraća
+  samo pri stvarnoj promeni → double-tap prirodno daje deltu 0, jer Postgres uslov proverava
+  nad zaključanom, najnovijom verzijom reda), `xmax = 0` za insert-vs-tranziciju, i delta nad
+  tekućom vrednošću u SQL-u (`greatest(0, kolona + delta)`), nikad nad ranije pročitanom.
 - **Nove `/api` rute bez Clerk sesije MORAJU u `PUBLIC_ROUTES`** (`lib/route-config.ts`). Inače ih
   `auth.protect()` presretne, a Clerk za ne-HTML zahteve vraća **404** (ne 401) — otkaz izgleda kao
   "ruta ne postoji". Tako su cron rute tiho bile mrtve.
+- **Cron rute se autentikuju SAMO kroz `requireCronAuth`** (`lib/cron/auth.ts`) — nikad običnim
+  `!==` nad `Bearer <secret>`. String poređenje izlazi na prvom različitom bajtu, pa razlika u
+  trajanju odgovora curi prefiks tajne; helper poredi SHA-256 digeste kroz `timingSafeEqual`
+  (izjednačena dužina) i fail-closed je kad `CRON_SECRET` nije postavljen.
+- **Endpoint push pretplate mora proći `isAllowedPushEndpoint`** (`lib/push/endpoint.ts` — čist
+  modul, bez `server-only`). Endpoint dolazi kao običan string iz klijenta, a server na njega radi
+  POST (`web-push`): slobodan URL je blind SSRF. Allowlist stoji na DVA mesta — zod šema
+  (`lib/validations/push.ts`) za upis i `lib/push/send.ts` pred samo slanje, jer zod ne pokriva
+  redove upisane ranije. Brisanje pretplate namerno NIJE allowlist-ovano (nema odlaznog zahteva,
+  a stari red inače ne bi mogao da se ukloni).
+- **Svaki novi `LIKE`/`ILIKE` nad korisničkim unosom escape-uje `%`, `_` i `\`** (vidi
+  `escapeLikePattern` u `lib/admin/users.ts`). Nije SQL injection — vrednost je bind parametar —
+  nego injection u pattern: `%` u pretrazi vraća SVE redove. Uglaste zagrade su SQL Server
+  sintaksa i u Postgres-u su obični znaci; ne escape-uju se.
+- **Security header-i su u `headers()` u `next.config.ts`** (CSP, `X-Frame-Options: DENY`,
+  `nosniff`, `Referrer-Policy`, `Permissions-Policy`) uz `poweredByHeader: false`. Clerk FAPI host
+  se IZVODI iz `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (base64 payload), pa dev i produkcija rade bez
+  dodatne env varijable. **Svaki novi eksterni domen (skripta, XHR, slika, iframe, font) mora se
+  dodati u odgovarajuću CSP direktivu** — inače tiho puca tek u produkciji. `script-src` ima
+  `'unsafe-inline'` jer Next App Router inline-uje RSC bootstrap; nonce bi tražio middleware i
+  gurnuo sve stranice u dynamic rendering.
 
 ---
 

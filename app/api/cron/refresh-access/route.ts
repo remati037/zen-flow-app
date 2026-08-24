@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
 import { maintainAccessStatuses } from '@/lib/access/status'
+import { requireCronAuth } from '@/lib/cron/auth'
 
 export const runtime = 'nodejs'
 
@@ -11,10 +12,8 @@ export const runtime = 'nodejs'
  * Zaštićen `CRON_SECRET`-om. Vidi vercel.json za raspored.
  */
 export async function GET(req: NextRequest) {
-  const auth = req.headers.get('authorization')
-  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return new NextResponse('Unauthorized', { status: 401 })
-  }
+  const unauthorized = requireCronAuth(req)
+  if (unauthorized) return unauthorized
 
   const result = await maintainAccessStatuses()
   return NextResponse.json(result)

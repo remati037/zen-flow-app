@@ -1,16 +1,21 @@
 import 'server-only'
 
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 
+import { accessWindowCutoff, isWithinAccessWindow } from '@/lib/access/window'
+import { isAdmin } from '@/lib/auth'
+import { BELGRADE_TZ, belgradeToday, toBelgradeIso } from '@/lib/dates'
 import { accessStatusEnum, db, orders, profiles } from '@/lib/db'
+import { SYNCED_STATUSES } from '@/lib/woocommerce/order-rules'
 
 export type AccessStatus = (typeof accessStatusEnum.enumValues)[number]
 export type Role = 'admin' | 'user'
 
-/** VIP traje 60 dana od poslednje porudžbine (CLAUDE.md: "porudžbina u poslednjih 60 dana"). */
-export const VIP_WINDOW_DAYS = 60
-
-const DAY_MS = 24 * 60 * 60 * 1000
+/**
+ * Samo validne (ne-opozvane) porudžbine daju pristup. Bez ovog filtera refundirana
+ * porudžbina ostaje najnovija u `orders` i drži korisnika VIP-om punih 60 dana.
+ */
+const grantsAccess = inArray(orders.status, [...SYNCED_STATUSES])
 
 /**
  * Čista funkcija — odlučuje access_status iz uloge i poslednje porudžbine.
@@ -18,7 +23,11 @@ const DAY_MS = 24 * 60 * 60 * 1000
  * Prioritet:
  * 1. `admin` → uvek `vip` (admin nikad ne gubi pristup, čak i bez porudžbina).
  * 2. `subscriber` → ostaje `subscriber` (Faza 2 / Stripe; ova logika ga ne dira).
- * 3. Inače: porudžbina u poslednjih 60 dana → `vip`, u suprotnom `inactive`.
+ * 3. Inače: porudžbina u prozoru pristupa → `vip`, u suprotnom `inactive`.
+ *
+ * Prozor se meri u beogradskim kalendarskim danima (`isWithinAccessWindow`), ne u
+ * milisekundama — inače satnica porudžbine i DST prelaz pomeraju granicu za sat/dan,
+ * pa se VIP gasi dok streak taj dan još smatra pokrivenim.
  */
 export function resolveAccessStatus(params: {
   role: Role
@@ -31,14 +40,16 @@ export function resolveAccessStatus(params: {
   if (role === 'admin') return 'vip'
   if (currentStatus === 'subscriber') return 'subscriber'
 
-  if (latestOrderDate && now.getTime() - latestOrderDate.getTime() <= VIP_WINDOW_DAYS * DAY_MS) {
+  if (latestOrderDate && isWithinAccessWindow(toBelgradeIso(latestOrderDate), toBelgradeIso(now))) {
     return 'vip'
   }
   return 'inactive'
 }
 
 /**
- * Datum poslednje (najnovije) porudžbine za dati mejl, ili `null` ako je nema.
+ * Datum poslednje (najnovije) **validne** porudžbine za dati mejl, ili `null` ako je nema.
+ * Otkazane/refundirane se ne broje (`grantsAccess`).
+ *
  * Poređenje mejla je case-insensitive — `orders.email` je lowercase (sync.ts),
  * a `profiles.email` dolazi iz Clerk-a u proizvoljnom case-u.
  */
@@ -46,7 +57,7 @@ export async function getLatestOrderDate(email: string): Promise<Date | null> {
   const [row] = await db
     .select({ orderDate: orders.orderDate })
     .from(orders)
-    .where(sql`lower(${orders.email}) = ${email.trim().toLowerCase()}`)
+    .where(and(sql`lower(${orders.email}) = ${email.trim().toLowerCase()}`, grantsAccess))
     .orderBy(desc(orders.orderDate))
     .limit(1)
 
@@ -134,12 +145,15 @@ export async function refreshAccessStatusForEmail(email: string): Promise<Refres
  *   ako je neki webhook propušten. `subscriber` i `admin` se ne diraju ovde.
  */
 export async function maintainAccessStatuses(): Promise<{ expired: number; restored: number }> {
-  const cutoff = new Date(Date.now() - VIP_WINDOW_DAYS * DAY_MS)
+  // Kalendarska granica, ne `now - 60d`: `order_date` se prevodi u beogradski dan
+  // pa poredi sa danom — isti obračun kao `isWithinAccessWindow` i coverage prozor.
+  const cutoff = accessWindowCutoff(belgradeToday())
 
   const hasOrderInWindow = sql`exists (
     select 1 from ${orders}
     where lower(${orders.email}) = lower(${profiles.email})
-      and ${orders.orderDate} >= ${cutoff}
+      and (${orders.orderDate} at time zone ${BELGRADE_TZ})::date >= ${cutoff}::date
+      and ${grantsAccess}
   )`
 
   const expired = await db
@@ -161,4 +175,40 @@ export async function maintainAccessStatuses(): Promise<{ expired: number; resto
     .returning({ id: profiles.id })
 
   return { expired: expired.length, restored: restored.length }
+}
+
+/**
+ * Poruka koju neaktivan korisnik dobija kad direktno pozove server akciju.
+ * Ista formulacija kao `/nemas-pristup` ekran — ti-forma, bez internih detalja.
+ */
+export const ACCESS_INACTIVE_MESSAGE =
+  'Tvoj ZenFlow pristup je istekao. Obnovi porudžbinu da nastaviš protokol.'
+
+/**
+ * Server-side gejt pristupa za server akcije (S-M2).
+ *
+ * Zašto postoji: paywall je do sada bio SAMO `redirect` u `(app)/layout.tsx`. Redirect
+ * štiti render stranice, ali server akcija je zaseban POST endpoint — neaktivan korisnik
+ * je mogao da zove `logDose`, `updateSupply`, `addTask`… direktno (fetch iz konzole,
+ * stari otvoren tab, ponovljen Next.js action id) i da nastavi da koristi app bez
+ * važeće porudžbine.
+ *
+ * Namerno ide kroz `refreshAccessStatusForProfile`, a ne kroz `profile.accessStatus`
+ * iz baze: DB vrednost je zastarela između cron prolaza (VIP prozor je mogao da istekne
+ * pre nego što `maintainAccessStatuses` odradi posao), a rola iz Clerk claim-a je izvor
+ * istine za admina. Isti izvor istine kao gejt u layout-u → nema klase gde stranica kaže
+ * jedno a akcija drugo. Cena je jedan indeksiran upit nad `orders` po akciji
+ * (`orders_email_lower_date_idx`).
+ *
+ * NE baca — vraća odluku, pa `createAction` formira uredan `ActionResult`.
+ */
+export async function requireActiveAccess(profile: {
+  id: string
+  email: string
+  role: Role
+  accessStatus: AccessStatus
+}): Promise<{ allowed: boolean; status: AccessStatus }> {
+  const authoritativeRole: Role = (await isAdmin()) ? 'admin' : 'user'
+  const status = await refreshAccessStatusForProfile(profile, authoritativeRole)
+  return { allowed: status !== 'inactive', status }
 }

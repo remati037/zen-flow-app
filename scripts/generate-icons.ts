@@ -44,7 +44,8 @@ const ICONS: IconSpec[] = [
   { file: "apple-touch-icon.png", size: 180, safePct: 1, bg: INK },
 ];
 
-function iconElement(spec: IconSpec, font: ArrayBuffer) {
+// Font se ne prosleđuje elementu — `ImageResponse` ga dobija kroz `fonts` opciju.
+function iconElement(spec: IconSpec) {
   const fontSize = Math.round(spec.size * 0.26 * spec.safePct);
   return React.createElement(
     "div",
@@ -73,7 +74,7 @@ async function main() {
   const fontData = await loadFont();
 
   for (const spec of ICONS) {
-    const res = new ImageResponse(iconElement(spec, fontData), {
+    const res = new ImageResponse(iconElement(spec), {
       width: spec.size,
       height: spec.size,
       fonts: [

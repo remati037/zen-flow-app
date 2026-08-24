@@ -17,7 +17,12 @@ export const wooOrderSchema = z
   .object({
     id: z.coerce.number(),
     status: z.string(),
-    // Woo šalje ISO datume; `date_paid`/`date_completed` mogu biti null dok porudžbina nije plaćena.
+    // Datumi: GMT polja su izvor istine (bez zone u stringu, ali SU UTC — vidi
+    // `parseWooGmtDate`). Ne-GMT parnjaci su u lokalnoj zoni prodavnice i ostaju
+    // samo kao opcioni fallback za starije/ručno slate payload-e.
+    // Sva četiri mogu biti null dok porudžbina nije plaćena.
+    date_created_gmt: z.string().nullish(),
+    date_paid_gmt: z.string().nullish(),
     date_created: z.string().nullish(),
     date_paid: z.string().nullish(),
     billing: z

@@ -3,7 +3,8 @@ import { redirect } from 'next/navigation'
 import { refreshAccessStatusForProfile } from '@/lib/access/status'
 import { getCurrentProfile, isAdmin } from '@/lib/auth'
 import { db, orders } from '@/lib/db'
-import { sql } from 'drizzle-orm'
+import { SYNCED_STATUSES } from '@/lib/woocommerce/order-rules'
+import { and, inArray, sql } from 'drizzle-orm'
 
 import { OnboardingWizard } from './onboarding-wizard'
 
@@ -37,7 +38,13 @@ export default async function OnboardingPage() {
   const [row] = await db
     .select({ total: sql<number>`coalesce(sum(${orders.quantityPackages}), 0)` })
     .from(orders)
-    .where(sql`lower(${orders.email}) = ${profile.email.trim().toLowerCase()}`)
+    // Opozvane porudžbine ne ulaze u prefil pakovanja.
+    .where(
+      and(
+        sql`lower(${orders.email}) = ${profile.email.trim().toLowerCase()}`,
+        inArray(orders.status, [...SYNCED_STATUSES]),
+      ),
+    )
 
   const defaultPackages = Math.max(1, Number(row?.total ?? 0))
 

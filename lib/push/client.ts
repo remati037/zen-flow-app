@@ -68,7 +68,10 @@ export async function subscribeToPush(): Promise<PushResult> {
     })
 
     if (!result.ok) {
-      return { ok: false, error: result.error }
+      // Zod vraća generično 'Neispravni podaci.' + razlog po polju. Za odbijen
+      // endpoint (allowlist push servisa) generična poruka ne kaže ništa upotrebljivo,
+      // pa prednost ima poruka polja.
+      return { ok: false, error: result.fieldErrors?.endpoint?.[0] ?? result.error }
     }
     return { ok: true }
   } catch (err) {

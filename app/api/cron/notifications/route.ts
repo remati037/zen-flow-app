@@ -1,6 +1,7 @@
 import { and, eq, inArray, ne } from 'drizzle-orm'
 import { NextResponse, type NextRequest } from 'next/server'
 
+import { requireCronAuth } from '@/lib/cron/auth'
 import { db, profiles, protocolLogs } from '@/lib/db'
 import type { Profile } from '@/lib/auth'
 import { belgradeDayStart, belgradeTimeHM, belgradeToday, hmToMinutes } from '@/lib/dates'
@@ -28,10 +29,8 @@ export const runtime = 'nodejs'
  */
 
 export async function GET(req: NextRequest) {
-  const auth = req.headers.get('authorization')
-  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return new NextResponse('Unauthorized', { status: 401 })
-  }
+  const unauthorized = requireCronAuth(req)
+  if (unauthorized) return unauthorized
 
   const today = belgradeToday()
   const nowMin = hmToMinutes(belgradeTimeHM())

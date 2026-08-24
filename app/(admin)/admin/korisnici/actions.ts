@@ -3,13 +3,13 @@
 import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
-import { VIP_WINDOW_DAYS, getLatestOrderDate } from '@/lib/access/status'
+import { getLatestOrderDate } from '@/lib/access/status'
+import { isWithinAccessWindow } from '@/lib/access/window'
 import { createAction } from '@/lib/actions/safe-action'
+import { belgradeToday, toBelgradeIso } from '@/lib/dates'
 import { db, profiles } from '@/lib/db'
 import { sendWelcomeEmail } from '@/lib/email/send'
 import { adminUserIdSchema, setAccessStatusSchema } from '@/lib/validations/admin'
-
-const DAY_MS = 24 * 60 * 60 * 1000
 
 function revalidateAdmin() {
   revalidatePath('/admin/korisnici')
@@ -53,7 +53,8 @@ export const setUserAccessStatus = createAction(
     if (status === 'vip' && target.role !== 'admin') {
       const latestOrderDate = await getLatestOrderDate(target.email)
       willRevertOnCron =
-        !latestOrderDate || Date.now() - latestOrderDate.getTime() > VIP_WINDOW_DAYS * DAY_MS
+        !latestOrderDate ||
+        !isWithinAccessWindow(toBelgradeIso(latestOrderDate), belgradeToday())
     }
 
     return { applied: true, email: target.email, status, willRevertOnCron }

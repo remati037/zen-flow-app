@@ -1,6 +1,7 @@
 import { and, eq, lte, ne } from 'drizzle-orm'
 import { NextResponse, type NextRequest } from 'next/server'
 
+import { requireCronAuth } from '@/lib/cron/auth'
 import { db, profiles, supply } from '@/lib/db'
 import { sendLowStockEmail } from '@/lib/email/send'
 import { filterNotifiedSince } from '@/lib/push/dedup'
@@ -18,10 +19,8 @@ const DEDUP_DAYS = 3
  * Vidi vercel.json za raspored.
  */
 export async function GET(req: NextRequest) {
-  const auth = req.headers.get('authorization')
-  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return new NextResponse('Unauthorized', { status: 401 })
-  }
+  const unauthorized = requireCronAuth(req)
+  if (unauthorized) return unauthorized
 
   // Kandidati: niske zalihe + aktivan pristup (ne 'inactive').
   const candidates = await db

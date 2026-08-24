@@ -4,6 +4,8 @@ import { motion } from 'motion/react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { addDaysIso, belgradeToday } from '@/lib/dates'
+import { MAX_START_BACKDATE_DAYS } from '@/lib/validations/onboarding'
 
 import { SLIDE_TRANSITION } from './motion'
 import { StepHeading } from './step-heading'
@@ -30,6 +32,11 @@ export function ProtocolStep({
   onNext: () => void
   onBack: () => void
 }) {
+  // Ista granica kao u `completeOnboardingSchema` — picker ni ne nudi datum
+  // koji bi server odbio.
+  const today = belgradeToday()
+  const earliestStart = addDaysIso(today, -MAX_START_BACKDATE_DAYS)
+
   return (
     <div className="flex flex-col gap-5">
       <StepHeading
@@ -53,7 +60,13 @@ export function ProtocolStep({
 
         <label className="flex flex-col gap-1.5">
           <span className="text-sm font-medium text-ink">Datum početka</span>
-          <Input type="date" value={startDate} onChange={(e) => onStartDateChange(e.target.value)} />
+          <Input
+            type="date"
+            min={earliestStart}
+            max={today}
+            value={startDate}
+            onChange={(e) => onStartDateChange(e.target.value)}
+          />
         </label>
 
         <motion.div

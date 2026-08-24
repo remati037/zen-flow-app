@@ -155,8 +155,8 @@ Uz env varijable, za pun launch treba i **scheduler** za `/api/cron/notification
 | `npm run build` | Production build |
 | `npm run start` | Pokreni production build |
 | `npm run lint` | ESLint |
-| `npx tsx scripts/qa-dates.mts` | QA harness: timezone/DST, streak i prozori dispatchera pod zamrznutim satom (57 provera) |
-| `npx tsx scripts/qa-routes.mts` | QA harness: koje rute traže Clerk sesiju, koje rolu, koje su javne (26 provera) |
+| `npx tsx scripts/qa-dates.mts` | QA harness: timezone/DST, streak, prozori dispatchera i Woo integritet (156 provera) |
+| `npx tsx scripts/qa-routes.mts` | QA harness: koje rute traže Clerk sesiju, koje rolu, koje su javne (27 provera) |
 | `npm run db:generate` | Generiši SQL migraciju iz promena u `lib/db/schema.ts` |
 | `npm run db:migrate` | Primeni versioned migracije na Neon |
 | `npm run db:push` | Gurni šemu direktno (samo za brzi prototip) |
@@ -308,7 +308,7 @@ CLAUDE.md             # Brand kontekst + radne konvencije
 Zabeleženo pri zatvaranju Faze 1 (nije blocker za launch, ali treba znati):
 
 - **Streak „pauza" retko opali.** Niz se zamrzava samo dok korisnik nije „pokriven" porudžbinom, a pokrivenost traje **60 dana** od porudžbine dok jedno pakovanje (60 kapsula, 4/dan) traje **15 dana**. Dani 16–60 su „pokriven + nekompletan" → niz se resetuje mnogo pre nego što `frozen` zona počne. Pauza pomogne samo ako je korisnik čekirao poslednji pokriveni dan pre rupe i prvi dan nove porudžbine. Popravka bi tražila da se zamrzavanje veže za **iscrpljene zalihe**, a ne za porudžbinu — promena semantike, odložena za odluku.
-- **Otkazana / refundirana porudžbina ne vraća kapsule.** `cancelled` i `refunded` padaju u `skipped: status`, red u `orders` ostaje sa starim statusom, a top-up-ovane kapsule ostaju korisniku.
+- **Otkazana / refundirana porudžbina ne vraća kapsule.** `cancelled`, `refunded` i `failed` **obaraju pristup** — `upsertOrder` ažurira status postojećeg reda u `orders`, a pristupna logika (`getLatestOrderDate`, `maintainAccessStatuses`, coverage za streak, prefil pakovanja) broji samo `processing`/`completed`, pa korisnik na sledećem refresh-u pada na `inactive`. Kapsule se pri tome **svesno ne oduzimaju** — korisnik je fizički dobio proizvod, a oduzimanje bi umelo da odvede zalihe u minus i pokvari `estimatedRunoutDate`. Ako refund webhook promaši, admin backfill povlači i opozvane statuse i sredi red.
 - **Ručno postavljen `vip` bez porudžbine** noćni cron (`maintainAccessStatuses`) vraća na `inactive`. Dokumentovano u admin dijalogu; bez izmene šeme u MVP-u.
 - **iOS push traži instaliran PWA.** Van instalirane aplikacije `Notification` ne postoji; `components/push/ios-install-hint.tsx` prikazuje uputstvo za „Dodaj na početni ekran".
 - **Javni VAPID ključ se ugrađuje u bundle na build-u.** Promena `NEXT_PUBLIC_VAPID_PUBLIC_KEY` bez redeploy-a ostavlja stari ključ u klijentu → sve pretplate dobijaju 403. Kad push ne stiže: `/admin` → „Dijagnostika push-a", pa [`docs/push-troubleshooting.md`](./docs/push-troubleshooting.md).

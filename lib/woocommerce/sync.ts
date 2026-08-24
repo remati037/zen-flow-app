@@ -1,12 +1,17 @@
 import 'server-only'
 
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 
 import { db, orders, profiles, supply } from '@/lib/db'
 import { belgradeToday } from '@/lib/dates'
 import { estimateRunoutDate } from '@/lib/protocol/dosing'
+import { classifyOrderStatus, resolveOrderDate, wasInserted } from '@/lib/woocommerce/order-rules'
 import { resolveProductFromLineItems } from '@/lib/woocommerce/products'
 import { wooOrderSchema, type WooOrderPayload } from '@/lib/validations/woocommerce'
+
+// Statusi žive u čistom modulu (testabilno iz QA harness-a); re-eksport da pozivaoci
+// `sync.ts`-a (backfill) ne moraju da znaju gde tačno stoje.
+export { REVOKED_STATUSES, SYNCED_STATUSES } from '@/lib/woocommerce/order-rules'
 
 /** Opcije za `upsertOrder`. */
 type UpsertOrderOptions = {
@@ -24,14 +29,19 @@ type UpsertOrderOptions = {
  *  - profil za email još ne postoji (webhook stigao pre Clerk registracije), ili
  *  - supply red ne postoji (profil nije završio onboarding — onboarding ga seed-uje).
  * Nikad ne baca — greška ovde ne sme da obori webhook/backfill.
+ *
+ * Poređenje mejla je case-insensitive: `orders.email` normalizujemo u lowercase, ali
+ * `profiles.email` dolazi iz Clerk-a u proizvoljnom case-u (`Marko@Primer.rs`) — striktno
+ * `=` je tiho preskakalo top-up baš za te korisnike.
  */
 async function topUpSupplyForEmail(email: string, capsulesTotal: number): Promise<void> {
   if (capsulesTotal <= 0) return
+  const normalized = email.trim().toLowerCase()
   try {
     const [profile] = await db
       .select({ id: profiles.id })
       .from(profiles)
-      .where(eq(profiles.email, email))
+      .where(sql`lower(${profiles.email}) = ${normalized}`)
       .limit(1)
     if (!profile) return // Nema koga da naduvamo; supply se seed-uje na onboardingu.
 
@@ -42,7 +52,7 @@ async function topUpSupplyForEmail(email: string, capsulesTotal: number): Promis
       .limit(1)
     if (!supplyRow) {
       console.warn(
-        `[woo-sync] Top-up preskočen za ${email} — supply red ne postoji (nezavršen onboarding).`,
+        `[woo-sync] Top-up preskočen za ${normalized} — supply red ne postoji (nezavršen onboarding).`,
       )
       return
     }
@@ -57,18 +67,12 @@ async function topUpSupplyForEmail(email: string, capsulesTotal: number): Promis
       })
       .where(eq(supply.userId, profile.id))
   } catch (err) {
-    console.error('[woo-sync] top-up zaliha nije uspeo za', email, err)
+    console.error('[woo-sync] top-up zaliha nije uspeo za', normalized, err)
   }
 }
 
-/**
- * Statusi porudžbine koji se računaju kao validna kupovina za pristup.
- * Sync: `processing` (plaćeno) i `completed` (poslato/završeno).
- */
-export const SYNCED_STATUSES = ['processing', 'completed'] as const
-
 export type SyncOutcome =
-  | { result: 'created' | 'updated'; wooOrderId: string; email: string }
+  | { result: 'created' | 'updated' | 'revoked'; wooOrderId: string; email: string }
   | { result: 'skipped'; reason: 'status' | 'no-email' | 'no-product' | 'invalid'; wooOrderId?: string }
 
 /**
@@ -79,9 +83,14 @@ export type SyncOutcome =
  *
  * Pravila:
  * - Validira payload (zod). Nevalidan → `skipped: invalid`.
- * - Sinhronizuje samo `processing`/`completed` statuse → ostalo `skipped: status`.
+ * - `processing`/`completed` → upsert po `woo_order_id` (unique).
+ * - `cancelled`/`refunded`/`failed` → ako red već postoji, samo mu se **ažurira status**
+ *   (`revoked`), pa ga pristupna logika prestaje da broji. Ako red ne postoji → `skipped: status`.
+ * - Ostali statusi (`pending`, `on-hold`, …) → `skipped: status`, red se ne dira.
  * - Bez email-a ili bez poznatog ZenFlow proizvoda → preskače (nije relevantna kupovina).
- * - Upsert po `woo_order_id` (unique): ponovni event ažurira status/podatke.
+ *
+ * Pozivalac je dužan da posle `created`/`updated`/`revoked` pozove
+ * `refreshAccessStatusForEmail(outcome.email)` — status porudžbine menja pristup.
  */
 export async function upsertOrder(
   raw: unknown,
@@ -95,9 +104,29 @@ export async function upsertOrder(
 
   const order: WooOrderPayload = parsed.data
   const wooOrderId = String(order.id)
+  // Normalizujemo status pri upisu — pristupni upiti porede sa lowercase listom.
+  const status = order.status.trim().toLowerCase()
+  const statusClass = classifyOrderStatus(status)
 
-  if (!SYNCED_STATUSES.includes(order.status as (typeof SYNCED_STATUSES)[number])) {
+  if (statusClass === 'ignored') {
     return { result: 'skipped', reason: 'status', wooOrderId }
+  }
+
+  if (statusClass === 'revoked') {
+    // Opoziv: ne pravimo red za porudžbinu koju nikad nismo sinhronizovali — samo
+    // obaramo status postojećeg. Kapsule se NE oduzimaju (korisnik je fizički dobio
+    // proizvod) — svesna odluka, vidi README „Poznata ograničenja".
+    const [revoked] = await db
+      .update(orders)
+      .set({ status, syncedAt: new Date() })
+      .where(eq(orders.wooOrderId, wooOrderId))
+      .returning({ email: orders.email })
+
+    if (!revoked) {
+      return { result: 'skipped', reason: 'status', wooOrderId }
+    }
+    console.info(`[woo-sync] Porudžbina ${wooOrderId} opozvana (${status}) — pristup se preračunava.`)
+    return { result: 'revoked', wooOrderId, email: revoked.email }
   }
 
   const email = order.billing?.email?.trim().toLowerCase()
@@ -117,28 +146,21 @@ export async function upsertOrder(
     return { result: 'skipped', reason: 'no-product', wooOrderId }
   }
 
-  // Datum porudžbine: prioritet plaćanju, pa kreiranju, pa "sada".
-  const dateSource = order.date_paid || order.date_created
-  const orderDate = dateSource ? new Date(dateSource) : new Date()
-
   const values = {
     wooOrderId,
     email,
     productType: product.productType,
     quantityPackages: product.quantityPackages,
     capsulesTotal: product.capsulesTotal,
-    orderDate,
-    status: order.status,
+    // GMT polja + eksplicitni 'Z' — inače večernja porudžbina padne u pogrešan beogradski dan.
+    orderDate: resolveOrderDate(order),
+    status,
   }
 
-  // Pre-provera postojanja radi tačnog created/updated izveštaja (bitno za backfill).
-  const [existing] = await db
-    .select({ id: orders.id })
-    .from(orders)
-    .where(eq(orders.wooOrderId, wooOrderId))
-    .limit(1)
-
-  await db
+  // Jedna izjava odlučuje i insert/update i top-up: `xmax = 0` je true SAMO za red koji je
+  // ova izjava stvarno insertovala. Ranije je ovde bio select-pa-insert (TOCTOU) — dva
+  // paralelna webhook-a za istu porudžbinu su oba videla „ne postoji" i oba naduvala zalihe.
+  const [row] = await db
     .insert(orders)
     .values(values)
     .onConflictDoUpdate({
@@ -153,12 +175,13 @@ export async function upsertOrder(
         syncedAt: new Date(),
       },
     })
+    .returning({ inserted: sql<boolean>`(xmax = 0)` })
 
-  // Top-up zaliha samo kad je porudžbina NOVA (insert grana). Replay `order.updated`
-  // webhooka na isti wooOrderId pada u `updated` granu → bez dupliranja kapsula.
-  if (!existing && topUpSupply) {
+  const created = wasInserted(row?.inserted)
+
+  if (created && topUpSupply) {
     await topUpSupplyForEmail(email, values.capsulesTotal)
   }
 
-  return { result: existing ? 'updated' : 'created', wooOrderId, email }
+  return { result: created ? 'created' : 'updated', wooOrderId, email }
 }

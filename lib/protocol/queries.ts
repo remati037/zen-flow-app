@@ -1,8 +1,9 @@
 import 'server-only'
 
-import { and, eq, gte, sql } from 'drizzle-orm'
+import { and, eq, gte, inArray, sql } from 'drizzle-orm'
 
 import { db, orders, protocolLogs } from '@/lib/db'
+import { SYNCED_STATUSES } from '@/lib/woocommerce/order-rules'
 import type { Profile } from '@/lib/auth'
 import { addDaysIso, belgradeToday, toBelgradeIso } from '@/lib/dates'
 import {
@@ -94,7 +95,13 @@ export async function getProtocolState(
     db
       .select({ orderDate: orders.orderDate })
       .from(orders)
-      .where(sql`lower(${orders.email}) = ${profile.email.trim().toLowerCase()}`),
+      // Samo validne porudžbine daju coverage — opozvana ne sme da drži streak „pauziran".
+      .where(
+        and(
+          sql`lower(${orders.email}) = ${profile.email.trim().toLowerCase()}`,
+          inArray(orders.status, [...SYNCED_STATUSES]),
+        ),
+      ),
   ])
 
   const byDate = indexLogsByDate(logs)

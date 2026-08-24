@@ -3,6 +3,7 @@ import 'server-only'
 import { and, gte, inArray, sql } from 'drizzle-orm'
 
 import { db, orders, protocolLogs } from '@/lib/db'
+import { SYNCED_STATUSES } from '@/lib/woocommerce/order-rules'
 import { addDaysIso, belgradeToday, toBelgradeIso } from '@/lib/dates'
 import {
   type CoveredRange,
@@ -79,7 +80,14 @@ export async function getUserStatsForProfiles(
     db
       .select({ email: orders.email, orderDate: orders.orderDate })
       .from(orders)
-      .where(inArray(sql`lower(${orders.email})`, emails)),
+      // Isti filter kao lib/protocol/queries.ts — inače admin vidi drugačiji streak
+      // od korisnika kad je porudžbina opozvana.
+      .where(
+        and(
+          inArray(sql`lower(${orders.email})`, emails),
+          inArray(orders.status, [...SYNCED_STATUSES]),
+        ),
+      ),
   ])
 
   // userId → datum → { morning, evening } uzeto?

@@ -8,7 +8,8 @@
  * Client-safe: NEMA `server-only` — koristi ga i onboarding wizard na klijentu.
  */
 
-const BELGRADE_TZ = 'Europe/Belgrade'
+/** Zona za sve kalendarske izračune. Eksportovana da je i SQL (`at time zone`) koristi. */
+export const BELGRADE_TZ = 'Europe/Belgrade'
 
 /** Beogradski kalendarski dan kao 'YYYY-MM-DD' (sv-SE lokal daje ISO format nativno). */
 export function belgradeToday(): string {

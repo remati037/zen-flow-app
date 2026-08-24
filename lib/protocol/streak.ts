@@ -9,16 +9,16 @@
  * DB → argumenti se pripremaju u `lib/protocol/queries.ts` (server-only).
  */
 
+import { ACCESS_WINDOW_DAYS, accessWindowEnd } from '@/lib/access/window'
 import { addDaysIso } from '@/lib/dates'
 
 export type IsoDate = string // 'YYYY-MM-DD'
 
 /**
- * Prozor pokrivenosti u danima. MORA pratiti `VIP_WINDOW_DAYS` iz
- * `lib/access/status.ts` (isti izvor istine za pristup) — duplirano ovde jer je
- * onaj modul `server-only`, a streak logika mora ostati client-safe.
+ * Prozor pokrivenosti = prozor pristupa. Nije više duplirana konstanta: `lib/access/window.ts`
+ * je client-safe modul koji dele i streak i VIP gejt, pa se dva prozora ne mogu razići.
  */
-export const COVERAGE_DAYS = 60
+export const COVERAGE_DAYS = ACCESS_WINDOW_DAYS
 
 /** Koliko dana unazad najviše računamo (zaštita od beskonačne petlje). */
 const MAX_LOOKBACK_DAYS = 400
@@ -42,7 +42,7 @@ export function mergeCoveredRanges(orderDatesIso: IsoDate[]): CoveredRange[] {
   if (orderDatesIso.length === 0) return []
 
   const ranges = orderDatesIso
-    .map((d): CoveredRange => [d, addDaysIso(d, COVERAGE_DAYS)])
+    .map((d): CoveredRange => [d, accessWindowEnd(d)])
     .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
 
   const merged: CoveredRange[] = [ranges[0]]

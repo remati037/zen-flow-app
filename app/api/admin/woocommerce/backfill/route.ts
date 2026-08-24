@@ -3,7 +3,12 @@ import { NextResponse } from 'next/server'
 import { refreshAccessStatusForEmail } from '@/lib/access/status'
 import { requireAdmin } from '@/lib/auth'
 import { getRestCredentials } from '@/lib/woocommerce/env'
-import { SYNCED_STATUSES, upsertOrder, type SyncOutcome } from '@/lib/woocommerce/sync'
+import {
+  REVOKED_STATUSES,
+  SYNCED_STATUSES,
+  upsertOrder,
+  type SyncOutcome,
+} from '@/lib/woocommerce/sync'
 
 export const runtime = 'nodejs'
 /** Backfill može da traje — produži dozvoljeno vreme izvršavanja. */
@@ -14,8 +19,11 @@ const PER_PAGE = 100
 /**
  * Jednokratni uvoz istorijskih WooCommerce porudžbina preko REST API-ja.
  *
- * Admin-gated POST. Paginira `GET /wp-json/wc/v3/orders?status=processing,completed`
+ * Admin-gated POST. Paginira `GET /wp-json/wc/v3/orders?status=<validni + opozvani>`
  * i za svaku porudžbinu zove istu `upsertOrder()` kao webhook → bez duplikacije logike.
+ *
+ * Opozvani statusi se povlače namerno: ako je `order.updated` webhook za refund propušten,
+ * backfill je jedini put da red u `orders` dobije tačan status (inače kupac drži VIP 60 dana).
  *
  * Pokretanje (kao ulogovan admin):
  *   POST /api/admin/woocommerce/backfill
@@ -37,9 +45,9 @@ export async function POST() {
   }
 
   const authHeader = `Basic ${Buffer.from(`${creds.consumerKey}:${creds.consumerSecret}`).toString('base64')}`
-  const statusParam = SYNCED_STATUSES.join(',')
+  const statusParam = [...SYNCED_STATUSES, ...REVOKED_STATUSES].join(',')
 
-  const tally = { created: 0, updated: 0, skipped: 0 }
+  const tally = { created: 0, updated: 0, revoked: 0, skipped: 0 }
   // Jedinstveni mejlovi upsert-ovanih porudžbina → access_status osvežavamo jednom po kupcu na kraju.
   const affectedEmails = new Set<string>()
   let page = 1
@@ -75,13 +83,12 @@ export async function POST() {
       for (const order of batch) {
         // Istorijske porudžbine NE naduvavaju zalihe — top-up važi samo za žive webhook-e.
         const outcome: SyncOutcome = await upsertOrder(order, { topUpSupply: false })
-        if (outcome.result === 'created') {
-          tally.created += 1
+        if (outcome.result === 'skipped') {
+          tally.skipped += 1
+        } else {
+          tally[outcome.result] += 1
           affectedEmails.add(outcome.email)
-        } else if (outcome.result === 'updated') {
-          tally.updated += 1
-          affectedEmails.add(outcome.email)
-        } else tally.skipped += 1
+        }
       }
 
       page += 1

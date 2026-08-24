@@ -54,6 +54,9 @@ check('/protokol', false, false, 'korisnik')
 check('/zalihe', false, false, 'korisnik')
 check('/podesavanja', false, false, 'korisnik')
 check('/onboarding', false, false, 'korisnik')
+// Paywall ekran mora ostati iza Clerk sesije: bez profila nema šta da se prikaže,
+// a `getCurrentProfile()` bi vratio null i redirect na /sign-in.
+check('/nemas-pristup', false, false, 'gejt pristupa — traži profil')
 check('/api/email/test', false, false, 'admin gate u handleru')
 
 console.log('\n=== Admin rute (traže rolu) ===')

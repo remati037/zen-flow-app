@@ -2,7 +2,9 @@ import 'server-only'
 
 import { desc, eq, sql } from 'drizzle-orm'
 
-import { VIP_WINDOW_DAYS, type AccessStatus, type Role } from '@/lib/access/status'
+import type { AccessStatus, Role } from '@/lib/access/status'
+import { isWithinAccessWindow } from '@/lib/access/window'
+import { belgradeToday, toBelgradeIso } from '@/lib/dates'
 import { db, profiles, supply } from '@/lib/db'
 import type { IsoDate } from '@/lib/protocol/streak'
 
@@ -10,8 +12,6 @@ import { emptyUserStats, getUserStatsForProfiles } from './user-stats'
 
 /** Maksimalan broj redova u admin tabeli — MVP nema paginaciju. */
 export const USERS_PAGE_SIZE = 100
-
-const DAY_MS = 24 * 60 * 60 * 1000
 
 export interface AdminUserRow {
   id: string
@@ -39,13 +39,32 @@ export interface ListAdminUsersResult {
 }
 
 /**
+ * Escape-uje metaznakove `LIKE` pattern-a (`%`, `_`) i sam escape karakter (`\`).
+ *
+ * Bez ovoga admin koji ukuca `%` dobija match nad SVIM korisnicima, a `_` se ponaša
+ * kao "bilo koji znak" — pretraga tiho vraća pogrešan skup. Nije SQL injection
+ * (vrednost ide kao bind parametar), nego injection u sam pattern.
+ *
+ * Napomena: Postgres `LIKE` poznaje samo `%` i `_` kao metaznakove — uglaste zagrade
+ * su SQL Server sintaksa i ovde su OBIČNI znaci, pa se namerno NE escape-uju
+ * (escape-ovanjem bismo pokvarili pretragu imena sa zagradama).
+ */
+function escapeLikePattern(input: string): string {
+  return input.replace(/[\\%_]/g, (ch) => `\\${ch}`)
+}
+
+/**
  * Lista korisnika za admin tabelu, sa server-side pretragom po mejlu.
  * Pretraga je uvek u SQL-u (`ilike`) — nikad se ne filtrira cela lista na klijentu.
  */
 export async function listAdminUsers(search?: string): Promise<ListAdminUsersResult> {
   const q = search?.trim().toLowerCase()
-  const where = q
-    ? sql`lower(${profiles.email}) like ${`%${q}%`} or lower(coalesce(${profiles.name}, '')) like ${`%${q}%`}`
+  // Pattern ide kao bind parametar, pa Postgres ne parsira string literal — backslash
+  // u vrednosti je pravi backslash, a to je i default `ESCAPE` znak za `LIKE`.
+  // Zato nema eksplicitne `ESCAPE` klauzule: bila bi šum, ne dodatna garancija.
+  const pattern = q ? `%${escapeLikePattern(q)}%` : null
+  const where = pattern
+    ? sql`lower(${profiles.email}) like ${pattern} or lower(coalesce(${profiles.name}, '')) like ${pattern}`
     : undefined
 
   const [rows, [countRow]] = await Promise.all([
@@ -68,7 +87,7 @@ export async function listAdminUsers(search?: string): Promise<ListAdminUsersRes
   ])
 
   const stats = await getUserStatsForProfiles(rows)
-  const vipCutoff = Date.now() - VIP_WINDOW_DAYS * DAY_MS
+  const today = belgradeToday()
 
   return {
     rows: rows.map((row) => {
@@ -83,7 +102,9 @@ export async function listAdminUsers(search?: string): Promise<ListAdminUsersRes
         capsulesRemaining: row.capsulesRemaining,
         lastCheckInDate: s.lastCheckInDate,
         latestOrderDate: s.latestOrderDate,
-        hasOrderInVipWindow: Boolean(s.latestOrderDate && s.latestOrderDate.getTime() >= vipCutoff),
+        hasOrderInVipWindow: Boolean(
+          s.latestOrderDate && isWithinAccessWindow(toBelgradeIso(s.latestOrderDate), today),
+        ),
       }
     }),
     total: countRow?.count ?? 0,

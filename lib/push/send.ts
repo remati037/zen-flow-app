@@ -4,6 +4,7 @@ import webpush from 'web-push'
 import { eq } from 'drizzle-orm'
 
 import { db, notificationsLog, pushSubscriptions } from '@/lib/db'
+import { PUSH_ENDPOINT_ERROR, isAllowedPushEndpoint } from './endpoint'
 import { checkVapidConfig } from './vapid'
 
 let _configured = false
@@ -111,13 +112,33 @@ export async function sendPushToUser({ userId, type, title, body, url, tag }: Se
     }
   }
 
-  const subs = await db
+  const allSubs = await db
     .select()
     .from(pushSubscriptions)
     .where(eq(pushSubscriptions.userId, userId))
 
+  // Druga linija odbrane za SSRF: zod allowlist štiti SAMO nove upise, a ovo je
+  // mesto gde se odlazni zahtev stvarno šalje. Redovi upisani pre allowlist-a
+  // (ili ubačeni mimo akcije) ovde ispadaju umesto da nas nateraju na POST ka
+  // proizvoljnom hostu. Ne brišemo ih automatski — brisanje na osnovu politike
+  // koja se može promeniti bi tiho pojelo validne pretplate.
+  const subs = allSubs.filter((s) => isAllowedPushEndpoint(s.endpoint))
+  const blocked = allSubs.length - subs.length
+  if (blocked > 0) {
+    console.warn(`[push] preskočeno ${blocked} pretplata sa endpoint-om van allowlist-a (user ${userId})`)
+  }
+
   if (subs.length === 0) {
-    return { ok: true, sent: 0, removed: 0, failures: [] }
+    // `ok: false` samo kad je odbijanje razlog za prazan skup — "korisnik nema
+    // pretplatu" i "sve pretplate su blokirane" nisu isti ishod za dijagnostiku.
+    return blocked > 0
+      ? {
+          ok: false,
+          sent: 0,
+          removed: 0,
+          failures: [{ service: 'allowlist', statusCode: null, reason: PUSH_ENDPOINT_ERROR }],
+        }
+      : { ok: true, sent: 0, removed: 0, failures: [] }
   }
 
   const payload = JSON.stringify({ title, body, url: url ?? '/dashboard', tag })
