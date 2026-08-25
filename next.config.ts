@@ -38,6 +38,32 @@ const withSerwist = withSerwistInit({
 const isDev = process.env.NODE_ENV === "development";
 
 /**
+ * Build za Vercel PRODUKCIJU odbija da se završi bez `DATABASE_URL`-a.
+ *
+ * Zašto ovako, a ne provera na importu `lib/db/index.ts` (kako je nekad bilo):
+ * ta provera je obarala SVAKI build, uključujući CI i lokalni, jer `next build`
+ * u fazi „Collecting page data" importuje svaki route modul. Zato je klijent
+ * postao lenj — ali time je nestala i jedina glasna signalizacija da varijable
+ * nema, pa se deploy uspešno završio i aplikacija je 500-ovala na svaki upit.
+ * Tiha katastrofa umesto glasnog otkaza.
+ *
+ * Ova provera vraća glasan otkaz, ali SAMO tamo gde je ispravan: na Vercel
+ * produkcijskom buildu. Lokalni build, CI i preview i dalje rade bez baze.
+ *
+ * `VERCEL_ENV` postavlja Vercel ('production' | 'preview' | 'development').
+ * Deployment koji ne može da pročita bazu ne sme da postane live — bolje je da
+ * build padne i da prethodni, ispravan deployment ostane u produkciji.
+ */
+if (process.env.VERCEL_ENV === "production" && !process.env.DATABASE_URL) {
+  throw new Error(
+    "DATABASE_URL nije postavljen za Production build. " +
+      "Vercel → Project Settings → Environment Variables: dodaj DATABASE_URL i uključi ga za " +
+      "Production (i Preview). Build je namerno prekinut — deployment bez baze bi se uspešno " +
+      "završio, a onda 500-ovao na svaki upit i oborio aplikaciju.",
+  );
+}
+
+/**
  * Clerk Frontend API host, izveden iz publishable key-a.
  *
  * Format ključa je `pk_test_<base64(host + "$")>` / `pk_live_<...>`, pa isti kod
