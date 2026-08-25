@@ -227,6 +227,13 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
   prikaz u `/admin`). Grupisanje po UTC danu bi večernje podsetnike posle ponoći bacalo u pogrešnu
   kolonu. Dani bez ijednog reda se popunjavaju nulama — nestao dan izgleda kao da ga nije bilo,
   nula izgleda kao otkaz (i to i jeste ako je dan imao kandidate).
+- **Nijedan modul ne sme da baca na IMPORTU zbog nedostajuće env varijable.** `next build` u fazi
+  „Collecting page data" importuje svaki route modul da pročita njegovu konfiguraciju, pa eager
+  provera tajne obara BUILD porukom koja optužuje rutu („Failed to collect configuration for
+  /api/…"), a ne konfiguraciju. Tajne se čitaju LENJO, pri prvoj upotrebi: `lib/db/index.ts`
+  (Proxy nad drizzle instancom — lenj *neon* klijent ne bi radio, jer `drizzle()` na konstrukciji
+  čita `client.query`), `lib/email/client.ts` (Resend), `lib/push/send.ts` (VAPID). CI to čuva
+  tako što build vozi **bez** `DATABASE_URL`-a; placeholder vrednost je taj otkaz ranije maskirala.
 - **Security header-i su u `headers()` u `next.config.ts`** (CSP, `X-Frame-Options: DENY`,
   `nosniff`, `Referrer-Policy`, `Permissions-Policy`) uz `poweredByHeader: false`. Clerk FAPI host
   se IZVODI iz `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (base64 payload), pa dev i produkcija rade bez

@@ -9,6 +9,9 @@
 # Clerk vraća 404 umesto 401) je mesecima živeo u produkciji jer ga ništa nije
 # proveravalo pre merge-a.
 #
+# Build se vozi BEZ `DATABASE_URL`-a — vidi komentar uz `env` blok. To je druga
+# provera koja postoji zbog stvarnog otkaza, ne zbog urednosti.
+#
 # TAJNE: nijedna nije potrebna. Vrednosti ispod su OČIGLEDNI placeholder-i i
 # namerno stoje u fajlu umesto u repo secrets — CI ne kontaktira nijedan servis,
 # a lažna tajna u secrets-u samo ostavlja utisak da nešto štiti. Build ih traži
@@ -35,10 +38,20 @@ jobs:
 
     env:
       # ── Placeholder env (vidi napomenu iznad) ──────────────────────────────
-      # Neon URL se nikad ne otvara: `neon()` je lazy, a nijedan korak ne izvršava
-      # upit. Mora da POSTOJI jer `lib/db/index.ts` baca na importu — a taj modul
-      # uvuče svaka stranica.
-      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?sslmode=require
+      #
+      # `DATABASE_URL` NAMERNO NEDOSTAJE. Ovo nije previd nego provera.
+      #
+      # Prethodne dve verzije ovog fajla su je imale — i baš zato je CI bio zelen
+      # dok je Vercel build padao sa „Failed to collect configuration for
+      # /api/...“. `next build` u fazi „Collecting page data" importuje svaki
+      # route modul, a `lib/db/index.ts` je tada bacao ako varijable nema.
+      # Placeholder vrednost je taj otkaz maskirala.
+      #
+      # Build ne sme da zavisi od runtime tajne: nijedna stranica nema
+      # `generateStaticParams` niti bilo šta što čita bazu u build fazi. Ako neko
+      # ubuduće vrati eager pristup bazi na importu, ovaj job pada — što je cela
+      # poenta. Ako build ikad LEGITIMNO zatreba bazu, varijabla se vraća svesno,
+      # uz obrazloženje.
       # Validan FORMAT je bitan: `next.config.ts` iz ključa base64-dekodira Clerk
       # FAPI host za CSP. Nasumičan string bi dao `null` i CSP bi se u CI-ju
       # razlikovao od produkcije — build bi prošao, a provera ne bi značila ništa.
