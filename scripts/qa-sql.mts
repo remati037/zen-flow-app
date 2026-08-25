@@ -198,10 +198,10 @@ if (!testUrl) {
 process.env.DATABASE_URL = 'postgresql://qa:qa@qa.neon.tech/qa?sslmode=require'
 
 // Clerk mora biti stubovan PRE prvog importa koji ga uvlači (`lib/access/status`).
-const { stubClerk } = await import('./lib/stub-clerk.mts')
+const { stubClerk } = await import('./lib/stub-clerk.mjs')
 stubClerk()
 
-const { installNeonPgAdapter } = await import('./lib/neon-pg-adapter.mts')
+const { installNeonPgAdapter } = await import('./lib/neon-pg-adapter.mjs')
 const adapter = await installNeonPgAdapter(testUrl!)
 
 try {
