@@ -21,6 +21,7 @@ export const updateSettings = createAction(
         ...(data.name !== undefined && { name: data.name }),
         ...(data.doseMorningTime !== undefined && { doseMorningTime: data.doseMorningTime }),
         ...(data.doseEveningTime !== undefined && { doseEveningTime: data.doseEveningTime }),
+        ...(data.emailAlerts !== undefined && { emailAlerts: data.emailAlerts }),
       })
       .where(eq(profiles.id, profile.id))
 

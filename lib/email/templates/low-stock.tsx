@@ -1,4 +1,4 @@
-import { Button, Heading, Section, Text } from '@react-email/components'
+import { Button, Heading, Link, Section, Text } from '@react-email/components'
 
 import { APP_URL } from '../client'
 import { brand, brandButtonStyle, EmailLayout } from './layout'
@@ -7,6 +7,13 @@ type LowStockEmailProps = {
   name?: string | null
   capsulesRemaining: number
   runoutDate?: string | null
+  /**
+   * Potpisani odjavni link (`lib/email/unsubscribe.ts`), ili `null` kad tajna za
+   * potpis nije postavljena. Vidljiv link postoji UZ `List-Unsubscribe` zaglavlje,
+   * ne umesto njega: zaglavlje prikazuju samo neki klijenti, a alert mejl bez
+   * ijedne vidljive odjave se ne odjavljuje — prijavljuje se kao spam.
+   */
+  unsubscribeUrl?: string | null
 }
 
 function formatDate(value?: string | null) {
@@ -18,7 +25,12 @@ function formatDate(value?: string | null) {
 }
 
 /** Low-stock alert — šalje cron kad kapsule padnu ispod praga. */
-export function LowStockEmail({ name, capsulesRemaining, runoutDate }: LowStockEmailProps) {
+export function LowStockEmail({
+  name,
+  capsulesRemaining,
+  runoutDate,
+  unsubscribeUrl,
+}: LowStockEmailProps) {
   const greeting = name ? `Zdravo ${name},` : 'Zdravo,'
   const runout = formatDate(runoutDate)
 
@@ -52,6 +64,16 @@ export function LowStockEmail({ name, capsulesRemaining, runoutDate }: LowStockE
           Naruči refill
         </Button>
       </Section>
+
+      {unsubscribeUrl && (
+        <Text style={{ color: brand.muted, fontSize: 12, lineHeight: '18px', margin: '24px 0 0', textAlign: 'center' }}>
+          Ne želiš ovakve podsetnike na mejl?{' '}
+          <Link href={unsubscribeUrl} style={{ color: brand.muted, textDecoration: 'underline' }}>
+            Isključi alert mejlove
+          </Link>
+          . Push podsetnici i sam nalog ostaju netaknuti.
+        </Text>
+      )}
     </EmailLayout>
   )
 }

@@ -40,3 +40,19 @@ export const deletePushSubscriptionSchema = z.object({
 })
 
 export type DeletePushSubscriptionInput = z.infer<typeof deletePushSubscriptionSchema>
+
+/**
+ * Rotacija endpoint-a — telo koje service worker šalje na `pushsubscriptionchange`.
+ *
+ * `oldEndpoint` je NAMERNO bez allowlist-a, iz istog razloga kao kod brisanja:
+ * on je samo ključ za pronalaženje reda i ne izaziva nijedan odlazni zahtev, a
+ * pretplata upisana pre allowlist-a inače ne bi mogla ni da se migrira ni da se
+ * ukloni. `subscription.endpoint` JESTE allowlist-ovan — na njega server posle
+ * radi POST (`web-push`), pa je slobodan URL blind SSRF.
+ */
+export const rotatePushSubscriptionSchema = z.object({
+  oldEndpoint: z.string().url().max(MAX_PUSH_ENDPOINT_LENGTH),
+  subscription: savePushSubscriptionSchema,
+})
+
+export type RotatePushSubscriptionInput = z.infer<typeof rotatePushSubscriptionSchema>

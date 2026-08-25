@@ -1,0 +1,108 @@
+# CI — ista kapija koju držimo lokalno, samo automatski (O-M2).
+#
+# Redosled je namerno od najbržeg ka najsporijem: lint padne za ~15 s, QA harness-i
+# za par sekundi, build traje najduže. Nema smisla čekati build da bi se saznalo
+# da fali zarez.
+#
+# `qa-routes` ovde vredi najviše: enumeriše `app/api` sa DISKA i obara se na svakoj
+# ruti koja nije klasifikovana. Baš taj propust (cron rute van `PUBLIC_ROUTES`, pa
+# Clerk vraća 404 umesto 401) je mesecima živeo u produkciji jer ga ništa nije
+# proveravalo pre merge-a.
+#
+# TAJNE: nijedna nije potrebna. Vrednosti ispod su OČIGLEDNI placeholder-i i
+# namerno stoje u fajlu umesto u repo secrets — CI ne kontaktira nijedan servis,
+# a lažna tajna u secrets-u samo ostavlja utisak da nešto štiti. Build ih traži
+# jer moduli pucaju na importu bez njih (`lib/db/index.ts`, Clerk provider), ne
+# jer se koriste.
+
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+# Novi push na isti PR gasi prethodni run — nema smisla trošiti minute na
+# rezultat commita koji je već pregažen.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      # ── Placeholder env (vidi napomenu iznad) ──────────────────────────────
+      # Neon URL se nikad ne otvara: `neon()` je lazy, a nijedan korak ne izvršava
+      # upit. Mora da POSTOJI jer `lib/db/index.ts` baca na importu — a taj modul
+      # uvuče svaka stranica.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?sslmode=require
+      # Validan FORMAT je bitan: `next.config.ts` iz ključa base64-dekodira Clerk
+      # FAPI host za CSP. Nasumičan string bi dao `null` i CSP bi se u CI-ju
+      # razlikovao od produkcije — build bi prošao, a provera ne bi značila ništa.
+      # Ovo je `pk_test_` + base64("example.clerk.accounts.dev$").
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk
+      CLERK_SECRET_KEY: sk_test_ci_placeholder_not_a_real_key
+      CLERK_WEBHOOK_SIGNING_SECRET: whsec_ci_placeholder
+      NEXT_PUBLIC_CLERK_SIGN_IN_URL: /sign-in
+      NEXT_PUBLIC_CLERK_SIGN_UP_URL: /sign-up
+      NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL: /dashboard
+      NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL: /dashboard
+      RESEND_API_KEY: re_ci_placeholder
+      EMAIL_FROM: NuroLab <onboarding@resend.dev>
+      CRON_SECRET: ci-placeholder-cron-secret
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_PUBLIC_SUPPORT_EMAIL: podrska@nurolab.rs
+      NEXT_PUBLIC_SHOP_REFILL_URL: https://nurolab.rs/proizvod/zenflow
+      # VAPID par se ne koristi za slanje (nijedan test ne šalje push), ali
+      # `NEXT_PUBLIC_` varijanta se inline-uje u klijentski bundle.
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: BCIcJ4hCsFT4Ea4Ep4Dv4Kh4Xd4Nn4Yy4Uu4Ii4Oo4Pp4Aa4Ss4Dd4Ff4Gg4Hh4Jj4Kk4Ll4Zz4Xx4Cc4Vv4Bb4Nn4M
+      VAPID_PRIVATE_KEY: ci-placeholder-vapid-private-key
+      VAPID_SUBJECT: mailto:podrska@nurolab.rs
+      WOO_WEBHOOK_SECRET: ci-placeholder-woo-secret
+      WOO_STORE_URL: https://example.invalid
+      WOO_CONSUMER_KEY: ck_ci_placeholder
+      WOO_CONSUMER_SECRET: cs_ci_placeholder
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          # Keš npm-a je vezan za package-lock.json — bez `cache` `npm ci`
+          # svaki put povlači ceo `node_modules` sa mreže (~40 s → ~8 s).
+          cache: npm
+
+      - name: Instaliraj zavisnosti
+        # `npm ci`, ne `npm install`: poštuje lock fajl doslovno i pada ako se
+        # `package.json` i lock raziđu — tačno ono što CI treba da uhvati.
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: QA — datumi, streak, prozori dispatchera, Woo integritet
+        run: npx tsx scripts/qa-dates.mts
+
+      - name: QA — klasifikacija ruta u middleware-u
+        run: npx tsx scripts/qa-routes.mts
+
+      - name: Build (webpack)
+        # MORA webpack, ne Turbopack: Serwist radi u injector modu i sa
+        # Turbopack-om ne generiše `public/sw.js` — build bi prošao, a PWA bi
+        # u produkciji ostala bez service worker-a.
+        run: npm run build
+
+      - name: Provera da je service worker generisan
+        # Serwist ume da „uspe" bez ijednog upisanog fajla ako se konfiguracija
+        # promeni; build tada prolazi, a PWA tiho ostaje bez SW-a. Jedna
+        # provera postojanja hvata ceo taj razred otkaza.
+        run: |
+          test -f public/sw.js || {
+            echo "::error::public/sw.js nije generisan — Serwist injector nije odradio posao."
+            exit 1
+          }
+          echo "public/sw.js OK ($(wc -c < public/sw.js) bajtova)"

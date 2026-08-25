@@ -3,7 +3,7 @@
 import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
-import { getLatestOrderDate } from '@/lib/access/status'
+import { getLatestOrderDate, resolveAccessStatus } from '@/lib/access/status'
 import { isWithinAccessWindow } from '@/lib/access/window'
 import { createAction } from '@/lib/actions/safe-action'
 import { belgradeToday, toBelgradeIso } from '@/lib/dates'
@@ -21,43 +21,91 @@ export type SetAccessStatusResult =
   | {
       applied: true
       email: string
-      status: 'vip' | 'inactive'
+      /** Efektivni `access_status` posle izmene — ono što korisnik stvarno vidi. */
+      status: 'vip' | 'inactive' | 'subscriber'
+      /** Vrednost override-a posle izmene; `null` kad je nalog vraćen pod automatiku. */
+      override: 'vip' | 'inactive' | null
+      /** Ima li porudžbinu u VIP prozoru — objašnjava šta radi automatika bez override-a. */
+      hasOrderInWindow: boolean
       /**
-       * `true` kad je ručno postavljen `vip` bez porudžbine u prozoru — noćni
-       * cron (`maintainAccessStatuses`) će ga vratiti na `inactive`.
-       * MVP: dokumentovano ponašanje, bez izmene šeme (nema "manual override" kolone).
+       * `true` kad je meta bio admin: rola je izvor istine i `resolveAccessStatus`
+       * ga svodi na `vip`, pa override na `inactive` NEMA efekta. UI to mora reći —
+       * inače admin misli da je nalog blokirao, a nije.
        */
-      willRevertOnCron: boolean
+      roleOverridesChoice: boolean
     }
 
 /**
- * Ručni override access statusa. Piše direktno u `profiles.access_status` —
- * isti izvor istine koji čitaju gejt (`(app)/layout.tsx`) i cron.
+ * Ručni override pristupa (L-M2).
+ *
+ * Piše u `profiles.access_override` — zasebnu kolonu, NE u `access_status`.
+ * Zašto: `access_status` je IZVEDENA vrednost koju `refreshAccessStatusForProfile`
+ * prepisuje na svaki ulaz korisnika u app i na svaku server akciju. Dok je override
+ * pisao u nju, prvi sledeći page load korisnika ga je poništavao — u oba smera, a
+ * gori smer je bio `inactive` (admin blokira nalog, korisnik osveži i opet je VIP).
+ * Override sada preživljava i refresh i noćni cron (`maintainAccessStatuses` preskače
+ * redove sa override-om), dok ga admin ne skine sa `auto`.
+ *
+ * `access_status` se u istoj izjavi usklađuje sa novom odlukom, da lista i gejt ne
+ * čekaju sledeći refresh.
  */
 export const setUserAccessStatus = createAction(
   setAccessStatusSchema,
-  async ({ userId, status }): Promise<SetAccessStatusResult> => {
+  async ({ userId, status }, { profile: actor }): Promise<SetAccessStatusResult> => {
     const [target] = await db
-      .select({ id: profiles.id, email: profiles.email, role: profiles.role })
+      .select({
+        id: profiles.id,
+        email: profiles.email,
+        role: profiles.role,
+        accessStatus: profiles.accessStatus,
+      })
       .from(profiles)
       .where(eq(profiles.id, userId))
       .limit(1)
 
     if (!target) return { applied: false, reason: 'not-found' }
 
-    await db.update(profiles).set({ accessStatus: status }).where(eq(profiles.id, userId))
+    const override = status === 'auto' ? null : status
+    const latestOrderDate = await getLatestOrderDate(target.email)
+    const hasOrderInWindow = Boolean(
+      latestOrderDate && isWithinAccessWindow(toBelgradeIso(latestOrderDate), belgradeToday()),
+    )
+
+    // ISTA funkcija koju zovu gejt u layout-u i `createAction` — da admin lista i
+    // stvarni pristup ne mogu da se raziđu. Bez override-a odlučuje porudžbina.
+    // `currentStatus` je stvarni status mete, ne konstanta: `resolveAccessStatus`
+    // preko njega čuva `subscriber` (Faza 2 / Stripe). Sa `'inactive'` bi klik na
+    // „Vrati automatiku" tiho oborio pretplatnika koji nema Woo porudžbinu.
+    const effective = resolveAccessStatus({
+      role: target.role,
+      currentStatus: target.accessStatus,
+      latestOrderDate,
+      now: new Date(),
+      override,
+    })
+
+    await db
+      .update(profiles)
+      .set({
+        accessOverride: override,
+        // Vreme i autor prate SAMO postojeći override; brisanje ih čisti, da stari
+        // potpis ne visi uz nalog koji više nije override-ovan.
+        accessOverrideAt: override ? new Date() : null,
+        accessOverrideBy: override ? actor.id : null,
+        accessStatus: effective,
+      })
+      .where(eq(profiles.id, userId))
+
     revalidateAdmin()
 
-    // Admin je izuzet iz cron gašenja (resolveAccessStatus ga uvek vraća na vip).
-    let willRevertOnCron = false
-    if (status === 'vip' && target.role !== 'admin') {
-      const latestOrderDate = await getLatestOrderDate(target.email)
-      willRevertOnCron =
-        !latestOrderDate ||
-        !isWithinAccessWindow(toBelgradeIso(latestOrderDate), belgradeToday())
+    return {
+      applied: true,
+      email: target.email,
+      status: effective,
+      override,
+      hasOrderInWindow,
+      roleOverridesChoice: target.role === 'admin' && override === 'inactive',
     }
-
-    return { applied: true, email: target.email, status, willRevertOnCron }
   },
   { admin: true },
 )

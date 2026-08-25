@@ -4,8 +4,11 @@ import { eq } from 'drizzle-orm'
 import { NextResponse, type NextRequest } from 'next/server'
 
 import { refreshAccessStatusForEmail } from '@/lib/access/status'
+import { belgradeToday } from '@/lib/dates'
 import { db, profiles } from '@/lib/db'
 import { sendWelcomeEmail } from '@/lib/email/send'
+import { hasEverNotified } from '@/lib/push/dedup'
+import { EVENTS, logError } from '@/lib/observability/log'
 
 export const runtime = 'nodejs'
 
@@ -19,7 +22,7 @@ export async function POST(req: NextRequest) {
   try {
     evt = await verifyWebhook(req)
   } catch (err) {
-    console.error('[clerk-webhook] verifikacija potpisa neuspešna:', err)
+    logError(EVENTS.webhookFailed, err, { source: 'clerk', stage: 'signature' })
     return new NextResponse('Invalid signature', { status: 400 })
   }
 
@@ -34,14 +37,14 @@ export async function POST(req: NextRequest) {
       email_addresses[0]?.email_address
 
     if (!primaryEmail) {
-      console.error('[clerk-webhook] korisnik bez email adrese:', id)
+      logError(EVENTS.webhookFailed, new Error('missing_email'), { source: 'clerk', userId: id })
       return new NextResponse('No email', { status: 400 })
     }
 
     const name = [first_name, last_name].filter(Boolean).join(' ') || null
 
     if (eventType === 'user.created') {
-      const inserted = await db
+      await db
         .insert(profiles)
         .values({
           id,
@@ -51,7 +54,6 @@ export async function POST(req: NextRequest) {
           accessStatus: 'inactive',
         })
         .onConflictDoNothing({ target: profiles.id })
-        .returning({ id: profiles.id })
 
       // Postavi default rolu u publicMetadata da middleware claim radi od starta.
       if (!(public_metadata as Record<string, unknown>)?.role) {
@@ -61,16 +63,38 @@ export async function POST(req: NextRequest) {
         })
       }
 
-      // Korak 1.3 — verifikacija porudžbine pri registraciji. Profil je upravo kreiran,
-      // pa ga refreshAccessStatusForEmail nalazi i diže na `vip` ako u `orders` postoji
-      // porudžbina u 60-dnevnom prozoru. Radi samo kad je novi red stvarno ubačen.
-      if (inserted.length > 0) {
-        const refreshed = await refreshAccessStatusForEmail(primaryEmail)
+      /**
+       * Korak 1.3 — verifikacija porudžbine pri registraciji: `refreshAccessStatusForEmail`
+       * diže profil na `vip` ako u `orders` postoji porudžbina u 60-dnevnom prozoru.
+       *
+       * ZAŠTO OVO VIŠE NE ZAVISI OD `returning()` (S-L2): ranije je ceo blok stajao iza
+       * `if (inserted.length > 0)`. `onConflictDoNothing` na konfliktu vraća PRAZAN
+       * `returning()`, a Clerk webhook retry-uje `user.created` na svaki neuspeh
+       * isporuke (timeout, 500, deploy u trenutku poziva). Prvi pokušaj bi upisao
+       * profil pa pao na sledećem koraku, a svaki naredni bi tiho preskočio i
+       * verifikaciju pristupa i welcome mejl — korisnik ostaje `inactive` i bez
+       * ijedne poruke, a webhook vraća 200. Sada obe putanje rade isti posao;
+       * `refreshAccessStatusForEmail` je po prirodi idempotentan.
+       */
+      const refreshed = await refreshAccessStatusForEmail(primaryEmail)
 
-        // Welcome mejl ide SAMO VIP kupcima (verifikacija je našla porudžbinu).
-        // sendWelcomeEmail ne baca; mejl fail samo loguje u notifications_log.
-        if (refreshed?.status === 'vip') {
-          await sendWelcomeEmail({ id, email: primaryEmail, name })
+      // Welcome mejl ide SAMO VIP kupcima (verifikacija je našla porudžbinu).
+      if (refreshed?.status === 'vip') {
+        /**
+         * Idempotencija u DVA sloja, jer retry i trka nisu isti problem:
+         *  - `hasEverNotified` pokriva ponovljen retry (sat/dan kasnije) — welcome
+         *    ide jednom u životu naloga, a ne jednom dnevno. Gleda samo `success`,
+         *    pa neuspeo mejl sme ponovo.
+         *  - `dedup` rezervacija pokriva DVA ISTOVREMENA retry-ja: oba prođu proveru
+         *    iznad pre nego što bilo koji upiše red, pa duplikat zaustavlja tek
+         *    jedinstveni indeks u `notifications_log`.
+         * `sendWelcomeEmail` ne baca; neuspeh samo završi u `notifications_log`.
+         */
+        if (!(await hasEverNotified(id, 'welcome', 'email'))) {
+          await sendWelcomeEmail(
+            { id, email: primaryEmail, name },
+            { dedup: { day: belgradeToday() } },
+          )
         }
       }
     } else {

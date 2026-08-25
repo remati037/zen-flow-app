@@ -15,6 +15,27 @@
       "when": 1787560646546,
       "tag": "0001_wise_cassandra_nova",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787642336788,
+      "tag": "0002_giant_wild_pack",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787643168638,
+      "tag": "0003_push_reliability",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787644855114,
+      "tag": "0004_blok3_access_override_email_hygiene",
+      "breakpoints": true
     }
   ]
 }

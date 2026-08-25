@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { createAction } from '@/lib/actions/safe-action'
 import { db, supply } from '@/lib/db'
 import { belgradeToday } from '@/lib/dates'
-import { estimateRunoutDate } from '@/lib/protocol/dosing'
+import { LOW_STOCK_THRESHOLD, estimateRunoutDate } from '@/lib/protocol/dosing'
 import { updateSupplySchema } from '@/lib/validations/supply'
 
 /**
@@ -18,6 +18,13 @@ export const updateSupply = createAction(updateSupplySchema, async (data, { prof
   const today = belgradeToday()
   const estimatedRunoutDate = estimateRunoutDate(today, data.capsulesRemaining)
 
+  // Epizoda niskih zaliha se ZATVARA čim zalihe pređu prag — brojač alerta se tada
+  // vraća na 0, pa sledeći pad ponovo dobija punih `LOW_STOCK_MAX_ALERTS_PER_EPISODE`.
+  // Reset je vezan za STANJE (kapsule iznad praga), ne za događaj „dopuna", pa ga
+  // nijedan put upisa u `supply` ne može zaobići.
+  const episodeReset =
+    data.capsulesRemaining > LOW_STOCK_THRESHOLD ? { lowStockAlertsSent: 0 } : {}
+
   await db
     .insert(supply)
     .values({
@@ -25,6 +32,7 @@ export const updateSupply = createAction(updateSupplySchema, async (data, { prof
       capsulesRemaining: data.capsulesRemaining,
       estimatedRunoutDate,
       updatedAt: new Date(),
+      ...episodeReset,
     })
     .onConflictDoUpdate({
       target: supply.userId,
@@ -32,6 +40,7 @@ export const updateSupply = createAction(updateSupplySchema, async (data, { prof
         capsulesRemaining: data.capsulesRemaining,
         estimatedRunoutDate,
         updatedAt: new Date(),
+        ...episodeReset,
       },
     })
 

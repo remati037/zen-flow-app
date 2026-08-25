@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import { Activity, BellRing, Flame, Package, ShoppingBag, Smartphone, UserX, Users } from 'lucide-react'
 
 import { CheckinsChart } from '@/components/admin/checkins-chart'
+import { DeliveryPanel } from '@/components/admin/delivery-panel'
 import { MetricCard } from '@/components/admin/metric-card'
 import { PushDiagnostics } from '@/components/push/push-diagnostics'
 import { PushTestButton } from '@/components/push/push-test-button'
@@ -12,6 +13,7 @@ import {
   ORDERS_WINDOW_DAYS,
   getAdminMetrics,
 } from '@/lib/admin/metrics'
+import { getDeliveryReport } from '@/lib/admin/delivery'
 import { getCurrentProfile } from '@/lib/auth'
 import { db, pushSubscriptions } from '@/lib/db'
 import { pluralSr } from '@/lib/format'
@@ -19,8 +21,9 @@ import { pluralSr } from '@/lib/format'
 export default async function AdminPage() {
   const profile = await getCurrentProfile()
 
-  const [metrics, ownSubs] = await Promise.all([
+  const [metrics, delivery, ownSubs] = await Promise.all([
     getAdminMetrics(),
+    getDeliveryReport(),
     profile
       ? db
           .select({ id: pushSubscriptions.id })
@@ -92,6 +95,9 @@ export default async function AdminPage() {
       </div>
 
       <CheckinsChart data={metrics.dailyCheckins} />
+
+      {/* O-M1: koliko je podsetnika STVARNO izašlo, po danu i kanalu. */}
+      <DeliveryPanel report={delivery} />
 
       <Card>
         <CardHeader>

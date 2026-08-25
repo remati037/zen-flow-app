@@ -31,6 +31,17 @@ const HOST_SUFFIXES = ['.notify.windows.com']
 /** Endpoint-i su tokeni push servisa; realno < 1 KB. Kapa štiti od DB abuse-a. */
 export const MAX_PUSH_ENDPOINT_LENGTH = 1024
 
+/**
+ * Endpoint već pripada DRUGOM nalogu.
+ *
+ * Poruka je i PROTOKOL, ne samo tekst: `lib/push/client.ts` je poredi sa
+ * `result.error` da bi znao da treba da odjavi pretplatu i napravi svežu (push
+ * servis pri novom `subscribe()` izdaje nov endpoint). Zato je konstanta, i zato
+ * živi u ovom modulu — jedinom koji smeju da uvezu i klijent i server.
+ */
+export const PUSH_ENDPOINT_TAKEN_ERROR =
+  'Ova push pretplata je vezana za drugi nalog. Osvežavamo je — pokušaj ponovo za par sekundi.'
+
 export const PUSH_ENDPOINT_ERROR =
   'Endpoint pretplate ne pripada nijednom poznatom push servisu (Google/Apple/Mozilla/Microsoft). Pretplata je odbijena.'
 

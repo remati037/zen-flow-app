@@ -23,6 +23,11 @@ const RESETTABLE = ['dose_reminder_morning', 'dose_reminder_evening', 'streak_at
  * kanal, samo tipovi podsetnika. Ne dira tuđe redove, istoriju ranijih dana,
  * mejlove, ni `low_stock_alert` (koji ima svoj 3-dnevni prozor).
  *
+ * Namerno BEZ filtera po `status`-u: od Faze 2 dedup je REZERVACIJA (red se upisuje
+ * PRE slanja, vidi `claimNotification`), pa slot može da drži i `pending` red koji
+ * je ostao za sobom prekinut run. Brisanje reda oslobađa `notifications_log_dedup_uq`
+ * — to je jedini način da se zaglavljena rezervacija ručno otpusti.
+ *
  * Pokretanje (kao ulogovan admin): POST /api/admin/push/reset-dedup
  */
 export async function POST() {

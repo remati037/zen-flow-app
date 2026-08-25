@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { AppHeader } from '@/components/app-shell/app-header'
 import { BottomNav } from '@/components/app-shell/bottom-nav'
 import { Sidebar } from '@/components/app-shell/sidebar'
+import { PushSync } from '@/components/push/push-sync'
 import { refreshAccessStatusForProfile } from '@/lib/access/status'
 import { getCurrentProfile, isAdmin } from '@/lib/auth'
 
@@ -39,6 +40,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-dvh bg-paper">
+      {/* Održavanje push pretplate — bez UI-a. Vidi `components/push/push-sync.tsx`. */}
+      <PushSync />
       <Sidebar isAdmin={admin} />
 
       <div className="md:pl-64">

@@ -3,6 +3,7 @@ import 'server-only'
 import { and, count, eq } from 'drizzle-orm'
 
 import { badges, db, focusSessions, profiles, protocolLogs } from '@/lib/db'
+import { EVENTS, logError } from '@/lib/observability/log'
 import { getProtocolState } from '@/lib/protocol/queries'
 import { type BadgeKey, sortBadgeKeys } from './catalog'
 
@@ -131,7 +132,7 @@ export async function checkAndAwardBadges(
 
     return sortBadgeKeys(inserted.map((r) => r.badgeKey))
   } catch (err) {
-    console.error('[badges] dodela bedževa nije uspela:', err)
+    logError(EVENTS.actionFailed, err, { userId, stage: 'award_badges' })
     return []
   }
 }

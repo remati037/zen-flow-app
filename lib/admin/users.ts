@@ -24,11 +24,16 @@ export interface AdminUserRow {
   lastCheckInDate: IsoDate | null
   latestOrderDate: Date | null
   /**
-   * Ima li porudžbinu u VIP prozoru — odgovara uslovu koji noćni cron
-   * (`maintainAccessStatuses`) proverava. Ako je `false`, ručno postavljen `vip`
-   * neće preživeti cron. UI to prikazuje u dijalogu.
+   * Ima li porudžbinu u VIP prozoru — uslov koji proverava automatika
+   * (`resolveAccessStatus` / `maintainAccessStatuses`). Kaže šta bi nalog dobio
+   * KAD BI se override skinuo; UI to prikazuje u dijalogu.
    */
   hasOrderInVipWindow: boolean
+  /** Ručni override pristupa, ili `null` kad je nalog pod automatikom. */
+  accessOverride: 'vip' | 'inactive' | null
+  accessOverrideAt: Date | null
+  /** Clerk user id admina koji je postavio override (prikazuje se skraćeno). */
+  accessOverrideBy: string | null
 }
 
 export interface ListAdminUsersResult {
@@ -75,6 +80,9 @@ export async function listAdminUsers(search?: string): Promise<ListAdminUsersRes
         name: profiles.name,
         role: profiles.role,
         accessStatus: profiles.accessStatus,
+        accessOverride: profiles.accessOverride,
+        accessOverrideAt: profiles.accessOverrideAt,
+        accessOverrideBy: profiles.accessOverrideBy,
         protocolStartDate: profiles.protocolStartDate,
         capsulesRemaining: supply.capsulesRemaining,
       })
@@ -98,6 +106,14 @@ export async function listAdminUsers(search?: string): Promise<ListAdminUsersRes
         name: row.name,
         role: row.role,
         accessStatus: row.accessStatus,
+        // Enum kolone dele tip sa `access_status`, pa `subscriber` prolazi kroz
+        // TypeScript; CHECK u bazi ga zabranjuje, a ovde ga svodimo na `null`.
+        accessOverride:
+          row.accessOverride === 'vip' || row.accessOverride === 'inactive'
+            ? row.accessOverride
+            : null,
+        accessOverrideAt: row.accessOverrideAt,
+        accessOverrideBy: row.accessOverrideBy,
         streak: s.streak,
         capsulesRemaining: row.capsulesRemaining,
         lastCheckInDate: s.lastCheckInDate,

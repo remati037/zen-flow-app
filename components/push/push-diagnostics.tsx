@@ -17,7 +17,7 @@ type Diagnosis = {
     pairMatches: boolean | null
     subject: string
   }
-  subscriptions: { count: number; services: string[] }
+  subscriptions: { count: number; services: string[]; lastSeenAt: string[] }
   cronSecretSet: boolean
   notificationsDispatcher: {
     note: string
@@ -25,6 +25,18 @@ type Diagnosis = {
     now: string
     today: string
     eligible: boolean
+    windowMin: number
+    staleAfterHours: number
+    health: {
+      status: 'ok' | 'gaps' | 'stale' | 'never'
+      sinceLastRunMin: number | null
+      lastRunAt: string | null
+      lastGapMin: number | null
+      maxGapMin: number | null
+      maxGapAt: string | null
+      runsTotal: number
+      message: string
+    }
     doseChecks: {
       dose: 'morning' | 'evening'
       time: string | null
@@ -39,6 +51,27 @@ type Diagnosis = {
   }
   recentNotifications: { type: string; channel: string; status: string; sentAt: string }[]
   recentPushFailures: number
+}
+
+/** Ikonica po stanju heartbeat-a — `gaps` je upozorenje, ne otkaz. */
+const HEALTH_ICON: Record<Diagnosis['notificationsDispatcher']['health']['status'], string> = {
+  ok: '✅',
+  gaps: '⚠️',
+  stale: '❌',
+  never: '❌',
+}
+
+/** '95' → '1h 35min' — isti prikaz kao u `lib/cron/health.ts`, ali bez server importa. */
+function formatMin(min: number): string {
+  if (min < 60) return `${min} min`
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  return m === 0 ? `${h}h` : `${h}h ${m}min`
+}
+
+function describeLastRun(health: Diagnosis['notificationsDispatcher']['health']): string {
+  if (health.sinceLastRunMin === null) return 'nikad pozvan'
+  return `pre ${formatMin(health.sinceLastRunMin)} (${health.runsTotal} run-ova)`
 }
 
 /**
@@ -96,6 +129,8 @@ export function PushDiagnostics() {
   const dedupBlocking = data?.notificationsDispatcher.doseChecks.some(
     (c) => c.alreadyNotifiedToday,
   )
+
+  const health = data?.notificationsDispatcher.health
 
   return (
     <div className="space-y-3">
@@ -161,6 +196,20 @@ export function PushDiagnostics() {
             <div className="flex justify-between gap-4">
               <dt>CRON_SECRET</dt>
               <dd className="text-ink">{data.cronSecretSet ? '✅ postavljen' : '❌ nedostaje'}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt>Scheduler (poslednji poziv)</dt>
+              <dd className="text-ink">
+                {health ? `${HEALTH_ICON[health.status]} ${describeLastRun(health)}` : '—'}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt>Najveća rupa u rasporedu</dt>
+              <dd className="text-ink">
+                {health?.maxGapMin == null
+                  ? '— nijedna izmerena'
+                  : `${formatMin(health.maxGapMin)} (prozor ${data.notificationsDispatcher.windowMin} min)`}
+              </dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt>Dose reminderi ikad poslati</dt>
