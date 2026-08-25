@@ -101,9 +101,23 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
   `protocol_logs_date_taken_idx` je parcijalni (`WHERE status = 'taken'`).
 - Boje samo kroz Tailwind brand tokene (`@theme` u `app/globals.css`). Hardkodovani hex je dozvoljen **samo** u: `app/manifest.ts`, Clerk `appearance` u `app/layout.tsx`, `app/style-guide/page.tsx`, `lib/email/templates/*` (email klijenti nemaju Tailwind), `lib/confetti.ts`.
 - Build ide kroz **webpack** (`next build --webpack`), ne Turbopack — Serwist injector mod.
-- QA harness: `npx tsx scripts/qa-dates.mts` (datumi/streak/prozori dispatchera/jitter/zdravlje
-  cron-a/Woo integritet/access override/cap alerta/odjavni token, 218 provera) i
-  `npx tsx scripts/qa-routes.mts` (klasifikacija ruta u middleware-u, 49 provera). Oba moraju ostati zelena. `qa-routes` čita `app/api` sa DISKA i obara
+- QA harness ima TRI sloja i sva tri moraju ostati zelena (`npm run qa` vozi sve):
+  `qa-dates` (čiste funkcije: datumi/streak/prozori/Woo/access override/cap alerta/odjavni
+  token, 218 provera), `qa-routes` (klasifikacija ruta, 50 provera) i **`qa-sql`**
+  (69 provera — SQL koji se STVARNO izvršava nad pravim Postgres-om).
+- **`qa-sql` postoji zato što prva dva sloja ne izvršavaju nijedan upit.** Dva produkciona
+  otkaza su prošla kroz lint, build i obe stare provere netaknuta: `GROUP BY` sa bind
+  parametrom (upit se kompajlira, Postgres ga odbija) i produkcijska baza zaostala na
+  migraciji `0000`. `qa-sql` vozi PRAVE funkcije aplikacije — ne prepisane kopije, koje se
+  vremenom raziđu — kroz `scripts/lib/neon-pg-adapter.mts` (zakrpa nad globalnim `fetch`-om
+  koja neon-http saobraćaj vodi na `pg`) i `--conditions=react-server` (propušta `server-only`).
+  **Svaka nova funkcija sa netrivijalnim SQL-om ide u sekciju 6 tog harness-a.**
+- **Svaki objekat koji migracija uvodi MORA biti u `EXPECTED_SCHEMA`** (`lib/db/expected-schema.ts`).
+  `qa-sql` parsira migracione fajlove i pada ako nešto nedostaje — prva verzija spiska je
+  propuštala šest indeksa, pa ih `/api/cron/db-check` ne bi prijavio ni da fale na produkciji.
+- **Testovi koji pišu idu u `BEGIN`/`ROLLBACK`** nad `pg` konekcijom adaptera (obuhvata i upite
+  koje drizzle pošalje kroz neon-http), a namerni prekršaji ograničenja u `SAVEPOINT` — inače
+  Postgres odbija sve do kraja transakcije i jedan očekivan pad obori sve provere posle njega. Oba moraju ostati zelena. `qa-routes` čita `app/api` sa DISKA i obara
   se na svakoj ruti koja nije ni javna, ni admin, ni u `SESSION_ROUTES` — nova ruta ne može tiho
   da promakne.
 - **Woo statusi imaju tri klase** (`lib/woocommerce/order-rules.ts` — čist modul, bez `server-only`,
@@ -313,7 +327,9 @@ Brand tokeni idu u Tailwind config; ne hardkoduj boje po komponentama.
 - Drži PRD i implementacioni plan u `/docs`.
 - Faze prati kao Faza 0 (setup) → Faza 1 (MVP) → Faza 2.
 - Kad zatvoriš fazu, ažuriraj sekcije iznad u ovom fajlu.
-- Pre commita: `npm run build` (webpack) + `npm run lint` + `npx tsx scripts/qa-dates.mts` + `npx tsx scripts/qa-routes.mts`.
+- Pre commita: `npm run qa` (lint + sva tri harness-a) + `npm run build` (webpack).
+  `qa:sql` bez `TEST_DATABASE_URL`-a preskače DB deo lokalno, ali u CI-ju (`CI=true`) je
+  obavezan — tamo ga vozi `postgres:17` service container.
   Isti niz vozi i CI na svaki PR (`.github/workflows/ci.yml`) sa placeholder env vrednostima —
   nijedna tajna nije potrebna jer CI ne kontaktira nijedan servis. Dodatno proverava da je
   `public/sw.js` stvarno generisan (Serwist ume da „uspe" bez upisanog fajla).

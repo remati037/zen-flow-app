@@ -36,6 +36,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    # Pravi Postgres za `qa-sql`. Prazna baza je NAMERNA: harness na nju primeni
+    # sve migracije iz `drizzle/`, pa svaki run usput dokazuje i da se migracije
+    # primenjuju čisto od nule — što `db:migrate` nad već migriranom bazom nikad
+    # ne proverava.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: qa
+          POSTGRES_DB: qa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     env:
       # ── Placeholder env (vidi napomenu iznad) ──────────────────────────────
       #
@@ -109,6 +127,15 @@ jobs:
 
       - name: QA — klasifikacija ruta u middleware-u
         run: npx tsx scripts/qa-routes.mts
+
+      - name: QA — SQL koji se stvarno izvršava (pravi Postgres)
+        # Vozi PRAVE funkcije aplikacije nad pravim Postgres-om. Hvata dva razreda
+        # otkaza koje nijedna provera nad čistim funkcijama ne može: upit koji se
+        # kompajlira ali ga Postgres odbija (GROUP BY sa bind parametrom), i drift
+        # između drizzle šeme i baze (kolona u kodu bez migracije).
+        env:
+          TEST_DATABASE_URL: postgres://postgres:qa@localhost:5432/qa
+        run: npm run qa:sql
 
       - name: Build (webpack)
         # MORA webpack, ne Turbopack: Serwist radi u injector modu i sa

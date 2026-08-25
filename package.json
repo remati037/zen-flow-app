@@ -10,7 +10,12 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "qa:dates": "tsx scripts/qa-dates.mts",
+    "qa:routes": "tsx scripts/qa-routes.mts",
+    "qa:sql": "tsx --conditions=react-server scripts/qa-sql.mts",
+    "qa": "npm run lint && npm run qa:dates && npm run qa:routes && npm run qa:sql",
+    "db:status": "tsx scripts/db-status.mts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.5.3",
@@ -40,6 +45,7 @@
     "@tailwindcss/postcss": "^4.3.3",
     "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/web-push": "^3.6.4",
@@ -47,6 +53,7 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.3.2",
+    "pg": "^8.23.0",
     "postcss": "^8.5.26",
     "serwist": "^9.5.11",
     "shadcn": "^4.11.0",

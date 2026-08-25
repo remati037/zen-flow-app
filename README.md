@@ -159,7 +159,9 @@ Uz env varijable, za pun launch treba i **scheduler** za `/api/cron/notification
 | `npm run start` | Pokreni production build |
 | `npm run lint` | ESLint |
 | `npx tsx scripts/qa-dates.mts` | QA harness: timezone/DST, streak, prozori dispatchera, Woo integritet, access override, cap alerta, odjavni token (218 provera) |
-| `npx tsx scripts/qa-routes.mts` | QA harness: koje rute traže Clerk sesiju, koje rolu, koje su javne (49 provera) |
+| `npx tsx scripts/qa-routes.mts` | QA harness: koje rute traže Clerk sesiju, koje rolu, koje su javne (50 provera) |
+| `npm run qa:sql` | **QA harness: SQL koji se stvarno izvršava** (69 provera). Bez `TEST_DATABASE_URL` preskače DB deo. Sa bazom: `TEST_DATABASE_URL="postgres://postgres:qa@localhost:5433/postgres" npm run qa:sql` |
+| `npm run qa` | Sve odjednom: lint + tri harness-a |
 | `npx tsx scripts/db-status.mts` | **Read-only:** koje su migracije primenjene na datoj bazi. Bez prefiksa gleda `.env.local` (dev); za produkciju: `DATABASE_URL="<prod url>" npx tsx scripts/db-status.mts` |
 | `npm run db:generate` | Generiši SQL migraciju iz promena u `lib/db/schema.ts` |
 | `npm run db:migrate` | Primeni versioned migracije na Neon |
@@ -171,6 +173,31 @@ Uz env varijable, za pun launch treba i **scheduler** za `/api/cron/notification
 ## Baza i ORM
 
 Drizzle šeme su u [`lib/db/schema.ts`](./lib/db/schema.ts), Drizzle klijent (neon-http) u [`lib/db/index.ts`](./lib/db/index.ts). Migracije se verzionišu u [`drizzle/`](./drizzle/) i commituju.
+
+### Provera SQL-a
+
+`npm run qa:sql` vozi **prave funkcije aplikacije** nad pravim Postgres-om. Postoji jer
+`qa-dates` i `qa-routes` ne izvršavaju nijedan upit, pa su kroz njih prošla dva produkciona
+otkaza: `GROUP BY` sa bind parametrom (upit se kompajlira, Postgres ga odbija) i baza zaostala
+za kodom. Pokriva:
+
+1. migracije na disku ↔ `_journal.json`
+2. `EXPECTED_SCHEMA` ↔ objekti koje migracije stvarno uvode
+3. primenu svih migracija od nule
+4. **drift**: svaka kolona iz drizzle šeme mora postojati u bazi, sa istim nullability
+5. izvršavanje pravih funkcija (`getDeliveryReport`, `getAdminMetrics`, `listAdminUsers`,
+   `maintainAccessStatuses`, dedup rezervacije, heartbeat…)
+6. ograničenja: CHECK nad `access_override`, parcijalni unique za dedup, SQL delte
+
+Lokalno treba Postgres:
+
+```bash
+docker run --rm -d -p 5433:5432 -e POSTGRES_PASSWORD=qa --name zenflow-qa postgres:17
+TEST_DATABASE_URL="postgres://postgres:qa@localhost:5433/postgres" npm run qa:sql
+```
+
+Bezbedno je: traži **zaseban** `TEST_DATABASE_URL` (nikad ne pada nazad na `DATABASE_URL`),
+a sve što piše ide u transakciju koja se vraća unazad.
 
 > ⚠️ **`npm run db:migrate` migrira bazu iz `.env.local` — a to je DEV branch.** `drizzle.config.ts`
 > učitava taj fajl, pa se lako poveruje da je i produkcija migrirana kad nije; posledica je da
