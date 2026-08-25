@@ -31,71 +31,20 @@ if (!url) {
 const { neon } = await import('@neondatabase/serverless')
 const sql = neon(url)
 
-/** Host + ime baze, bez kredencijala — da se vidi KOJA je baza, a da se tajna ne ispiše. */
-function describeTarget(raw: string): string {
-  try {
-    const u = new URL(raw)
-    return `${u.host}${u.pathname}`
-  } catch {
-    return '(neparsabilan DATABASE_URL)'
-  }
-}
+const { EXPECTED_SCHEMA, describeSchemaObject, describeDatabaseTarget } = await import(
+  '../lib/db/expected-schema'
+)
 
-/** Objekti koje svaka migracija uvodi — provera nezavisna od tabele migracija. */
-const EXPECTED: { tag: string; what: string; check: () => Promise<boolean> }[] = [
-  {
-    tag: '0001',
-    what: 'index orders_email_lower_date_idx',
-    check: () => hasIndex('orders_email_lower_date_idx'),
-  },
-  { tag: '0002', what: 'tabela cron_runs', check: () => hasTable('cron_runs') },
-  {
-    tag: '0003',
-    what: 'notifications_log.dedup_day',
-    check: () => hasColumn('notifications_log', 'dedup_day'),
-  },
-  {
-    tag: '0003',
-    what: 'push_subscriptions.last_seen_at',
-    check: () => hasColumn('push_subscriptions', 'last_seen_at'),
-  },
-  {
-    tag: '0004',
-    what: 'profiles.access_override',
-    check: () => hasColumn('profiles', 'access_override'),
-  },
-  { tag: '0004', what: 'profiles.email_alerts', check: () => hasColumn('profiles', 'email_alerts') },
-  {
-    tag: '0004',
-    what: 'supply.low_stock_alerts_sent',
-    check: () => hasColumn('supply', 'low_stock_alerts_sent'),
-  },
-]
-
-async function hasTable(name: string): Promise<boolean> {
-  const rows = (await sql`
-    select 1 from information_schema.tables
-    where table_schema = 'public' and table_name = ${name}
-  `) as unknown[]
+async function exists(o: (typeof EXPECTED_SCHEMA)[number]): Promise<boolean> {
+  const rows = (await (o.kind === 'table'
+    ? sql`select 1 from information_schema.tables where table_schema = 'public' and table_name = ${o.table}`
+    : o.kind === 'column'
+      ? sql`select 1 from information_schema.columns where table_schema = 'public' and table_name = ${o.table} and column_name = ${o.column}`
+      : sql`select 1 from pg_indexes where schemaname = 'public' and indexname = ${o.index}`)) as unknown[]
   return rows.length > 0
 }
 
-async function hasColumn(table: string, column: string): Promise<boolean> {
-  const rows = (await sql`
-    select 1 from information_schema.columns
-    where table_schema = 'public' and table_name = ${table} and column_name = ${column}
-  `) as unknown[]
-  return rows.length > 0
-}
-
-async function hasIndex(name: string): Promise<boolean> {
-  const rows = (await sql`
-    select 1 from pg_indexes where schemaname = 'public' and indexname = ${name}
-  `) as unknown[]
-  return rows.length > 0
-}
-
-console.log(`\nBaza: ${describeTarget(url)}\n`)
+console.log(`\nBaza: ${describeDatabaseTarget(url)}\n`)
 
 // ── Tabela migracija ────────────────────────────────────────────────────────
 try {
@@ -110,15 +59,15 @@ try {
 // ── Stvarni objekti ─────────────────────────────────────────────────────────
 console.log('\nObjekti po migraciji:')
 let missing = 0
-for (const item of EXPECTED) {
+for (const item of EXPECTED_SCHEMA) {
   let ok = false
   try {
-    ok = await item.check()
+    ok = await exists(item)
   } catch {
     ok = false
   }
   if (!ok) missing++
-  console.log(`  ${ok ? '✅' : '❌'} ${item.tag}  ${item.what}`)
+  console.log(`  ${ok ? '✅' : '❌'} ${item.tag}  ${describeSchemaObject(item)}`)
 }
 
 console.log('\n──────────────')
