@@ -80,7 +80,23 @@ export async function getDeliveryReport(
   // Granica je beogradska PONOĆ prvog dana serije, prevedena u instant — ista
   // konverzija koju radi i grupisanje ispod, pa ivica ne može da se raziđe.
   const since = sql<Date>`(${seriesStart}::date::timestamp at time zone ${BELGRADE_TZ})`
-  const day = sql<string>`(${notificationsLog.sentAt} at time zone ${BELGRADE_TZ})::date`
+
+  /**
+   * Zona MORA biti SQL literal, ne bind parametar.
+   *
+   * Isti izraz stoji i u `select` listi i u `group by`. Sa `${BELGRADE_TZ}` kao
+   * parametrom drizzle svakoj upotrebi dodeli SVOJ placeholder ($1 u select-u,
+   * $4 u group by), a Postgres dva izraza sa različitim placeholder-ima ne
+   * prepoznaje kao isti izraz — pa odbija upit sa:
+   *   column "notifications_log.sent_at" must appear in the GROUP BY clause
+   *
+   * `sql.raw` je ovde bezbedan i to nije prećutna pretpostavka: `BELGRADE_TZ` je
+   * konstanta iz `lib/dates.ts` ('Europe/Belgrade'), nikad korisnički unos. Kad
+   * bi zona ikad postala promenljiva, ovo mora nazad na parametar + `group by`
+   * po rednom broju kolone.
+   */
+  const tz = sql.raw(`'${BELGRADE_TZ}'`)
+  const day = sql<string>`(${notificationsLog.sentAt} at time zone ${tz})::date`
 
   const [dayRows, typeRows] = await Promise.all([
     db

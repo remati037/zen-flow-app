@@ -160,6 +160,7 @@ Uz env varijable, za pun launch treba i **scheduler** za `/api/cron/notification
 | `npm run lint` | ESLint |
 | `npx tsx scripts/qa-dates.mts` | QA harness: timezone/DST, streak, prozori dispatchera, Woo integritet, access override, cap alerta, odjavni token (218 provera) |
 | `npx tsx scripts/qa-routes.mts` | QA harness: koje rute traže Clerk sesiju, koje rolu, koje su javne (49 provera) |
+| `npx tsx scripts/db-status.mts` | **Read-only:** koje su migracije primenjene na datoj bazi. Bez prefiksa gleda `.env.local` (dev); za produkciju: `DATABASE_URL="<prod url>" npx tsx scripts/db-status.mts` |
 | `npm run db:generate` | Generiši SQL migraciju iz promena u `lib/db/schema.ts` |
 | `npm run db:migrate` | Primeni versioned migracije na Neon |
 | `npm run db:push` | Gurni šemu direktno (samo za brzi prototip) |
@@ -170,6 +171,15 @@ Uz env varijable, za pun launch treba i **scheduler** za `/api/cron/notification
 ## Baza i ORM
 
 Drizzle šeme su u [`lib/db/schema.ts`](./lib/db/schema.ts), Drizzle klijent (neon-http) u [`lib/db/index.ts`](./lib/db/index.ts). Migracije se verzionišu u [`drizzle/`](./drizzle/) i commituju.
+
+> ⚠️ **`npm run db:migrate` migrira bazu iz `.env.local` — a to je DEV branch.** `drizzle.config.ts`
+> učitava taj fajl, pa se lako poveruje da je i produkcija migrirana kad nije; posledica je da
+> aplikacija na produkciji 500-uje na svaki upit koji dodiruje nove kolone. Za produkciju se
+> `DATABASE_URL` mora navesti eksplicitno:
+> ```bash
+> DATABASE_URL="<prod pooled url>" npx tsx scripts/db-status.mts   # prvo proveri
+> DATABASE_URL="<prod pooled url>" npx drizzle-kit migrate         # pa primeni
+> ```
 
 ```ts
 import { db, profiles } from '@/lib/db'

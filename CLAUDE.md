@@ -227,6 +227,11 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
   prikaz u `/admin`). Grupisanje po UTC danu bi večernje podsetnike posle ponoći bacalo u pogrešnu
   kolonu. Dani bez ijednog reda se popunjavaju nulama — nestao dan izgleda kao da ga nije bilo,
   nula izgleda kao otkaz (i to i jeste ako je dan imao kandidate).
+- **`GROUP BY` nad izrazom NIKAD ne sme da nosi bind parametar.** Drizzle svakoj upotrebi
+  `${VAR}` dodeli SVOJ placeholder, pa isti izraz u `select` listi ($1) i u `group by` ($4)
+  Postgres ne prepoznaje kao isti i odbija upit („column … must appear in the GROUP BY clause").
+  Konstante zone/formata idu kroz `sql.raw` (vidi `tz` u `lib/admin/delivery.ts`) — bezbedno samo
+  zato što su naše konstante, nikad korisnički unos. QA harness ovo NE hvata: ne izvršava SQL.
 - **Nijedan modul ne sme da baca na IMPORTU zbog nedostajuće env varijable.** `next build` u fazi
   „Collecting page data" importuje svaki route modul da pročita njegovu konfiguraciju, pa eager
   provera tajne obara BUILD porukom koja optužuje rutu („Failed to collect configuration for
