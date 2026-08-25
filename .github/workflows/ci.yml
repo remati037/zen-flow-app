@@ -71,7 +71,14 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          # 24, ne 22 — i to nije proizvoljno. `scripts/qa-routes.mts` importuje
+          # `createRouteMatcher` iz `@clerk/nextjs/server` NAMERNO: harness mora da
+          # koristi isti matcher kao middleware, inače ne dokazuje ništa. Clerk-ov
+          # ESM build ima extensionless interne importe, pa ga Node 22 instancira
+          # kao ESM i named export puca sa "does not provide an export named".
+          # Node 24 (verzija na kojoj se razvija) ga razrešava kao i lokalni tsx.
+          # Ovo je paritet sa DEV okruženjem; runtime na Vercelu bira Vercel.
+          node-version: 24
           # Keš npm-a je vezan za package-lock.json — bez `cache` `npm ci`
           # svaki put povlači ceo `node_modules` sa mreže (~40 s → ~8 s).
           cache: npm
