@@ -3,8 +3,9 @@ import 'server-only'
 import { eq, sql } from 'drizzle-orm'
 
 import { db, orders, profiles, supply } from '@/lib/db'
+import { EVENTS, logError, logInfo, logWarn } from '@/lib/observability/log'
 import { belgradeToday } from '@/lib/dates'
-import { estimateRunoutDate } from '@/lib/protocol/dosing'
+import { LOW_STOCK_THRESHOLD, estimateRunoutDate } from '@/lib/protocol/dosing'
 import { classifyOrderStatus, resolveOrderDate, wasInserted } from '@/lib/woocommerce/order-rules'
 import { resolveProductFromLineItems } from '@/lib/woocommerce/products'
 import { wooOrderSchema, type WooOrderPayload } from '@/lib/validations/woocommerce'
@@ -51,9 +52,7 @@ async function topUpSupplyForEmail(email: string, capsulesTotal: number): Promis
       .where(eq(supply.userId, profile.id))
       .limit(1)
     if (!supplyRow) {
-      console.warn(
-        `[woo-sync] Top-up preskočen za ${normalized} — supply red ne postoji (nezavršen onboarding).`,
-      )
+      logWarn(EVENTS.wooTopUpSkipped, { userId: profile.id, reason: 'no_supply_row' })
       return
     }
 
@@ -64,10 +63,15 @@ async function topUpSupplyForEmail(email: string, capsulesTotal: number): Promis
         capsulesRemaining,
         estimatedRunoutDate: estimateRunoutDate(belgradeToday(), capsulesRemaining),
         updatedAt: new Date(),
+        // Dopuna zatvara epizodu niskih zaliha → brojač alerta na 0. Uslov je nad
+        // NOVIM stanjem, ne nad činjenicom dopune: refill od 1 kapsule ne sme da
+        // otvori novu rundu od tri alerta dok su zalihe i dalje ispod praga.
+        ...(capsulesRemaining > LOW_STOCK_THRESHOLD ? { lowStockAlertsSent: 0 } : {}),
       })
       .where(eq(supply.userId, profile.id))
   } catch (err) {
-    console.error('[woo-sync] top-up zaliha nije uspeo za', normalized, err)
+    // Mejl NE ide u log (lični podatak); količina nosi dovoljno konteksta.
+    logError(EVENTS.wooTopUpFailed, err, { capsulesTotal })
   }
 }
 
@@ -125,7 +129,7 @@ export async function upsertOrder(
     if (!revoked) {
       return { result: 'skipped', reason: 'status', wooOrderId }
     }
-    console.info(`[woo-sync] Porudžbina ${wooOrderId} opozvana (${status}) — pristup se preračunava.`)
+    logInfo(EVENTS.wooOrderRevoked, { wooOrderId, status })
     return { result: 'revoked', wooOrderId, email: revoked.email }
   }
 
@@ -139,10 +143,11 @@ export async function upsertOrder(
     const seenSkus = order.line_items
       .map((item) => item.sku?.trim())
       .filter((sku): sku is string => Boolean(sku))
-    console.warn(
-      `[woo-sync] Porudžbina ${wooOrderId} (${email}) preskočena — nijedan poznat ZenFlow SKU. ` +
-        `Viđeni SKU-ovi: ${seenSkus.length ? seenSkus.join(', ') : '(nijedan)'}`,
-    )
+    logWarn(EVENTS.wooOrderSkipped, {
+      wooOrderId,
+      reason: 'unknown_sku',
+      seenSkus: seenSkus.length > 0 ? seenSkus.join(',') : null,
+    })
     return { result: 'skipped', reason: 'no-product', wooOrderId }
   }
 

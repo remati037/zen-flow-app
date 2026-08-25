@@ -8,7 +8,7 @@ import { ActionError } from '@/lib/actions/types'
 import { checkAndAwardBadges } from '@/lib/badges/award'
 import { db, protocolLogs, supply } from '@/lib/db'
 import { addDaysIso, belgradeToday } from '@/lib/dates'
-import { CAPSULES_PER_DAY, CAPSULES_PER_DOSE } from '@/lib/protocol/dosing'
+import { CAPSULES_PER_DAY, CAPSULES_PER_DOSE, LOW_STOCK_THRESHOLD } from '@/lib/protocol/dosing'
 import { getProtocolState } from '@/lib/protocol/queries'
 import { logDoseSchema } from '@/lib/validations/protocol'
 
@@ -71,6 +71,15 @@ export const logDose = createAction(logDoseSchema, async (data, { profile }) => 
         else ${supply.capsulesRemaining} + d.delta
       end`
 
+  // Undo check-ina vraća kapsule i može da digne zalihe iznad praga — tada se epizoda
+  // niskih zaliha zatvara i brojač alerta ide na 0. Isti uslov (nad NOVIM stanjem)
+  // stoji i u `updateSupply` i u Woo top-up-u: reset zavisi od STANJA zaliha, ne od
+  // toga koji ga je put upisao.
+  const episodeReset = sql`case
+        when (${nextCapsules}) > ${LOW_STOCK_THRESHOLD}::int then 0
+        else ${supply.lowStockAlertsSent}
+      end`
+
   const result = await db.execute<{ capsules_remaining: number }>(sql`
     with changed as (
       insert into ${protocolLogs} ("user_id", "date", "dose", "status", "taken_at")
@@ -94,6 +103,7 @@ export const logDose = createAction(logDoseSchema, async (data, { profile }) => 
       set "capsules_remaining" = ${nextCapsules},
           "estimated_runout_date" =
             ${today}::date + ceil((${nextCapsules})::numeric / ${CAPSULES_PER_DAY}::int)::int,
+          "low_stock_alerts_sent" = ${episodeReset},
           "updated_at" = now()
       from delta d
       where ${supply.userId} = ${profile.id} and d.delta <> 0

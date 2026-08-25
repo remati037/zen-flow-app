@@ -4,6 +4,7 @@ import { z } from 'zod'
 
 import { ACCESS_INACTIVE_MESSAGE, requireActiveAccess } from '@/lib/access/status'
 import { type Profile, getCurrentProfile, requireAdmin } from '@/lib/auth'
+import { EVENTS, logError } from '@/lib/observability/log'
 import { ActionError, type ActionResult, actionError, actionOk } from './types'
 
 /**
@@ -91,7 +92,10 @@ export function createAction<TSchema extends z.ZodType, TOutput>(
       if (err instanceof ActionError) {
         return actionError(err.message, err.fieldErrors)
       }
-      console.error('[action] neočekivana greška:', err)
+      // Neuhvaćena greška u server akciji — jedina tačka gde se sve one skupljaju.
+      // Strukturno, sa `userId`-em, da se u logu može odvojiti „jedan korisnik ima
+      // pokvaren profil" od „akcija je pukla svima".
+      logError(EVENTS.actionFailed, err, { userId: profile.id })
       return actionError('Došlo je do greške. Pokušaj ponovo.')
     }
   }

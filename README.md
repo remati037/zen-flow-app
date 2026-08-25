@@ -116,7 +116,7 @@ Rute: javne (`/`, `/sign-in`, `/sign-up`, `/style-guide`, `/api/webhooks/*`, `/m
 
 ## Env varijable (Vercel launch lista)
 
-Svih 22 varijable koje kod čita. **Obavezno** = bez nje feature pada ili se tiho gasi.
+Svih 23 varijable koje kod čita. **Obavezno** = bez nje feature pada ili se tiho gasi.
 
 | Varijabla | Obavezno | Bez nje | Odakle |
 |---|---|---|---|
@@ -131,7 +131,8 @@ Svih 22 varijable koje kod čita. **Obavezno** = bez nje feature pada ili se tih
 | `RESEND_API_KEY` | ✅ | nema welcome ni low-stock mejla | resend.com → API Keys |
 | `EMAIL_FROM` | ⚠️ | fallback `onboarding@resend.dev` (šalje samo vlasniku naloga) | posle verifikacije domena: `NuroLab <noreply@nurolab.rs>` |
 | `CRON_SECRET` | ✅ | **sve cron rute vraćaju 401** | `openssl rand -hex 32` |
-| `NOTIFICATION_WINDOW_MIN` | ⚠️ | fallback `30` (upareno sa schedulerom na 15 min) | vidi [`docs/cron-setup.md`](./docs/cron-setup.md#preciznost-podsetnika) |
+| `EMAIL_UNSUBSCRIBE_SECRET` | ⛔ | fallback `CRON_SECRET`; bez ijednog od ta dva alert mejlovi idu **bez** `List-Unsubscribe` zaglavlja | `openssl rand -hex 32` — postavi samo ako želiš da rotacija `CRON_SECRET`-a ne obori odjavne linkove iz već poslatih mejlova |
+| `NOTIFICATION_WINDOW_MIN` | ⚠️ | fallback `45` — rezerva za jitter GitHub Actions-a (kadenca 15 min); uži prozor gubi podsetnike kad run kasni ili se preskoči | vidi [`docs/cron-setup.md`](./docs/cron-setup.md#preciznost-podsetnika) |
 | `NEXT_PUBLIC_APP_URL` | ✅ | linkovi u mejlovima gađaju `localhost` | `https://app.nurolab.rs` |
 | `NEXT_PUBLIC_SUPPORT_EMAIL` | ⚠️ | fallback `podrska@nurolab.rs` | — |
 | `NEXT_PUBLIC_SHOP_REFILL_URL` | ✅ | **refill CTA se tiho ne prikazuje** na `/zalihe`, `/dashboard`, `/podesavanja` | link ka ZenFlow proizvodu |
@@ -142,6 +143,8 @@ Svih 22 varijable koje kod čita. **Obavezno** = bez nje feature pada ili se tih
 | `WOO_STORE_URL` | ✅ | backfill ne radi | `https://nurolab.rs` (bez završne `/`) |
 | `WOO_CONSUMER_KEY` | ✅ | backfill ne radi | WooCommerce → Settings → Advanced → REST API |
 | `WOO_CONSUMER_SECRET` | ✅ | backfill ne radi | isto |
+
+> Legenda: ✅ obavezno · ⚠️ ima fallback · ⛔ potpuno opciono.
 
 Uz env varijable, za pun launch treba i **scheduler** za `/api/cron/notifications` (Vercel ga ne pokreće — vozi ga GitHub Actions workflow u repou, treba mu samo `CRON_SECRET` kao **repo secret**). Vidi [`docs/cron-setup.md`](./docs/cron-setup.md). Posle svake izmene env varijabli → **Redeploy**.
 
@@ -155,8 +158,8 @@ Uz env varijable, za pun launch treba i **scheduler** za `/api/cron/notification
 | `npm run build` | Production build |
 | `npm run start` | Pokreni production build |
 | `npm run lint` | ESLint |
-| `npx tsx scripts/qa-dates.mts` | QA harness: timezone/DST, streak, prozori dispatchera i Woo integritet (156 provera) |
-| `npx tsx scripts/qa-routes.mts` | QA harness: koje rute traže Clerk sesiju, koje rolu, koje su javne (27 provera) |
+| `npx tsx scripts/qa-dates.mts` | QA harness: timezone/DST, streak, prozori dispatchera, Woo integritet, access override, cap alerta, odjavni token (218 provera) |
+| `npx tsx scripts/qa-routes.mts` | QA harness: koje rute traže Clerk sesiju, koje rolu, koje su javne (49 provera) |
 | `npm run db:generate` | Generiši SQL migraciju iz promena u `lib/db/schema.ts` |
 | `npm run db:migrate` | Primeni versioned migracije na Neon |
 | `npm run db:push` | Gurni šemu direktno (samo za brzi prototip) |

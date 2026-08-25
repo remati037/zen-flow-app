@@ -9,7 +9,7 @@ import withSerwistInit from "@serwist/next";
  * stranici, pa bi stara revizija ostavila precache-ovan HTML koji pokazuje na
  * fajlove kojih više nema.
  */
-const SW_VERSION = "1.17.0";
+const SW_VERSION = "1.18.0";
 
 const withSerwist = withSerwistInit({
   swSrc: "app/sw.ts",

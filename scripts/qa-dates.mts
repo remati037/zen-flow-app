@@ -32,8 +32,13 @@ const { estimateRunoutDate, CAPSULES_PER_DAY, CAPSULES_PER_DOSE } = await import
 const { ACCESS_WINDOW_DAYS, accessWindowCutoff, accessWindowEnd, isWithinAccessWindow } = await import('../lib/access/window')
 const { inWindow, reminderWindowStart, streakRiskWindowStart, minutesToHm, WINDOW_MIN } = await import('../lib/push/dispatch-rules')
 const {
+  CRON_JOBS, DISPATCHER_STALE_HOURS, describeDispatcherHealth, isGapMissed, minutesBetween, formatMinutes,
+} = await import('../lib/cron/health')
+const {
   classifyOrderStatus, isAccessGrantingStatus, parseWooGmtDate, resolveOrderDate, wasInserted,
 } = await import('../lib/woocommerce/order-rules')
+const { asOverride, resolveAccessStatus } = await import('../lib/access/resolve')
+const { LOW_STOCK_THRESHOLD, LOW_STOCK_MAX_ALERTS_PER_EPISODE } = await import('../lib/protocol/dosing')
 
 console.log('\n=== 1. Ponoć: 23:50 i 00:10 po Beogradu (zima, UTC+1) ===')
 freeze('2026-01-15T22:50:00Z') // Beograd 23:50, 15. jan
@@ -157,36 +162,47 @@ console.log('\n=== 11. Dispatcher: prozori podsetnika ===')
 // Scheduler gađa rutu na 15 min. Svako moguće vreme doze mora da padne u bar
 // jedan tick, inače podsetnik ne stigne nikad.
 /** Koliko vremena doze ostane bez ijednog tick-a pri datoj kadenci schedulera. */
-function uncoveredAt(cadenceMin: number): number {
+function uncoveredAt(cadenceMin: number, windowMin: number = WINDOW_MIN): number {
   const ticks = Array.from({ length: Math.floor(1440 / cadenceMin) }, (_, i) => i * cadenceMin)
+  return uncoveredForTicks(ticks, windowMin)
+}
+
+/** Ista provera nad PROIZVOLJNIM rasporedom tick-ova (za simulaciju jitter-a). */
+function uncoveredForTicks(ticks: number[], windowMin: number = WINDOW_MIN): number {
   let miss = 0
   for (let dose = 0; dose < 1440; dose++) {
-    if (!ticks.some((t) => inWindow(t, reminderWindowStart(dose)))) miss++
+    if (!ticks.some((t) => inWindow(t, reminderWindowStart(dose, windowMin), windowMin))) miss++
   }
   return miss
 }
 
-check(`trenutni prozor (NOTIFICATION_WINDOW_MIN)`, WINDOW_MIN, 30)
+check(`trenutni prozor (NOTIFICATION_WINDOW_MIN, default)`, WINDOW_MIN, 45)
 check('svako od 1440 vremena doze uhvati bar jedan tick (kadenca 15)', uncoveredAt(15), 0)
 
 // PRAVILO UPARIVANJA: pokrivenost je potpuna dok je kadenca ≤ prozor.
 // Ovo je jedina stvar koju treba proveriti pri promeni kadence schedulera.
-check('kadenca 1 ≤ prozor 30 → potpuna pokrivenost', uncoveredAt(1), 0)
-check('kadenca 5 ≤ prozor 30 → potpuna pokrivenost', uncoveredAt(5), 0)
-check('kadenca 30 = prozor 30 → potpuna pokrivenost', uncoveredAt(30), 0)
+check('kadenca 1 ≤ prozor 45 → potpuna pokrivenost', uncoveredAt(1), 0)
+check('kadenca 5 ≤ prozor 45 → potpuna pokrivenost', uncoveredAt(5), 0)
+check('kadenca 45 = prozor 45 → potpuna pokrivenost', uncoveredAt(45), 0)
 // Kadenca šira od prozora ostavlja rupe — zato ih docs uparuju.
-check('kadenca 60 > prozor 30 → ima rupa (zato pravilo postoji)', uncoveredAt(60) > 0, true)
-check('doza 23:50 → prozor stane u dan', minutesToHm(reminderWindowStart(hmToMinutes('23:50'))), '23:30')
-check('doza 08:00 → prozor netaknut', minutesToHm(reminderWindowStart(hmToMinutes('08:00'))), '08:00')
-check('doza 23:30 → poslednji netaknut prozor', minutesToHm(reminderWindowStart(hmToMinutes('23:30'))), '23:30')
-// Kompromis clamp-a: doza posle 23:30 dobija podsetnik ranije nego što je podešeno,
-// ali GA DOBIJA — pre popravke prozor za 23:46+ nije bio dostižan nijednom ticku.
-check('doza 23:45 → clamp na 23:30 (do 15 min ranije, ali stiže)', minutesToHm(reminderWindowStart(hmToMinutes('23:45'))), '23:30')
+check('kadenca 60 > prozor 45 → ima rupa (zato pravilo postoji)', uncoveredAt(60) > 0, true)
+// Stari prozor (30) i dalje mora da bude ispravan za one koji ga eksplicitno postave.
+check('kadenca 30 = prozor 30 → potpuna pokrivenost', uncoveredAt(30, 30), 0)
+check('kadenca 45 > prozor 30 → ima rupa', uncoveredAt(45, 30) > 0, true)
 
-// Streak-at-risk: isti clamp; večernja doza ≥ 22:30 ne sme da isklizne iz dana.
+// Clamp-ovi se pomeraju sa prozorom: pri 45 najkasniji start je 23:15.
+check('doza 23:50 → prozor stane u dan', minutesToHm(reminderWindowStart(hmToMinutes('23:50'))), '23:15')
+check('doza 08:00 → prozor netaknut', minutesToHm(reminderWindowStart(hmToMinutes('08:00'))), '08:00')
+check('doza 23:15 → poslednji netaknut prozor', minutesToHm(reminderWindowStart(hmToMinutes('23:15'))), '23:15')
+// Kompromis clamp-a: doza posle 23:15 dobija podsetnik ranije nego što je podešeno,
+// ali GA DOBIJA — bez clamp-a prozor za tako kasnu dozu nije dostižan nijednom ticku.
+check('doza 23:45 → clamp na 23:15 (30 min ranije, ali stiže)', minutesToHm(reminderWindowStart(hmToMinutes('23:45'))), '23:15')
+check('prozor 30 → isti clamp daje 23:30 (parametar radi)', minutesToHm(reminderWindowStart(hmToMinutes('23:45'), 30)), '23:30')
+
+// Streak-at-risk: isti clamp; kasna večernja doza ne sme da isklizne iz dana.
 check('veče 20:00 → risk prozor 21:30', minutesToHm(streakRiskWindowStart(hmToMinutes('20:00'))), '21:30')
 check('veče 18:00 → risk prozor 21:00 (pod nikad-pre-21h)', minutesToHm(streakRiskWindowStart(hmToMinutes('18:00'))), '21:00')
-check('veče 23:00 → risk prozor clamp-ovan na 23:30', minutesToHm(streakRiskWindowStart(hmToMinutes('23:00'))), '23:30')
+check('veče 23:00 → risk prozor clamp-ovan na 23:15', minutesToHm(streakRiskWindowStart(hmToMinutes('23:00'))), '23:15')
 check('bez večernje doze → risk prozor 21:00', minutesToHm(streakRiskWindowStart(null)), '21:00')
 const riskTicks = Array.from({ length: 96 }, (_, i) => i * 15)
 const riskUncovered: number[] = []
@@ -194,6 +210,72 @@ for (let ev = 0; ev < 1440; ev++) {
   if (!riskTicks.some((t) => inWindow(t, streakRiskWindowStart(ev)))) riskUncovered.push(ev)
 }
 check('svako večernje vreme daje dostižan risk prozor', riskUncovered.length, 0)
+
+console.log('\n=== 11b. Jitter i rupe u rasporedu (zašto je prozor 45, a ne 30) ===')
+// GitHub Actions ne poštuje `schedule`: kasni 10–20 min, a pod opterećenjem
+// preskoči run. Ovde se raspored simulira DETERMINISTIČKI, pa test ne treperi.
+
+/**
+ * Nominalni raspored na `cadence`, ali: svaki `skipEvery`-ti run se preskoči, a
+ * PRVI run posle preskoka kasni `delay` — najgori realan scenario GitHub Actions-a.
+ * Razmak koji tako nastane je `2 × cadence + delay`.
+ */
+function jitteredTicks({ cadence, delay, skipEvery }: { cadence: number; delay: number; skipEvery: number }): number[] {
+  const out: number[] = []
+  for (let i = 0; i * cadence < 1440; i++) {
+    const skipped = i % skipEvery === skipEvery - 1
+    if (skipped) continue
+    const afterSkip = i > 0 && i % skipEvery === 0
+    const t = i * cadence + (afterSkip ? delay : 0)
+    if (t < 1440) out.push(t)
+  }
+  return out
+}
+
+// Jedan preskočen run od svaka 4 + 15 min kašnjenja narednog.
+// Najgori razmak koji ovako nastane je 45 min (15×2 zbog preskoka + 15 kašnjenja).
+const jitter = jitteredTicks({ cadence: 15, delay: 15, skipEvery: 4 })
+const worstGap = Math.max(...jitter.slice(1).map((t, i) => t - jitter[i]))
+check('simulirani najgori razmak između poziva', worstGap, 45)
+check('prozor 45 ≥ razmak 45 → nijedan podsetnik nije izgubljen', uncoveredForTicks(jitter, 45), 0)
+check('prozor 30 < razmak 45 → podsetnici SE gube (razlog za 45)', uncoveredForTicks(jitter, 30) > 0, true)
+
+// Klasifikacija rupe — isti prag koji dijagnostika pokazuje adminu.
+check('razmak 15 pri prozoru 45 → nije rupa', isGapMissed(15, 45), false)
+check('razmak 45 = prozor → još uvek nije rupa (granica je uključena)', isGapMissed(45, 45), false)
+check('razmak 46 > prozor → rupa', isGapMissed(46, 45), true)
+check('prvi run ikad (null) → nije rupa', isGapMissed(null, 45), false)
+check('razmak 45 pri prozoru 30 → rupa', isGapMissed(45, 30), true)
+
+console.log('\n=== 11c. Alert kad dispatcher nije pozvan ===')
+const NOW = new Date('2026-08-25T12:00:00Z')
+const minutesAgo = (m: number) => new Date(NOW.getTime() - m * 60_000)
+const run = (over: Partial<Parameters<typeof describeDispatcherHealth>[0]['run'] & object> = {}) => ({
+  lastRunAt: minutesAgo(10), lastGapMin: 15, maxGapMin: 15, maxGapAt: minutesAgo(600), runsTotal: 500, ...over,
+})
+const health = (r: ReturnType<typeof run> | null) =>
+  describeDispatcherHealth({ run: r, now: NOW, windowMin: 45 }).status
+
+check('ključ posla je stabilan', CRON_JOBS.notifications, 'notifications')
+check('prag mrtvog dispatchera (h)', DISPATCHER_STALE_HOURS, 2)
+check('nikad pozvan → never', health(null), 'never')
+check('poslednji run pre 10 min, bez rupa → ok', health(run()), 'ok')
+check('poslednji run pre 119 min → još uvek ok (ispod praga)', health(run({ lastRunAt: minutesAgo(119) })), 'ok')
+check('poslednji run pre 120 min → stale (prag je 2h)', health(run({ lastRunAt: minutesAgo(120) })), 'stale')
+check('poslednji run pre 8h → stale', health(run({ lastRunAt: minutesAgo(480) })), 'stale')
+check('živ, ali je jednom ćutao 90 min → gaps', health(run({ maxGapMin: 90 })), 'gaps')
+check('stale ima prioritet nad gaps', health(run({ lastRunAt: minutesAgo(300), maxGapMin: 90 })), 'stale')
+// Poruka mora da imenuje scheduler — admin je čita na telefonu, bez pristupa logovima.
+check(
+  'poruka za never pominje scheduler',
+  describeDispatcherHealth({ run: null, now: NOW, windowMin: 45 }).message.includes('scheduler'),
+  true,
+)
+check('minutesBetween zaokružuje na minut', minutesBetween(minutesAgo(90), NOW), 90)
+check('sat unazad ne daje negativan razmak', minutesBetween(new Date(NOW.getTime() + 60_000), NOW), 0)
+check('formatMinutes: 45', formatMinutes(45), '45 min')
+check('formatMinutes: 120', formatMinutes(120), '2h')
+check('formatMinutes: 95', formatMinutes(95), '1h 35min')
 
 console.log('\n=== 12. WooCommerce: datum porudžbine iz GMT polja ===')
 // Woo šalje `*_gmt` BEZ oznake zone. Bez eksplicitnog 'Z' to se parsira kao lokalno
@@ -501,6 +583,147 @@ for (const caps of [0, 1, 2, 3, 4, 14, 58, 60]) {
     addDaysIso('2026-08-24', Math.ceil(caps / CAPSULES_PER_DAY)),
   )
 }
+
+
+console.log('\n=== 12. Access override (L-M2) — prioritet role, override-a i porudžbine ===')
+// Zašto ovaj blok postoji: override je ranije pisao u `access_status`, koji
+// `refreshAccessStatusForProfile` prepisuje na SVAKI ulaz korisnika u app. Prvi
+// sledeći page load ga je poništavao — u oba smera. Sada je zasebna kolona i ovde
+// se fiksira tačan prioritet, jer je to jedino što odlučuje ko ulazi u aplikaciju.
+freeze('2026-08-25T09:00:00Z')
+{
+  const now = new Date()
+  const svez = new RealDate('2026-08-01T10:00:00Z')   // u prozoru (60 dana)
+  const star = new RealDate('2026-01-01T10:00:00Z')   // van prozora
+
+  const R = (p: Parameters<typeof resolveAccessStatus>[0]) => resolveAccessStatus(p)
+
+  // Bez override-a: staro ponašanje mora ostati netaknuto.
+  check('bez override-a, sveža porudžbina → vip',
+    R({ role: 'user', currentStatus: 'inactive', latestOrderDate: svez, now }), 'vip')
+  check('bez override-a, stara porudžbina → inactive',
+    R({ role: 'user', currentStatus: 'vip', latestOrderDate: star, now }), 'inactive')
+  check('bez override-a, bez porudžbine → inactive',
+    R({ role: 'user', currentStatus: 'vip', latestOrderDate: null, now }), 'inactive')
+  check('subscriber ostaje subscriber (Faza 2)',
+    R({ role: 'user', currentStatus: 'subscriber', latestOrderDate: null, now }), 'subscriber')
+
+  // Override nadjačava porudžbinu u OBA smera — to je ceo smisao ispravke.
+  check('override vip bez porudžbine → vip',
+    R({ role: 'user', currentStatus: 'inactive', latestOrderDate: null, now, override: 'vip' }), 'vip')
+  check('override inactive UPRKOS svežoj porudžbini → inactive',
+    R({ role: 'user', currentStatus: 'vip', latestOrderDate: svez, now, override: 'inactive' }), 'inactive')
+  check('override nadjačava subscriber',
+    R({ role: 'user', currentStatus: 'subscriber', latestOrderDate: null, now, override: 'inactive' }), 'inactive')
+
+  // Rola je IZNAD override-a: admin ne sme da se zaključa van aplikacije.
+  check('admin + override inactive → i dalje vip',
+    R({ role: 'admin', currentStatus: 'inactive', latestOrderDate: null, now, override: 'inactive' }), 'vip')
+  check('admin bez porudžbine → vip',
+    R({ role: 'admin', currentStatus: 'inactive', latestOrderDate: null, now }), 'vip')
+
+  // Ključna regresija: ponovljeni refresh mora dati ISTU vrednost (idempotentno).
+  // Stari bug je bio baš to — drugi prolaz je vraćao nešto drugo.
+  let st = R({ role: 'user', currentStatus: 'vip', latestOrderDate: null, now, override: 'vip' })
+  for (let i = 0; i < 5; i++) {
+    st = R({ role: 'user', currentStatus: st, latestOrderDate: null, now, override: 'vip' })
+  }
+  check('override preživi 5 uzastopnih refresh-eva', st, 'vip')
+
+  let bl = R({ role: 'user', currentStatus: 'inactive', latestOrderDate: svez, now, override: 'inactive' })
+  for (let i = 0; i < 5; i++) {
+    bl = R({ role: 'user', currentStatus: bl, latestOrderDate: svez, now, override: 'inactive' })
+  }
+  check('blokada preživi 5 refresh-eva uz svežu porudžbinu', bl, 'inactive')
+
+  // `subscriber` kroz override je zabranjen (CHECK u bazi); kod ga svodi na null.
+  check('asOverride: vip/inactive prolaze', [asOverride('vip'), asOverride('inactive')], ['vip', 'inactive'])
+  check('asOverride: subscriber → null (ne sme kroz override)', asOverride('subscriber'), null)
+  check('asOverride: null/undefined → null', [asOverride(null), asOverride(undefined)], [null, null])
+}
+unfreeze()
+
+console.log('\n=== 13. Cap low-stock alerta po epizodi (V10) ===')
+// Simulacija `supply` reda: dedup (3 dana) ograničava UČESTALOST, ovaj brojač
+// ograničava UKUPAN broj po epizodi. Reset je vezan za STANJE (kapsule iznad
+// praga), ne za događaj „dopuna" — inače bi ga neki put upisa zaboravio.
+function makeSupply(capsules: number) {
+  const row = { capsules, alertsSent: 0 }
+  return {
+    get state() { return { ...row } },
+    /** Bilo koji upis zaliha (ručna korekcija, Woo top-up, undo check-ina). */
+    write(next: number) {
+      row.capsules = next
+      if (next > LOW_STOCK_THRESHOLD) row.alertsSent = 0
+    },
+    /** Jedan prolaz cron-a; vraća da li je alert izašao. */
+    cronPass(): boolean {
+      if (row.capsules > LOW_STOCK_THRESHOLD) return false
+      if (row.alertsSent >= LOW_STOCK_MAX_ALERTS_PER_EPISODE) return false
+      row.alertsSent += 1
+      return true
+    },
+  }
+}
+
+const sup = makeSupply(10)
+const prvaEpizoda = [sup.cronPass(), sup.cronPass(), sup.cronPass(), sup.cronPass(), sup.cronPass()]
+check(`prva epizoda: tačno ${LOW_STOCK_MAX_ALERTS_PER_EPISODE} alerta pa tišina`,
+  prvaEpizoda, [true, true, true, false, false])
+check('brojač stao na cap-u', sup.state.alertsSent, LOW_STOCK_MAX_ALERTS_PER_EPISODE)
+
+// Dopuna ISPOD praga ne otvara novu rundu — inače bi refill od 1 kapsule resetovao cap.
+sup.write(LOW_STOCK_THRESHOLD)
+check('dopuna do praga NE resetuje brojač', sup.state.alertsSent, LOW_STOCK_MAX_ALERTS_PER_EPISODE)
+check('i dalje ćuti', sup.cronPass(), false)
+
+// Prelazak PREKO praga zatvara epizodu.
+sup.write(LOW_STOCK_THRESHOLD + 1)
+check('prelazak preko praga resetuje brojač', sup.state.alertsSent, 0)
+check('iznad praga se ne šalje ništa', sup.cronPass(), false)
+
+// Nova epizoda dobija pun budžet.
+sup.write(8)
+const drugaEpizoda = [sup.cronPass(), sup.cronPass(), sup.cronPass(), sup.cronPass()]
+check('druga epizoda ponovo dobija pun budžet', drugaEpizoda, [true, true, true, false])
+
+// Svaki put upisa mora resetovati isto (Woo top-up, ručna korekcija, undo check-ina).
+for (const [label, target] of [
+  ['Woo top-up (+60)', 8 + 60],
+  ['ručna korekcija', 40],
+  ['undo check-ina (+2 preko praga)', LOW_STOCK_THRESHOLD + 2],
+] as const) {
+  const p = makeSupply(8)
+  p.cronPass(); p.cronPass()
+  p.write(target)
+  check(`${label} resetuje brojač`, p.state.alertsSent, 0)
+}
+
+console.log('\n=== 14. Odjavni token (List-Unsubscribe, V10) ===')
+// Ruta je JAVNA (Gmail one-click POST nema Clerk sesiju), pa je potpis jedina brava.
+// Pokvaren potpis znači ili odjavu koja ne radi (→ prijava spama) ili odjavu koju
+// može da izvede bilo ko (→ gašenje tuđih alerta).
+process.env.EMAIL_UNSUBSCRIBE_SECRET = 'qa-test-secret-0123456789'
+const { unsubscribeToken, verifyUnsubscribeToken, unsubscribeUrl, unsubscribeHeaders } =
+  await import('../lib/email/unsubscribe')
+
+const tokenA = unsubscribeToken('user_aaa')!
+const tokenB = unsubscribeToken('user_bbb')!
+check('token je 64 hex znaka (SHA-256)', /^[0-9a-f]{64}$/.test(tokenA), true)
+check('isti korisnik → isti token (deterministički)', unsubscribeToken('user_aaa'), tokenA)
+check('različiti korisnici → različiti tokeni', tokenA !== tokenB, true)
+check('validan token prolazi', verifyUnsubscribeToken('user_aaa', tokenA), true)
+check('TUĐI token ne prolazi', verifyUnsubscribeToken('user_aaa', tokenB), false)
+check('izmenjen token ne prolazi', verifyUnsubscribeToken('user_aaa', tokenA.slice(0, -1) + (tokenA.endsWith('0') ? '1' : '0')), false)
+check('skraćen token ne prolazi (bez bacanja)', verifyUnsubscribeToken('user_aaa', tokenA.slice(0, 10)), false)
+check('prazan token ne prolazi', verifyUnsubscribeToken('user_aaa', ''), false)
+check('URL nosi i korisnika i token', unsubscribeUrl('user_aaa')!.includes(`u=user_aaa&t=${tokenA}`), true)
+check('zaglavlja su RFC 8058 par', Object.keys(unsubscribeHeaders('user_aaa')).sort(),
+  ['List-Unsubscribe', 'List-Unsubscribe-Post'])
+check('List-Unsubscribe je u uglastim zagradama',
+  unsubscribeHeaders('user_aaa')['List-Unsubscribe']!.startsWith('<'), true)
+check('one-click je deklarisan',
+  unsubscribeHeaders('user_aaa')['List-Unsubscribe-Post'], 'List-Unsubscribe=One-Click')
 
 console.log(`\n──────────────\nRezultat: ${pass} prošlo, ${fail} palo\n`)
 process.exit(fail > 0 ? 1 : 0)

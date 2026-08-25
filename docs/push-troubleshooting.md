@@ -88,20 +88,29 @@ curl -i -H "Authorization: Bearer $CRON_SECRET" https://app.nurolab.rs/api/cron/
 # 404 → ruta nije u PUBLIC_ROUTES (lib/route-config.ts), pa je `auth.protect()` presreo.
 #       Clerk za ne-HTML zahteve vraća 404 umesto 401, pa izgleda kao da ruta ne postoji.
 # 401 → CRON_SECRET ne odgovara (ili nije postavljen na Vercelu)
-# 200 {"now":"HH:mm","morning":0,...} → ruta radi; nule su normalne van prozora doze
+# 200 {"totals":{"sent":0,...},"byType":{...}} → ruta radi; nule su normalne van prozora doze
 ```
 
-Podsetnik se šalje samo ako je **trenutno beogradsko vreme u prozoru `[vreme doze, +30min)`**, doza
-još nije označena, korisnik nije `inactive` i završio je onboarding. Za test pomeri vreme doze u
-Podešavanjima par minuta unapred i sačekaj sledeći run schedulera.
+Odgovor je razložen po tipu (`byType`), pa se iz njega vidi i **zašto** nešto nije poslato:
+`skippedDedup` (već obavešten danas), `skippedNoSubscription` (nema pretplatu), `skippedNoStreak`
+(streak je 0), `failed` (push servis odbio). `schedule.gapMissedWindow: true` znači da je scheduler
+propustio ceo prozor — vidi „Alert kad dispatcher ćuti" u [`docs/cron-setup.md`](./cron-setup.md).
+
+Podsetnik se šalje samo ako je **trenutno beogradsko vreme u prozoru
+`[vreme doze, +NOTIFICATION_WINDOW_MIN)`** (default **45 min**), doza još nije označena, korisnik
+nije `inactive` i završio je onboarding. Za test pomeri vreme doze u Podešavanjima par minuta
+unapred i sačekaj sledeći run schedulera.
 
 **Zašto prozor, a ne tačno vreme:** dispatcher se budi periodično i ne može da pogodi minut u minut,
-pa hvata sve kojima je vreme doze palo u poslednjih 30 min. Zato **scheduler mora da ide na 15 min** —
-na 60 min propušta oko polovine mogućih vremena doze (prozor od 30 min se prosto ne poklopi sa tickom).
+pa hvata sve kojima je vreme doze palo unutar prozora. Preciznost isporuke određuje **kadenca**
+(15 min), a prozor je **rezerva za kašnjenje schedulera** — GitHub Actions `schedule` kasni 10–20 min
+i ume da preskoči run, pa 45 pokriva „jedan preskočen run + do 15 min kašnjenja". Pravilo:
+pokrivenost je potpuna dok je stvaran razmak između dva poziva ≤ prozor.
 
-Prozor je clamp-ovan da ne pređe ponoć: doza podešena posle **23:30** dobija podsetnik u prozoru
-`23:30–00:00`, dakle ranije nego što je podešeno. Bez toga prozor za dozu posle 23:45 nijedan tick
-ne bi mogao da pogodi (`nowMin` se u ponoć resetuje na 0) i podsetnik ne bi stigao nikad.
+Prozor je clamp-ovan da ne pređe ponoć: pri prozoru 45 doza podešena posle **23:15** dobija
+podsetnik u prozoru `23:15–00:00`, dakle ranije nego što je podešeno. Bez toga prozor za tako kasnu
+dozu nijedan tick ne bi mogao da pogodi (`nowMin` se u ponoć resetuje na 0) i podsetnik ne bi stigao
+nikad.
 
 ## 5. Slanje puca sa drugim statusom
 
@@ -117,3 +126,71 @@ Dijagnostika i toast na „Pošalji test push" sada prikazuju **stvarni HTTP sta
 
 Puni log je u `notifications_log` (`channel: 'push'`, `status: 'failed'`) i u Vercel logovima
 pod prefiksom `[push]`.
+
+## 6. Push je radio pa je prestao (rotacija endpoint-a)
+
+Push servis sme u svakom trenutku da poništi endpoint i izda nov — Chrome to radi posle dužeg
+nekorišćenja, promene profila ili restore-a uređaja. Browser o tome javlja **samo** kroz događaj
+`pushsubscriptionchange` u service worker-u.
+
+Simptom je najgori mogući: nema greške, nema poruke, podsetnici prosto prestanu. U bazi ostaje
+mrtav red koji na svako slanje vraća 410 (u dijagnostici: `recentPushFailures` raste, `sent` je 0).
+
+Pokriveno je u dva sloja:
+
+1. **`pushsubscriptionchange` u `app/sw.ts`** — SW napravi novu pretplatu istim VAPID ključem i
+   POST-uje par `(stari endpoint, nova pretplata)` na `/api/push/rotate`. Ruta iz **starog
+   endpoint-a** izvodi vlasnika (nikad iz tela zahteva), premesti pretplatu i obriše staru — sve
+   u jednoj SQL izjavi.
+2. **`syncPushSubscription` na ulasku u app** (`components/push/push-sync.tsx`) — re-upsert
+   postojeće pretplate. Postoji jer `pushsubscriptionchange` nije garantovan: browser ume da ga
+   propusti, SW može biti ubijen, a neki browseri ga isporuče bez `oldSubscription`, pa server
+   ne zna koju pretplatu da premesti.
+
+### Ručni test u Chrome DevTools
+
+`pushsubscriptionchange` se ne može okinuti dugmetom — nema ga u DevTools UI-u. Testira se tako što
+se **simulira sam događaj** iz SW konzole:
+
+1. Otvori app na **HTTPS** buildu (`npm run build && npm start` ili preview deploy) — SW je ugašen
+   u dev modu.
+2. `F12` → **Application** → **Service workers**. Uključi **Update on reload** i proveri da je
+   aktivan `sw.js` iz ovog builda (ako nije, „Unregister" pa reload).
+3. Uključi push u Podešavanjima i zapamti trenutni endpoint. U konzoli **stranice**:
+   ```js
+   const r = await navigator.serviceWorker.ready
+   const s = await r.pushManager.getSubscription()
+   console.log(s.endpoint)
+   ```
+4. U **Service workers** panelu klikni na link pored „Source" da otvoriš konzolu **service worker-a**
+   (bira se u dropdown-u za kontekst — mora biti `sw.js`, ne `top`). Tamo okini događaj:
+   ```js
+   const oldSub = await self.registration.pushManager.getSubscription()
+   await oldSub.unsubscribe()                       // simulira poništenje kod push servisa
+   self.dispatchEvent(Object.assign(
+     new Event('pushsubscriptionchange'),
+     { oldSubscription: oldSub, newSubscription: null },
+   ))
+   ```
+   `Event` se koristi jer se `PushSubscriptionChangeEvent` ne može konstruisati sa pravim
+   pretplatama; handler čita samo `oldSubscription` / `newSubscription`, pa je ovo verna simulacija.
+5. U **Network** tabu SW konteksta mora da se pojavi `GET /api/push/rotate` (dohvat VAPID ključa,
+   samo ako `oldSubscription.options` nije dostupan) i `POST /api/push/rotate` sa odgovorom
+   `{"rotated":true,"removed":1,"reason":"rotated"}`.
+6. Potvrdi da je endpoint promenjen i da je u bazi tačno **jedan** red:
+   ```js
+   const s2 = await (await navigator.serviceWorker.ready).pushManager.getSubscription()
+   console.log(s2.endpoint)   // različit od onog iz koraka 3
+   ```
+   pa u `/admin` → „Dijagnostika push-a" proveri `subscriptions.count: 1` i `lastSeenAt` od
+   maločas. Na kraju pošalji test push da potvrdiš da stiže na nov endpoint.
+
+**Šta znače ostali odgovori rute:**
+
+| `reason` | Značenje |
+|---|---|
+| `rotated` | Pretplata premeštena, stari red obrisan |
+| `unknown_endpoint` | Stari endpoint nije u bazi (već rotiran, ili pretplata nikad nije sačuvana) — namerno se ne radi ništa |
+| `endpoint_taken` | Novi endpoint već pripada **drugom** nalogu; tuđi red se ne dira (vidi „deljen uređaj" u `push-actions.ts`) |
+
+Ruta uvek vraća **200** — SW nema kome da prijavi grešku, a 4xx bi ga terao na beskonačne pokušaje.

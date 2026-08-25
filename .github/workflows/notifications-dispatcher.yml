@@ -14,8 +14,10 @@ name: Notification dispatcher
 
 on:
   schedule:
-    # Na 15 min. Prozor podsetnika je 30 min, pa jedan propušten run ne gubi
-    # notifikaciju — sledeći je i dalje unutar prozora.
+    # Na 15 min. Prozor podsetnika je 45 min (NOTIFICATION_WINDOW_MIN), pa jedan
+    # propušten run + do 15 min kašnjenja i dalje pogađa prozor. GitHub `schedule`
+    # kasni i ume da preskoči run — zato prozor NIJE jednak kadenci.
+    # Rupe se mere: odgovor rute vraća `schedule.gapMissedWindow`.
     - cron: '*/15 * * * *'
   workflow_dispatch:
 
@@ -52,6 +54,14 @@ jobs:
 
           echo "HTTP ${code}"
           echo "${body}"
+
+          # Rupa šira od prozora = podsetnici u njoj su izgubljeni. Ne obara run
+          # (raspored je već propustio, greška ovde ništa ne popravlja), ali mora
+          # da se vidi u logu — inače tiho propadanje ostaje tiho.
+          case "${body}" in
+            *'"gapMissedWindow":true'*)
+              echo "::warning::Razmak od prethodnog poziva je bio širi od prozora — podsetnici u toj rupi nisu poslati. Vidi /admin → Dijagnostika push-a." ;;
+          esac
 
           case "${code}" in
             200) ;;

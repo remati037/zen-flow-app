@@ -1,50 +1,32 @@
 import 'server-only'
 
-import { and, desc, eq, inArray, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 
-import { accessWindowCutoff, isWithinAccessWindow } from '@/lib/access/window'
+import { accessWindowCutoff } from '@/lib/access/window'
+import { asOverride, resolveAccessStatus, type AccessStatus, type Role } from '@/lib/access/resolve'
 import { isAdmin } from '@/lib/auth'
-import { BELGRADE_TZ, belgradeToday, toBelgradeIso } from '@/lib/dates'
-import { accessStatusEnum, db, orders, profiles } from '@/lib/db'
+import { BELGRADE_TZ, belgradeToday } from '@/lib/dates'
+import { db, orders, profiles } from '@/lib/db'
 import { SYNCED_STATUSES } from '@/lib/woocommerce/order-rules'
 
-export type AccessStatus = (typeof accessStatusEnum.enumValues)[number]
-export type Role = 'admin' | 'user'
+/**
+ * Čista odluka o pristupu živi u `lib/access/resolve.ts` (bez `server-only`, da je
+ * `scripts/qa-dates.mts` može voziti pod zamrznutim satom). Re-eksport je ovde da
+ * pozivaoci i dalje uvoze sve sa jednog mesta.
+ */
+export {
+  asOverride,
+  resolveAccessStatus,
+  type AccessOverride,
+  type AccessStatus,
+  type Role,
+} from '@/lib/access/resolve'
 
 /**
  * Samo validne (ne-opozvane) porudžbine daju pristup. Bez ovog filtera refundirana
  * porudžbina ostaje najnovija u `orders` i drži korisnika VIP-om punih 60 dana.
  */
 const grantsAccess = inArray(orders.status, [...SYNCED_STATUSES])
-
-/**
- * Čista funkcija — odlučuje access_status iz uloge i poslednje porudžbine.
- *
- * Prioritet:
- * 1. `admin` → uvek `vip` (admin nikad ne gubi pristup, čak i bez porudžbina).
- * 2. `subscriber` → ostaje `subscriber` (Faza 2 / Stripe; ova logika ga ne dira).
- * 3. Inače: porudžbina u prozoru pristupa → `vip`, u suprotnom `inactive`.
- *
- * Prozor se meri u beogradskim kalendarskim danima (`isWithinAccessWindow`), ne u
- * milisekundama — inače satnica porudžbine i DST prelaz pomeraju granicu za sat/dan,
- * pa se VIP gasi dok streak taj dan još smatra pokrivenim.
- */
-export function resolveAccessStatus(params: {
-  role: Role
-  currentStatus: AccessStatus
-  latestOrderDate: Date | null
-  now: Date
-}): AccessStatus {
-  const { role, currentStatus, latestOrderDate, now } = params
-
-  if (role === 'admin') return 'vip'
-  if (currentStatus === 'subscriber') return 'subscriber'
-
-  if (latestOrderDate && isWithinAccessWindow(toBelgradeIso(latestOrderDate), toBelgradeIso(now))) {
-    return 'vip'
-  }
-  return 'inactive'
-}
 
 /**
  * Datum poslednje (najnovije) **validne** porudžbine za dati mejl, ili `null` ako je nema.
@@ -81,16 +63,21 @@ export async function refreshAccessStatusForProfile(
     email: string
     role: Role
     accessStatus: AccessStatus
+    /** Ručni override; kad je postavljen, porudžbine se ne pitaju. */
+    accessOverride?: AccessStatus | null
   },
   authoritativeRole?: Role,
 ): Promise<AccessStatus> {
   const role = authoritativeRole ?? profile.role
-  const latestOrderDate = await getLatestOrderDate(profile.email)
+  const override = asOverride(profile.accessOverride)
+  // Sa override-om porudžbina ne odlučuje ništa — preskačemo i upit.
+  const latestOrderDate = override ? null : await getLatestOrderDate(profile.email)
   const next = resolveAccessStatus({
     role,
     currentStatus: profile.accessStatus,
     latestOrderDate,
     now: new Date(),
+    override,
   })
 
   const roleChanged = role !== profile.role
@@ -115,19 +102,26 @@ export async function refreshAccessStatusForEmail(email: string): Promise<Refres
   const normalized = email.trim().toLowerCase()
 
   const [profile] = await db
-    .select({ id: profiles.id, role: profiles.role, accessStatus: profiles.accessStatus })
+    .select({
+      id: profiles.id,
+      role: profiles.role,
+      accessStatus: profiles.accessStatus,
+      accessOverride: profiles.accessOverride,
+    })
     .from(profiles)
     .where(sql`lower(${profiles.email}) = ${normalized}`)
     .limit(1)
 
   if (!profile) return null
 
-  const latestOrderDate = await getLatestOrderDate(normalized)
+  const override = asOverride(profile.accessOverride)
+  const latestOrderDate = override ? null : await getLatestOrderDate(normalized)
   const next = resolveAccessStatus({
     role: profile.role,
     currentStatus: profile.accessStatus,
     latestOrderDate,
     now: new Date(),
+    override,
   })
 
   if (next === profile.accessStatus) {
@@ -156,6 +150,11 @@ export async function maintainAccessStatuses(): Promise<{ expired: number; resto
       and ${grantsAccess}
   )`
 
+  // Redovi sa ručnim override-om se NE diraju — to je cela poenta override-a.
+  // Isti uslov mora da stoji na obe grane: bez njega bi „restore" vratio VIP nalogu
+  // koji je admin namerno blokirao, čim mu istekne neka stara porudžbina u prozoru.
+  const notOverridden = isNull(profiles.accessOverride)
+
   const expired = await db
     .update(profiles)
     .set({ accessStatus: 'inactive' })
@@ -163,6 +162,7 @@ export async function maintainAccessStatuses(): Promise<{ expired: number; resto
       and(
         eq(profiles.accessStatus, 'vip'),
         sql`${profiles.role} <> 'admin'`,
+        notOverridden,
         sql`not ${hasOrderInWindow}`,
       ),
     )
@@ -171,7 +171,7 @@ export async function maintainAccessStatuses(): Promise<{ expired: number; resto
   const restored = await db
     .update(profiles)
     .set({ accessStatus: 'vip' })
-    .where(and(eq(profiles.accessStatus, 'inactive'), hasOrderInWindow))
+    .where(and(eq(profiles.accessStatus, 'inactive'), notOverridden, hasOrderInWindow))
     .returning({ id: profiles.id })
 
   return { expired: expired.length, restored: restored.length }
@@ -207,6 +207,7 @@ export async function requireActiveAccess(profile: {
   email: string
   role: Role
   accessStatus: AccessStatus
+  accessOverride?: AccessStatus | null
 }): Promise<{ allowed: boolean; status: AccessStatus }> {
   const authoritativeRole: Role = (await isAdmin()) ? 'admin' : 'user'
   const status = await refreshAccessStatusForProfile(profile, authoritativeRole)

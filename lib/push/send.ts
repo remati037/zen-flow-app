@@ -4,8 +4,28 @@ import webpush from 'web-push'
 import { eq } from 'drizzle-orm'
 
 import { db, notificationsLog, pushSubscriptions } from '@/lib/db'
+import { EVENTS, logError, logWarn } from '@/lib/observability/log'
+import { claimNotification, settleNotification } from './dedup'
 import { PUSH_ENDPOINT_ERROR, isAllowedPushEndpoint } from './endpoint'
 import { checkVapidConfig } from './vapid'
+
+/**
+ * Socket timeout po jednom slanju.
+ *
+ * Bez njega `web-push` čeka koliko god push servis hoće — a cron ruta ima tvrd
+ * `maxDuration`. Jedan zaglavljen FCM/APNs socket bi pojeo ceo budžet funkcije i
+ * korisnici iza njega ne bi dobili ništa, bez ijedne greške u logu (najgori
+ * scenario: tihi otkaz podsetnika).
+ *
+ * 5 s je red veličine iznad normalnog odgovora push servisa (~100–300 ms), pa
+ * ne seče zdrave zahteve, a zaglavljen obara odmah — greška ide u `failures` i
+ * vidi se u dijagnostici.
+ *
+ * Iskrena ograda: ovo je timeout NA SOCKET-u, ne na ukupno trajanje odgovora.
+ * Servis koji šalje bajt po bajt tehnički može trajati duže. Za realne otkaze
+ * (nema odgovora) je tačan, a `runChunked` + `maxDuration` pokrivaju ostatak.
+ */
+const PUSH_TIMEOUT_MS = 5_000
 
 let _configured = false
 
@@ -42,6 +62,18 @@ type SendPushArgs = {
   url?: string
   /** Tag protiv dupliranja notifikacija istog tipa. */
   tag?: string
+  /**
+   * Uključi ATOMARAN dedup po beogradskom danu.
+   *
+   * Kad je prosleđen, slanje se prvo REZERVIŠE u `notifications_log`
+   * (`claimNotification`) — ako je slot za (korisnik, tip, push, dan) već nečiji,
+   * ne šalje se ništa i vraća se `skippedDedup: true`. Bez ovog polja ponašanje
+   * je staro: pošalji pa uloguj (za ad-hoc slanja, npr. admin test push).
+   */
+  dedup?: {
+    /** Beogradski kalendarski dan — uvek `belgradeToday()`. */
+    day: string
+  }
 }
 
 /** Detalj neuspelog slanja — bez punog endpoint-a (sadrži tajni token pretplate). */
@@ -56,6 +88,11 @@ type SendPushResult = {
   ok: boolean
   sent: number
   removed: number
+  /**
+   * Dedup je već potrošio dan za ovaj (korisnik, tip) — slanje nije ni pokušano.
+   * Razlikuje se od `sent: 0` bez pretplate: to je stanje korisnika, ovo je odluka.
+   */
+  skippedDedup?: boolean
   /**
    * Zašto slanje nije uspelo. Ranije je završavalo samo u `console.error`, pa je
    * pozivalac video `sent: 0` i pogrešno zaključivao "nema pretplate".
@@ -97,18 +134,29 @@ function explainStatus(statusCode: number | null, message: string): string {
  * NIKAD ne baca — hvata greške, čisti stale pretplate (404/410), loguje status.
  * Tako webhook/cron pozivaoci ostaju robustni.
  */
-export async function sendPushToUser({ userId, type, title, body, url, tag }: SendPushArgs): Promise<SendPushResult> {
+export async function sendPushToUser({ userId, type, title, body, url, tag, dedup }: SendPushArgs): Promise<SendPushResult> {
   try {
     ensureConfigured()
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err)
-    console.error(`[push] konfiguracija neuspešna za "${type}":`, reason)
+    logError(EVENTS.pushConfigFailed, err, { userId, type })
     await logNotification(userId, type, 'failed')
     return {
       ok: false,
       sent: 0,
       removed: 0,
       failures: [{ service: 'konfiguracija', statusCode: null, reason }],
+    }
+  }
+
+  // Rezervacija ide PRE svega ostalog: dva preklapajuća run-a dispatchera moraju
+  // da se sudare ovde, a ne posle dva već poslata push-a. Gubitnik odlazi bez
+  // ijednog odlaznog zahteva.
+  let claimId: number | null = null
+  if (dedup) {
+    claimId = await claimNotification({ userId, type, channel: 'push', day: dedup.day })
+    if (claimId === null) {
+      return { ok: true, sent: 0, removed: 0, failures: [], skippedDedup: true }
     }
   }
 
@@ -125,10 +173,14 @@ export async function sendPushToUser({ userId, type, title, body, url, tag }: Se
   const subs = allSubs.filter((s) => isAllowedPushEndpoint(s.endpoint))
   const blocked = allSubs.length - subs.length
   if (blocked > 0) {
-    console.warn(`[push] preskočeno ${blocked} pretplata sa endpoint-om van allowlist-a (user ${userId})`)
+    // Pun endpoint NIKAD ne ide u log — sadrži tajni token pretplate.
+    logWarn(EVENTS.pushEndpointBlocked, { userId, type, blocked })
   }
 
   if (subs.length === 0) {
+    // Rezervacija se OSLOBAĐA: ništa nije poslato, pa dan ne sme da bude potrošen —
+    // korisnik koji uključi push u 09:00 mora da dobije podsetnik u 09:15.
+    if (claimId !== null) await settleNotification(claimId, false)
     // `ok: false` samo kad je odbijanje razlog za prazan skup — "korisnik nema
     // pretplatu" i "sve pretplate su blokirane" nisu isti ishod za dijagnostiku.
     return blocked > 0
@@ -152,6 +204,7 @@ export async function sendPushToUser({ userId, type, title, body, url, tag }: Se
       await webpush.sendNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
         payload,
+        { timeout: PUSH_TIMEOUT_MS },
       )
       sent += 1
     } catch (err) {
@@ -166,11 +219,15 @@ export async function sendPushToUser({ userId, type, title, body, url, tag }: Se
       }
 
       failures.push({ service, statusCode, reason: explainStatus(statusCode, message) })
-      console.error(`[push] slanje "${type}" na ${service} neuspešno (${statusCode ?? '?'}):`, message)
+      logError(EVENTS.pushSendFailed, err, { userId, type, service, statusCode, removed: statusCode === 404 || statusCode === 410 })
     }
   }
 
-  await logNotification(userId, type, sent > 0 ? 'success' : 'failed')
+  // Sa rezervacijom se red ZATVARA (pending → success/failed); bez nje se upisuje
+  // nov. Dva puta ne sme — inače bi `notifications_log` imao duplikat po slanju.
+  if (claimId !== null) await settleNotification(claimId, sent > 0)
+  else await logNotification(userId, type, sent > 0 ? 'success' : 'failed')
+
   return { ok: sent > 0, sent, removed, failures }
 }
 
@@ -179,6 +236,6 @@ async function logNotification(userId: string, type: string, status: 'success' |
     await db.insert(notificationsLog).values({ userId, type, channel: 'push', status })
   } catch (err) {
     // Logovanje ne sme da sruši glavni tok.
-    console.error('[push] upis u notifications_log neuspešan:', err)
+    logError(EVENTS.pushSendFailed, err, { userId, type, stage: 'notifications_log' })
   }
 }

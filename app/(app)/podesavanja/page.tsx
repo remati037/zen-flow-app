@@ -4,9 +4,10 @@ import { AccountCard } from '@/components/settings/account-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { IosInstallHint } from '@/components/push/ios-install-hint'
 import { PushToggle } from '@/components/push/push-toggle'
+import { EmailAlertsToggle } from '@/components/settings/email-alerts-toggle'
 import { SettingsForm } from '@/components/settings/settings-form'
 import type { AccessStatus } from '@/lib/access/status'
-import { getLatestOrderDate, resolveAccessStatus } from '@/lib/access/status'
+import { asOverride, getLatestOrderDate, resolveAccessStatus } from '@/lib/access/status'
 import { accessWindowEnd } from '@/lib/access/window'
 import { getCurrentProfile, isAdmin } from '@/lib/auth'
 import { formatIsoDateSr, toBelgradeIso } from '@/lib/dates'
@@ -39,6 +40,9 @@ export default async function PodesavanjaPage() {
       currentStatus: profile.accessStatus,
       latestOrderDate,
       now: new Date(),
+      // Bez override-a bi ova stranica pokazivala „neaktivan" nalogu kome je admin
+      // ručno pustio pristup — isti izvor istine kao gejt, ili nijedan.
+      override: asOverride(profile.accessOverride),
     })
     // "VIP do" = poslednji dan prozora pristupa, u beogradskom kalendaru.
     if (latestOrderDate) {
@@ -79,6 +83,11 @@ export default async function PodesavanjaPage() {
         <CardContent className="space-y-4">
           <IosInstallHint />
           <PushToggle initialEnabled={hasPush} />
+          {profile && (
+            <div className="border-t border-border pt-4">
+              <EmailAlertsToggle initialEnabled={profile.emailAlerts} />
+            </div>
+          )}
         </CardContent>
       </Card>
 

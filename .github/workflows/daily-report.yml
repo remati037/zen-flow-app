@@ -1,0 +1,70 @@
+# Dnevni izveštaj o isporučenosti (O-M1).
+#
+# Zašto NIJE u `vercel.json`: Vercel Hobby dozvoljava najviše **2 cron posla**, a
+# oba su zauzeta (`low-stock`, `refresh-access`). Treći unos se ne kreira — i to
+# tiho, bez greške u buildu, pa bi izveštaj „radio" nigde. Repo je public, pa su
+# Actions minuti besplatni, a dispatcher se ovde ionako već vozi.
+#
+# Setup (jednom): isti `CRON_SECRET` repo secret koji koristi i dispatcher.
+# Opciono: Variables → APP_URL ako domen nije https://app.nurolab.rs
+
+name: Daily delivery report
+
+on:
+  schedule:
+    # 06:30 UTC ≈ 08:30 po Beogradu (leto) / 07:30 (zima). Posle ponoći, da
+    # jučerašnji dan bude zatvoren, a pre jutarnjeg vrha podsetnika.
+    - cron: '30 6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: daily-report
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Pozovi izveštaj
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APP_URL: ${{ vars.APP_URL || 'https://app.nurolab.rs' }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${CRON_SECRET}" ]; then
+            echo "::error::CRON_SECRET repo secret nije postavljen (Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+
+          # Bez -L: redirect bi značio pogrešan APP_URL, i bolje je da to pukne
+          # glasno nego da Authorization header tiho ode na drugi host.
+          response=$(curl -sS -m 30 -w $'\n%{http_code}' \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_URL}/api/cron/daily-report")
+
+          code=$(printf '%s' "${response}" | tail -n1)
+          body=$(printf '%s' "${response}" | sed '$d')
+
+          echo "HTTP ${code}"
+          echo "${body}"
+
+          # Ista stanja koja ruta upisuje kao WARN u strukturni log — ovde
+          # postaju vidljiva i u Actions pregledu, bez kopanja po Vercel logovima.
+          case "${body}" in
+            *'"status":"stale"'*|*'"status":"never"'*)
+              echo "::warning::Dispatcher podsetnika ne radi. Vidi /admin → Dijagnostika push-a." ;;
+          esac
+          case "${body}" in
+            *'"stuckPending":0'*) ;;
+            *'"stuckPending"'*)
+              echo "::warning::Ima nezatvorenih rezervacija u notifications_log — svaka je jedan propušten podsetnik." ;;
+          esac
+
+          case "${code}" in
+            200) ;;
+            401) echo "::error::401 — CRON_SECRET u GitHub-u se ne poklapa sa onim na Vercelu."; exit 1 ;;
+            3??) echo "::error::${code} redirect — proveri APP_URL (${APP_URL})."; exit 1 ;;
+            *)   echo "::error::Izveštaj vratio ${code}."; exit 1 ;;
+          esac

@@ -3,6 +3,7 @@ import crypto from 'node:crypto'
 import { NextResponse, type NextRequest } from 'next/server'
 
 import { refreshAccessStatusForEmail } from '@/lib/access/status'
+import { EVENTS, logError } from '@/lib/observability/log'
 import { getWebhookSecret } from '@/lib/woocommerce/env'
 import { upsertOrder } from '@/lib/woocommerce/sync'
 
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
   try {
     expected = crypto.createHmac('sha256', getWebhookSecret()).update(rawBody, 'utf8').digest('base64')
   } catch (err) {
-    console.error('[woo-webhook] greška pri računanju potpisa:', err)
+    logError(EVENTS.webhookFailed, err, { source: 'woocommerce', stage: 'signature' })
     return new NextResponse('Server misconfigured', { status: 500 })
   }
 
@@ -68,14 +69,14 @@ export async function POST(req: NextRequest) {
       try {
         await refreshAccessStatusForEmail(outcome.email)
       } catch (err) {
-        console.error('[woo-webhook] osvežavanje access_status nije uspelo:', err)
+        logError(EVENTS.webhookFailed, err, { source: 'woocommerce', stage: 'refresh_access' })
       }
     }
 
     // Uvek 200 na poznate no-op slučajeve da Woo ne retry-uje beskonačno.
     return NextResponse.json({ received: true, outcome })
   } catch (err) {
-    console.error('[woo-webhook] upsert greška:', err)
+    logError(EVENTS.webhookFailed, err, { source: 'woocommerce', stage: 'upsert' })
     // 500 → Woo će ponoviti isporuku (prolazna DB greška).
     return new NextResponse('Sync failed', { status: 500 })
   }

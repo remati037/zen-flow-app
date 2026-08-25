@@ -25,5 +25,9 @@ export function getResend(): Resend {
  */
 export const EMAIL_FROM = process.env.EMAIL_FROM ?? 'NuroLab <onboarding@resend.dev>'
 
-/** Bazni URL aplikacije — za linkove/CTA dugmad u mejlovima. */
-export const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+/**
+ * Bazni URL aplikacije — za linkove/CTA dugmad u mejlovima.
+ * Živi u `lib/app-url.ts` (čist modul); ovde je samo re-eksport, da šabloni i
+ * dalje uvoze sve sa jednog mesta.
+ */
+export { APP_URL } from '@/lib/app-url'
