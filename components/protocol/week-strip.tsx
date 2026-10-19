@@ -130,7 +130,7 @@ export function WeekStrip({ weekStrip }: { weekStrip: WeekStripDay[] }) {
               {openDate ? formatFullDay(openDate) : ''}
             </DialogTitle>
             <DialogDescription>
-              Označi doze koje si uzeo tog dana. Menja i tvoj niz i zalihe.
+              Označi doze uzete tog dana. Menja i tvoj niz i zalihe.
             </DialogDescription>
           </DialogHeader>
 

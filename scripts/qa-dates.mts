@@ -772,5 +772,32 @@ console.log('\n=== 15. Sprint 2: početne zalihe, low-stock po datumu, dnevni cr
   else process.env.NEXT_PUBLIC_SHOP_REFILL_URL = prev
 }
 
+console.log('\n=== 16. Sprint 3: sledeći bedž niza i win-back faze ===')
+{
+  const { nextStreakMilestone, danaLabel } = await import('../lib/protocol/milestones')
+  const { winbackStageFor, winbackType } = await import('../lib/access/winback-rules')
+
+  check('niz 0 → prvi prag 3', nextStreakMilestone(0)?.days, 3)
+  check('niz 0 → fale 3 dana', nextStreakMilestone(0)?.remaining, 3)
+  check('niz 3 → sledeći prag 7 (pređen prag se preskače)', nextStreakMilestone(3)?.days, 7)
+  check('niz 5 → fale 2 do 7', nextStreakMilestone(5)?.remaining, 2)
+  check('naziv iz kataloga', nextStreakMilestone(10)?.title, 'Niz od 14 dana')
+  check('posle 30 → nema sledećeg', nextStreakMilestone(30), null)
+  check('1 dan', danaLabel(1), 'dan')
+  check('2 dana', danaLabel(2), 'dana')
+  check('11 dana (ne „dan")', danaLabel(11), 'dana')
+  check('21 dan', danaLabel(21), 'dan')
+
+  check('dan isteka (0) → ništa', winbackStageFor(0), null)
+  check('1 dan posle → faza 1', winbackStageFor(1), 1)
+  check('6 dana → faza 1', winbackStageFor(6), 1)
+  check('7 dana → faza 2', winbackStageFor(7), 2)
+  check('14–20 dana → pauza između faza', winbackStageFor(15), null)
+  check('21 dan → faza 3', winbackStageFor(21), 3)
+  check('28+ dana → ništa (bez talasa ka starim kupcima)', winbackStageFor(28), null)
+  check('stari kupac (200 dana) → ništa', winbackStageFor(200), null)
+  check('tip notifikacije po fazi', winbackType(2), 'winback_2')
+}
+
 console.log(`\n──────────────\nRezultat: ${pass} prošlo, ${fail} palo\n`)
 process.exit(fail > 0 ? 1 : 0)

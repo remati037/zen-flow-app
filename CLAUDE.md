@@ -123,8 +123,8 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
 - Build ide kroz **webpack** (`next build --webpack`), ne Turbopack — Serwist injector mod.
 - QA harness ima TRI sloja i sva tri moraju ostati zelena (`npm run qa` vozi sve):
   `qa-dates` (čiste funkcije: datumi/streak/prozori/Woo/access override/cap alerta/odjavni
-  token, Sprint 2 pravila, 238 provera), `qa-routes` (klasifikacija ruta, 50 provera) i **`qa-sql`**
-  (84 provere — SQL koji se STVARNO izvršava nad pravim Postgres-om). Lokalno bez Docker-a:
+  token, Sprint 2–3 pravila, 257 provera), `qa-routes` (klasifikacija ruta, 50 provera) i **`qa-sql`**
+  (89 provera — SQL koji se STVARNO izvršava nad pravim Postgres-om). Lokalno bez Docker-a:
   privremeni klaster sa Homebrew `postgresql@16` (`initdb --locale=C`, `pg_ctl -o "-p 5433"`).
 - **`qa-sql` postoji zato što prva dva sloja ne izvršavaju nijedan upit.** Dva produkciona
   otkaza su prošla kroz lint, build i obe stare provere netaknuta: `GROUP BY` sa bind
@@ -255,6 +255,20 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
   apsolutne vrednosti — paralelan check-in bi bio pregažen. Backfill dopunjuje SAMO porudžbine
   od dana POSLE onboardinga (`topUpSupply: 'after-onboarding'`; dan onboardinga = prvi
   `focus_quiz_results` red); ranije je uračunao korisnik kroz broj pakovanja.
+- **Win-back za istekle kupce** (`lib/access/winback.ts`, pravila u čistom `winback-rules.ts`):
+  tri mejla po isteku pristupa, faze [1,7) / [7,14) / [21,28) dana. Gornja granica je
+  obavezna — bez nje bi prvo puštanje poslalo mejl SVIM bivšim kupcima. Kandidati se biraju
+  u SQL-u (`having` nad poslednjom važećom porudžbinom), bez ručnog override-a i bez admina.
+  Šalje se iz dnevnog `low-stock` run-a (jutro), ne iz noćnog `refresh-access` (03:00).
+  `winback_*` su u `EMAIL_ALERT_TYPES` — isti opt-out i one-click odjava kao low-stock.
+  `/nemas-pristup` razlikuje povratnog kupca („protokol je pauziran", niz, refill CTA) od
+  naloga bez kupovine.
+- **Brojač niza na dashboardu je optimističan** (`ProtocolCtaCard` je klijentska komponenta):
+  `current − (server: danas kompletan) + (lokalno: danas kompletan)`. Kompletan dan ima svoje
+  slavlje u `DoseCheckin` (konfete samo kad nema novog bedža — bedž ih već ispaljuje).
+  „Niz u opasnosti" se računa tek posle mount-a (vreme na serveru i klijentu bi se razišlo).
+- **Tekstovi su rodno neutralni** („istim mejlom kao pri kupovini", ne „si koristio"). Ista
+  pravila važe za mejlove.
 - **Onboarding upisuje profil, zalihe i kviz JEDNOM izjavom** (`lib/onboarding/finalize.ts`),
   sa guard-om `where onboarding_completed = false` u samom UPDATE-u. Početne zalihe su
   `initialCapsulesForStart` — protekli dani od početka protokola su već potrošeni.

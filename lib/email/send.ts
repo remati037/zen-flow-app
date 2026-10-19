@@ -12,6 +12,8 @@ import { EMAIL_FROM, getResend } from './client'
 import { LowStockEmail } from './templates/low-stock'
 import { unsubscribeHeaders, unsubscribeUrl } from './unsubscribe'
 import { WelcomeEmail } from './templates/welcome'
+import { WinbackEmail } from './templates/winback'
+import { winbackType, type WinbackStage } from '@/lib/access/winback-rules'
 
 /**
  * Tipovi mejlova koje gasi `profiles.email_alerts` (V10).
@@ -23,7 +25,14 @@ import { WelcomeEmail } from './templates/welcome'
  * zaglavlje: deklarisati odjavu na mejlu koji se odjavom ne gasi je laž prema
  * mailbox provajderu.
  */
-const EMAIL_ALERT_TYPES = new Set<string>(['low_stock_alert'])
+const EMAIL_ALERT_TYPES = new Set<string>([
+  'low_stock_alert',
+  // Win-back je poruka sa rasporeda (cron), ne posledica radnje korisnika — isti
+  // opt-out i ista one-click odjava kao low-stock.
+  'winback_1',
+  'winback_2',
+  'winback_3',
+])
 
 /** Da li dati tip podleže opt-out-u (i nosi odjavno zaglavlje). */
 export function isEmailAlertType(type: string): boolean {
@@ -165,7 +174,7 @@ export function sendWelcomeEmail(profile: ProfileLike, options: SendOptions = {}
   return sendEmail({
     userId: profile.id,
     to: profile.email,
-    subject: 'Dobrodošao u NuroLab 🌿',
+    subject: 'Dobrodošlica u NuroLab 🌿',
     react: WelcomeEmail({ name: profile.name }),
     type: 'welcome',
     ...options,
@@ -201,6 +210,33 @@ export function sendLowStockEmail(
       unsubscribeUrl: unsubscribeUrl(profile.id),
     }),
     type: 'low_stock_alert',
+    ...options,
+  })
+}
+
+/** Win-back (cron `refresh-access`) — kupac kome je istekao pristup. */
+export function sendWinbackEmail(
+  profile: ProfileLike,
+  args: { stage: WinbackStage; pausedStreak: number; ctaHref: string },
+  options: SendOptions = {},
+): Promise<SendResult> {
+  const subjects: Record<WinbackStage, string> = {
+    1: 'Tvoj ZenFlow niz je pauziran ⏸️',
+    2: 'Efekti ZenFlow-a se grade doslednošću',
+    3: 'Poslednji podsetnik — protokol te čeka',
+  }
+  return sendEmail({
+    userId: profile.id,
+    to: profile.email,
+    subject: subjects[args.stage],
+    react: WinbackEmail({
+      name: profile.name,
+      stage: args.stage,
+      pausedStreak: args.pausedStreak,
+      ctaHref: args.ctaHref,
+      unsubscribeUrl: unsubscribeUrl(profile.id),
+    }),
+    type: winbackType(args.stage),
     ...options,
   })
 }

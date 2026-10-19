@@ -9,4 +9,7 @@ export type NotificationType =
   | 'streak_at_risk'
   | 'low_stock_alert'
   | 'welcome'
+  | 'winback_1'
+  | 'winback_2'
+  | 'winback_3'
   | 'test'

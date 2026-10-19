@@ -53,7 +53,7 @@ export function EmailLayout({ preview, children }: EmailLayoutProps) {
           <Hr style={{ borderColor: '#e3e8ec', margin: '32px 0 16px' }} />
           <Section>
             <Text style={{ color: brand.muted, fontSize: 12, lineHeight: '18px', margin: 0 }}>
-              Ovaj mejl si dobio jer koristiš NuroLab Companion aplikaciju.
+              Ovaj mejl stiže jer koristiš NuroLab Companion aplikaciju.
               <br />
               NuroLab · app.nurolab.rs
             </Text>

@@ -17,6 +17,8 @@ export type RefillSource =
   | 'zalihe'
   | 'podesavanja'
   | 'email_low_stock'
+  | 'email_winback'
+  | 'nemas_pristup'
 
 const UTM_CAMPAIGN = 'refill'
 

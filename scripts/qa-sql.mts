@@ -525,6 +525,36 @@ async function runDatabaseChecks() {
     check('topUpSupply=false ne dopunjuje', (await capsulesOf('qa_bf'))?.capsulesRemaining, 65)
   })
 
+  const winback = await import('../lib/access/winback')
+  await inRollback('Win-back kandidati: GROUP BY/HAVING nad pravim Postgres-om', async () => {
+    const today = '2026-10-19'
+    const seedLapsed = async (id: string, orderGmt: string, extra: Partial<typeof schema.profiles.$inferInsert> = {}) => {
+      await db.insert(schema.profiles).values({
+        id, email: `${id}@qa.local`, role: 'user', accessStatus: 'inactive', ...extra,
+      })
+      await db.insert(schema.orders).values({
+        wooOrderId: `wb-${id}`, email: `${id}@qa.local`, productType: 'full',
+        quantityPackages: 1, capsulesTotal: 60, orderDate: new Date(orderGmt), status: 'completed',
+      })
+    }
+    // Porudžbina 2026-08-15 → istek 2026-10-14 → 5 dana posle = faza 1.
+    await seedLapsed('qa_wb_1', '2026-08-15T10:00:00Z')
+    // Istek pre 10 dana → faza 2.
+    await seedLapsed('qa_wb_2', '2026-08-10T10:00:00Z')
+    // Davno istekao → van prozora.
+    await seedLapsed('qa_wb_old', '2026-03-01T10:00:00Z')
+    // Admin ručno ugasio pristup → bez win-back-a.
+    await seedLapsed('qa_wb_override', '2026-08-15T10:00:00Z', { accessOverride: 'inactive' })
+
+    const found = await winback.getWinbackCandidates(today)
+    const byId = new Map(found.map((c) => [c.profile.id, c]))
+    check('faza 1 (5 dana posle isteka)', byId.get('qa_wb_1')?.stage, 1)
+    check('poslednji dan pristupa', byId.get('qa_wb_1')?.expiryDay, '2026-10-14')
+    check('faza 2 (10 dana posle isteka)', byId.get('qa_wb_2')?.stage, 2)
+    check('davno istekao NIJE kandidat', byId.has('qa_wb_old'), false)
+    check('ručni override NIJE kandidat', byId.has('qa_wb_override'), false)
+  })
+
   ok('adapter je stvarno korišćen', adapter.queryCount() > 0, `${adapter.queryCount()} upita kroz pg`)
 
   // ── pomoćne ───────────────────────────────────────────────────────────────

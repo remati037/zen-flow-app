@@ -1,6 +1,7 @@
 import { and, eq, lte, ne, or, sql } from 'drizzle-orm'
 import { NextResponse, type NextRequest } from 'next/server'
 
+import { runWinback } from '@/lib/access/winback'
 import { requireCronAuth } from '@/lib/cron/auth'
 import { runChunked } from '@/lib/cron/fanout'
 import { CRON_JOBS } from '@/lib/cron/health'
@@ -225,6 +226,18 @@ async function run(): Promise<NextResponse> {
     }
   }
 
+  // Win-back za kupce kojima je istekao pristup (Sprint 3). Ide iz ovog dnevnog
+  // posla, a ne iz noćnog `refresh-access` (03:00 UTC): mejl o povratku ne treba
+  // da stigne usred noći, a ovaj run je posle osvežavanja statusa, pa vidi
+  // istekle naloge istog jutra. Sopstveni try: pad win-back-a ne sme da obori
+  // low-stock izveštaj (i obrnuto — low-stock je već poslat).
+  let winback: Awaited<ReturnType<typeof runWinback>> | { error: true } = { error: true }
+  try {
+    winback = await runWinback(today)
+  } catch (err) {
+    logError(EVENTS.emailSendFailed, err, { job: CRON_JOBS.lowStock, stage: 'winback' })
+  }
+
   const body = {
     processed: candidates.length,
     lowStockUsers: lowStock.length,
@@ -233,6 +246,7 @@ async function run(): Promise<NextResponse> {
     skippedEpisodeCapped: cappedOut,
     maxAlertsPerEpisode: LOW_STOCK_MAX_ALERTS_PER_EPISODE,
     byChannel: { email: emailStats, push: pushStats },
+    winback,
     totals: {
       sent: emailStats.sent + pushStats.sent,
       failed: emailStats.failed + pushStats.failed,
