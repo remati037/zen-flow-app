@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, Moon, Sun, Undo2 } from 'lucide-react'
+import { Check, Sun, Sunrise, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { logDose } from '@/app/(app)/protokol/actions'
@@ -88,17 +88,17 @@ export function DoseCheckin({
       dose: 'morning',
       label: 'Jutarnja doza',
       shortLabel: 'Jutro',
-      icon: Sun,
+      icon: Sunrise,
       time: formatTime(morningTime),
-      successMsg: 'Jutarnja doza zabeležena 🌿',
+      successMsg: 'Jutarnja doza je zabeležena.',
     },
     {
       dose: 'evening',
-      label: 'Večernja doza',
-      shortLabel: 'Veče',
-      icon: Moon,
+      label: 'Popodnevna doza',
+      shortLabel: 'Popodne',
+      icon: Sun,
       time: formatTime(eveningTime),
-      successMsg: 'Večernja doza zabeležena 🌙',
+      successMsg: 'Popodnevna doza je zabeležena.',
     },
   ]
 
@@ -114,7 +114,7 @@ export function DoseCheckin({
     const clientToday = belgradeToday()
     if (clientToday > today && staleRefreshFor.current !== clientToday) {
       staleRefreshFor.current = clientToday
-      toast('Počeo je novi dan — osvežavam prikaz.')
+      toast('Počeo je novi dan. Osvežavam prikaz.')
       router.refresh()
       return
     }
@@ -138,8 +138,8 @@ export function DoseCheckin({
         applyState({ ...state, [dose]: prev })
         toast.error(
           navigator.onLine
-            ? 'Upis nije uspeo — pokušaj ponovo.'
-            : 'Nema internet veze — označi dozu kad budeš online.',
+            ? 'Upis nije uspeo. Pokušaj ponovo.'
+            : 'Nema internet veze. Označi dozu kad se veza vrati.',
         )
         return
       }
@@ -148,14 +148,14 @@ export function DoseCheckin({
         if (completesDay && streak.todayComplete) {
           // Kompletan dan je jedinica napretka u protokolu — zaslužuje više od
           // običnog toast-a. Nov bedž već ispaljuje konfete; ne dupliramo ih.
-          toast.success(`Dan je kompletan! Niz: ${streak.current} ${danaLabel(streak.current)} 🔥`)
+          toast.success(`Dan je kompletan. Niz: ${streak.current} ${danaLabel(streak.current)}`)
           if (newBadges.length === 0) void fireConfetti()
           if ('vibrate' in navigator) navigator.vibrate(15)
         } else if (next === 'taken') {
           const cfg = config.find((c) => c.dose === dose)!
           toast.success(cfg.successMsg)
         } else {
-          toast('Doza poništena.')
+          toast('Doza je poništena.')
         }
         celebrateNewBadges(newBadges)
         router.refresh()

@@ -13,12 +13,12 @@ export const metadata = {
 }
 
 function percent(part: number, of: number): string {
-  if (of === 0) return '—'
+  if (of === 0) return 'n/a'
   return `${Math.round((part / of) * 100)}%`
 }
 
 function shortDate(iso: string | null): string {
-  return iso ? formatIsoDateSr(iso, { day: 'numeric', month: 'short' }) : '—'
+  return iso ? formatIsoDateSr(iso, { day: 'numeric', month: 'short' }) : 'nema'
 }
 
 /**
@@ -42,7 +42,7 @@ export default async function AdminRetencijaPage() {
     <div className="space-y-6">
       <header>
         <h1 className="text-2xl font-medium text-ink">Retencija</h1>
-        <p className="text-slate-mid">Da li app vraća kupce — i kome se sada treba javiti.</p>
+        <p className="text-slate-mid">Da li app vraća kupce i kome se sada treba javiti.</p>
       </header>
 
       <Card>
@@ -87,8 +87,8 @@ export default async function AdminRetencijaPage() {
             {percent(funnel.repeatUnregistered.repeat, funnel.repeatUnregistered.of)} bez app-a
           </p>
           <p className="mt-1 text-xs text-slate-soft">
-            Udeo kupaca sa 2+ porudžbine. Razlika je signal da app vraća kupce (ne dokaz — app
-            koriste i posvećeniji kupci).
+            Udeo kupaca sa 2+ porudžbine. Razlika je signal da app vraća kupce, ali ne i dokaz,
+            jer app koriste i posvećeniji kupci.
           </p>
         </div>
         <div className="rounded-xl bg-white p-4 shadow-soft ring-1 ring-foreground/10">
@@ -108,7 +108,7 @@ export default async function AdminRetencijaPage() {
 
       <ActionList
         title={`Ističu u narednih ${RUNNING_OUT_DAYS} dana`}
-        description="Aktivni korisnici kojima zalihe uskoro nestaju — najbolji trenutak za ličnu poruku."
+        description="Aktivni korisnici kojima zalihe uskoro nestaju. Ovo je najbolji trenutak za ličnu poruku."
         empty="Niko trenutno ne ostaje bez zaliha."
         rows={runningOut.map((r) => ({
           key: r.userId,
@@ -132,7 +132,7 @@ export default async function AdminRetencijaPage() {
 
       <ActionList
         title="Kupili, a nemaju nalog"
-        description="Imaju pravo na app (porudžbina u poslednjih 60 dana), ali se nisu registrovali — ili su se registrovali drugim mejlom."
+        description="Imaju pravo na app (porudžbina u poslednjih 60 dana), ali se nisu registrovali ili su se registrovali drugim mejlom."
         empty="Svi aktivni kupci imaju nalog."
         rows={unregisteredBuyers.map((r) => ({
           key: r.email,

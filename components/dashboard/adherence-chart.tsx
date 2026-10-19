@@ -146,7 +146,7 @@ export function AdherenceChart({ days }: { days: WeekStripDay[] }) {
             ))}
           </div>
           <p className="mt-3 text-xs text-slate-soft">
-            Grafikon se popunjava od prve označene doze — svaki pun dan je jedan lime stubić.
+            Grafikon se popunjava od prve označene doze. Svaki pun dan je jedan zeleni stubić.
           </p>
         </>
       )}

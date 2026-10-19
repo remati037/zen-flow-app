@@ -38,8 +38,8 @@ export function NotificationsStep({
     <div className="flex flex-col gap-5">
       <StepHeading
         eyebrow="Korak 5 od 5"
-        title="Podsetnici i kraj"
-        description="Uključi podsetnike da niz ne pukne zbog zaboravljene doze."
+        title="Podsetnici"
+        description="Uključi podsetnike da ti nijedna doza ne promakne."
       />
 
       <div className="flex flex-col gap-3 rounded-xl bg-paper p-4">
@@ -48,8 +48,8 @@ export function NotificationsStep({
             <BellRing className="size-4" />
           </span>
           <p className="text-sm leading-snug text-slate-mid">
-            Podsetnik stiže u <strong className="text-ink">{doseMorningTime}</strong> i{' '}
-            <strong className="text-ink">{doseEveningTime}</strong>, plus upozorenje kad zalihe padnu nisko.
+            Podsetnici stižu u <strong className="text-ink">{doseMorningTime}</strong> i{' '}
+            <strong className="text-ink">{doseEveningTime}</strong>. Javljamo ti i kad zalihe počnu da se troše.
           </p>
         </div>
         <IosInstallHint />
@@ -59,7 +59,7 @@ export function NotificationsStep({
       </div>
 
       <div className="rounded-xl bg-paper px-4 py-3 text-sm text-slate-mid">
-        <p className="mb-1 font-heading text-sm font-medium text-ink">Rekapitulacija</p>
+        <p className="mb-1 font-heading text-sm font-medium text-ink">Pregled</p>
         <p>
           {estimate.packages} {estimate.packages === 1 ? 'pakovanje' : 'pakovanja'} · {estimate.capsules}{' '}
           kapsula · ≈ {estimate.days} dana
@@ -68,7 +68,7 @@ export function NotificationsStep({
       </div>
 
       <p className="text-xs text-slate-soft">
-        Sve ovo kasnije menjaš u Podešavanjima — podsetnike, termine i broj pakovanja.
+        Podsetnike, termine i broj pakovanja možeš kasnije da promeniš u Podešavanjima.
       </p>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
@@ -85,7 +85,7 @@ export function NotificationsStep({
           onClick={onSubmit}
           disabled={isPending}
         >
-          {isPending ? 'Čuvam…' : 'Završi onboarding'}
+          {isPending ? 'Čuvam…' : 'Završi podešavanje'}
         </Button>
       </div>
     </div>

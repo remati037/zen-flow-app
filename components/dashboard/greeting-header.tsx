@@ -31,7 +31,7 @@ export function GreetingHeader({
   } else if (dayNumber < 1) {
     subline = `Protokol kreće ${formatIsoDateSr(protocolStartDate)}`
   } else if (dayNumber === 1) {
-    subline = 'Dan 1 protokola — kreni od jutarnje doze.'
+    subline = 'Dan 1 protokola. Počni od jutarnje doze.'
   } else {
     subline = `Dan ${dayNumber} protokola`
   }

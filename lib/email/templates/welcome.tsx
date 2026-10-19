@@ -12,9 +12,9 @@ export function WelcomeEmail({ name }: WelcomeEmailProps) {
   const greeting = name ? `Zdravo ${name},` : 'Zdravo,'
 
   return (
-    <EmailLayout preview="Dobrodošlica u NuroLab — tvoj ZenFlow protokol počinje danas.">
+    <EmailLayout preview="Tvoj nalog je spreman. ZenFlow protokol počinje danas.">
       <Heading style={{ color: brand.ink, fontSize: 24, fontWeight: 800, margin: '0 0 16px', letterSpacing: '-0.02em' }}>
-        Dobrodošlica u NuroLab 🌿
+        Dobrodošlica u ZenFlow
       </Heading>
 
       <Text style={{ color: brand.ink, fontSize: 15, lineHeight: '24px', margin: '0 0 16px' }}>
@@ -22,14 +22,14 @@ export function WelcomeEmail({ name }: WelcomeEmailProps) {
       </Text>
 
       <Text style={{ color: brand.ink, fontSize: 15, lineHeight: '24px', margin: '0 0 16px' }}>
-        Tvoj nalog je spreman. ZenFlow™ radi po jednostavnom principu:{' '}
-        <strong>efekti se grade dnevnom doslednošću, a blede kad se protokol prekine.</strong> Zato
-        je najvažnije da svaki dan zabeležiš svoju dozu i održavaš streak.
+        Tvoj nalog je spreman. ZenFlow™ deluje kad se uzima svaki dan.{' '}
+        <strong>Efekat se gradi iz dana u dan i slabi kad napraviš pauzu.</strong> Zato je
+        najvažnije da doze uzimaš redovno i beležiš ih u aplikaciji.
       </Text>
 
       <Text style={{ color: brand.ink, fontSize: 15, lineHeight: '24px', margin: '0 0 24px' }}>
-        U aplikaciji te čeka: protocol tracker sa streak mehanikom, praćenje zaliha sa alertima
-        pre nego što ostaneš bez kapsula, i Pomodoro timer za fokusirane blokove.
+        U aplikaciji beležiš doze i pratiš svoj niz. Pratiš i zalihe, pa ti javimo pre nego što
+        ostaneš bez kapsula. Tu je i Pomodoro tajmer za rad u fokusu.
       </Text>
 
       <Section style={{ textAlign: 'center', margin: '8px 0 8px' }}>

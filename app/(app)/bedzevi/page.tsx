@@ -24,8 +24,8 @@ export default async function BedzeviPage() {
         <h1 className="text-2xl font-medium text-ink">Bedževi</h1>
         <p className="text-slate-mid">
           {earnedCount === 0
-            ? 'Doslednost otključava bedževe — kreni od prve doze.'
-            : 'Osvojeni bedževi za doslednost u protokolu i fokusu.'}
+            ? 'Bedževi stižu uz redovno uzimanje. Kreni od prve doze.'
+            : 'Tvoji bedževi iz protokola i fokusa.'}
         </p>
       </header>
 

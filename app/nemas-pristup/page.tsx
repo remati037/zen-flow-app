@@ -12,7 +12,7 @@ import { getProtocolState } from '@/lib/protocol/queries'
 import { refillUrl } from '@/lib/refill'
 
 export const metadata = {
-  title: 'Nemaš pristup — NuroLab',
+  title: 'Nemaš pristup · NuroLab',
 }
 
 /**
@@ -65,8 +65,8 @@ export default async function NemasPristupPage() {
           </p>
           <CardTitle className="text-lg">Nalog još nema pristup</CardTitle>
           <CardDescription>
-            Companion aplikaciju koriste ZenFlow kupci. Nismo pronašli porudžbinu vezanu za tvoj
-            nalog.
+            Aplikacija je za ZenFlow kupce. Za ovaj nalog nismo pronašli nijednu
+            porudžbinu.
           </CardDescription>
         </CardHeader>
 
@@ -78,7 +78,7 @@ export default async function NemasPristupPage() {
 
           <p className="text-sm text-muted-foreground">
             Registruj se <strong className="text-foreground">istim mejlom kao pri kupovini</strong>{' '}
-            na nurolab.rs. Posle nove porudžbine pristup se aktivira u par minuta — osveži ovu
+            na nurolab.rs. Posle porudžbine pristup se aktivira za par minuta. Tada osveži ovu
             stranicu.
           </p>
 
@@ -128,7 +128,7 @@ function LapsedScreen({
           </p>
           <CardTitle className="text-lg">Tvoj protokol je pauziran</CardTitle>
           <CardDescription>
-            Pristup je istekao {expiredOn} — od poslednje porudžbine prošlo je više od 60 dana.
+            Pristup je istekao {expiredOn}, jer je od poslednje porudžbine prošlo više od 60 dana.
           </CardDescription>
         </CardHeader>
 
@@ -139,14 +139,14 @@ function LapsedScreen({
               <p className="font-heading text-2xl font-semibold text-lime">
                 {pausedStreak} {danaLabel(pausedStreak)}
               </p>
-              <p className="text-xs text-paper/70">Pauziran, ne izgubljen.</p>
+              <p className="text-xs text-paper/70">Sačuvan je i čeka te.</p>
             </div>
           )}
 
           <p className="text-sm text-muted-foreground">
             Istorija i niz čekaju tačno tamo gde su stali. Čim stigne nova porudžbina na{' '}
             <span className="font-medium text-foreground break-all">{email}</span>, pristup se
-            vraća automatski — osveži ovu stranicu par minuta posle kupovine.
+            vraća sam. Osveži ovu stranicu par minuta posle kupovine.
           </p>
 
           <div className="flex flex-col gap-2">

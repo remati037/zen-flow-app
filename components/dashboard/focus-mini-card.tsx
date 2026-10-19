@@ -34,7 +34,7 @@ export function FocusMiniCard({
 
       <p className="mt-1 text-xs text-slate-soft">
         {sessions === 0
-          ? 'Još nijedan blok — 25 minuta je dovoljno za start.'
+          ? 'Još nijedan blok danas. Za početak je dovoljno 25 minuta.'
           : `Ukupno ${minutes} min fokusiranog rada.`}
       </p>
 

@@ -134,7 +134,7 @@ self.addEventListener("push", (event) => {
     icon: "/icons/icon-192.png",
     badge: "/icons/icon-192.png",
     data: { url, checkin: payload.checkin },
-    ...(payload.checkin ? { actions: [{ action: CHECKIN_ACTION, title: "✓ Uzeto" }] } : {}),
+    ...(payload.checkin ? { actions: [{ action: CHECKIN_ACTION, title: "Uzeto" }] } : {}),
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
@@ -156,9 +156,9 @@ async function checkinFromNotification(checkin: CheckinPayload, tag: string | un
     const data = (await res.json()) as { streak?: number; todayComplete?: boolean };
     const streak = data.streak ?? 0;
     await self.registration.showNotification(
-      data.todayComplete ? `Dan je kompletan! Niz: ${streak} 🔥` : "Doza zabeležena 🌿",
+      data.todayComplete ? `Dan je kompletan. Niz: ${streak}` : "Doza je zabeležena",
       {
-        body: data.todayComplete ? "Obe doze su uzete — vidimo se sutra." : "Druga doza te čeka kasnije.",
+        body: data.todayComplete ? "Obe doze su uzete. Vidimo se sutra." : "Još jedna doza do kompletnog dana.",
         tag,
         icon: "/icons/icon-192.png",
         badge: "/icons/icon-192.png",
@@ -281,7 +281,7 @@ self.addEventListener("pushsubscriptionchange", (event) => {
         // Bez starog endpoint-a server ne zna čija je pretplata bila, a pogađati
         // ne sme. Re-upsert pri sledećem otvaranju app-a (`syncPushSubscription`
         // u `lib/push/client.ts`) je rezervni put za baš ovaj slučaj.
-        console.warn("[sw] pushsubscriptionchange bez oldSubscription — rotacija preskočena");
+        console.warn("[sw] pushsubscriptionchange bez oldSubscription, rotacija preskočena");
         return;
       }
 
@@ -292,7 +292,7 @@ self.addEventListener("pushsubscriptionchange", (event) => {
           changeEvent.oldSubscription,
         );
         if (!applicationServerKey) {
-          console.error("[sw] nema VAPID ključa — nova pretplata nije napravljena");
+          console.error("[sw] nema VAPID ključa, nova pretplata nije napravljena");
           return;
         }
         subscription = await self.registration.pushManager.subscribe({

@@ -6,13 +6,12 @@ import { ChevronRight } from 'lucide-react'
 
 import { DoseCheckin } from '@/components/protocol/dose-checkin'
 import { belgradeTimeHM, hmToMinutes } from '@/lib/dates'
+import { streakRiskWindowStart } from '@/lib/push/dispatch-rules'
 import { danaLabel, nextStreakMilestone } from '@/lib/protocol/milestones'
 import type { TodayDoses } from '@/lib/protocol/queries'
 import type { StreakResult } from '@/lib/protocol/streak'
 import { cn } from '@/lib/utils'
 
-/** Bez podešenog večernjeg vremena, „niz u opasnosti" se pali od 20h. */
-const DEFAULT_RISK_TIME = '20:00'
 const RISK_CHECK_INTERVAL_MS = 60_000
 
 function takenCount(doses: TodayDoses): number {
@@ -21,7 +20,7 @@ function takenCount(doses: TodayDoses): number {
 
 /** Kratak status današnjeg dana ispod brojača niza. */
 function statusLine(taken: number, streak: number): string {
-  if (taken === 2) return 'Dan je kompletan 🌿'
+  if (taken === 2) return 'Dan je kompletan.'
   if (taken === 1) return 'Još jedna doza do kompletnog dana.'
   if (streak === 0) return 'Označi prvu dozu i pokreni svoj niz.'
   return 'Doze za danas te čekaju.'
@@ -75,14 +74,16 @@ export function ProtocolCtaCard({
   // Vreme se proverava tek posle mount-a: server i klijent bi se oko granice
   // razišli u renderu (hydration mismatch), a karta mora da se osveži i kad
   // večernji termin prođe dok je app otvoren.
-  const riskTime = eveningTime?.slice(0, 5) ?? DEFAULT_RISK_TIME
+  // Isti trenutak kao push „niz u opasnosti" (najranije 21h): druga doza je
+  // popodnevna, pa bi upozorenje od njenog termina (14h) bilo preuranjeno.
+  const riskStartMin = streakRiskWindowStart(eveningTime ? hmToMinutes(eveningTime.slice(0, 5)) : null)
   const [pastRiskTime, setPastRiskTime] = useState(false)
   useEffect(() => {
-    const check = () => setPastRiskTime(hmToMinutes(belgradeTimeHM()) >= hmToMinutes(riskTime))
+    const check = () => setPastRiskTime(hmToMinutes(belgradeTimeHM()) >= riskStartMin)
     check()
     const id = window.setInterval(check, RISK_CHECK_INTERVAL_MS)
     return () => window.clearInterval(id)
-  }, [riskTime, today])
+  }, [riskStartMin, today])
 
   const atRisk = pastRiskTime && !localComplete && current > 0
 
@@ -134,7 +135,7 @@ export function ProtocolCtaCard({
 
       {atRisk ? (
         <p className="mt-3 mb-4 text-sm font-medium text-lime" role="status">
-          Niz od {current} {danaLabel(current)} je u opasnosti — označi doze do ponoći.
+          Označi današnje doze do ponoći da niz od {current} {danaLabel(current)} ostane.
         </p>
       ) : (
         <div className="mt-3 mb-4 space-y-0.5">

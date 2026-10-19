@@ -60,7 +60,7 @@ export const clerkLocalization: typeof srRS = {
     start: {
       ...base.signIn?.start,
       title: 'Prijavi se na ZenFlow',
-      subtitle: 'Dobro došli nazad — tvoj niz te čeka.',
+      subtitle: 'Drago nam je što si opet tu.',
     },
   },
   signUp: {

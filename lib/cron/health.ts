@@ -112,7 +112,7 @@ export function describeDispatcherHealth({
       maxGapAt: null,
       runsTotal: 0,
       message:
-        '/api/cron/notifications nije pozvan NIJEDNOM — scheduler nije podešen ili ne pogađa rutu. ' +
+        '/api/cron/notifications nije pozvan NIJEDNOM. Proveri da li je scheduler podešen i da li pogađa rutu. ' +
         'Vercel je NE pokreće; vozi je GitHub Actions workflow (docs/cron-setup.md).',
     }
   }
@@ -143,7 +143,7 @@ export function describeDispatcherHealth({
       ...base,
       status: 'gaps',
       message:
-        `Dispatcher radi, ali je bar jednom ćutao ${formatMinutes(run.maxGapMin!)} — šire od prozora ` +
+        `Dispatcher radi, ali je bar jednom ćutao ${formatMinutes(run.maxGapMin!)}, duže od prozora ` +
         `od ${windowMin} min, pa su podsetnici u toj rupi izgubljeni. Ako se ponavlja, prebaci ` +
         'scheduler na cron-job.org (docs/cron-setup.md, opcija B) ili proširi NOTIFICATION_WINDOW_MIN.',
     }
@@ -152,7 +152,7 @@ export function describeDispatcherHealth({
   return {
     ...base,
     status: 'ok',
-    message: `Dispatcher je živ — poslednji run pre ${formatMinutes(sinceLastRunMin)}, bez rupa širih od ${windowMin} min.`,
+    message: `Dispatcher radi. Poslednji run je bio pre ${formatMinutes(sinceLastRunMin)}, bez rupa širih od ${windowMin} min.`,
   }
 }
 

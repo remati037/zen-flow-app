@@ -202,12 +202,12 @@ export function PomodoroTimer({ tasks }: { tasks: FocusTask[] }) {
     if (mode === 'work') {
       persistSession(preset.workMin, true, taskLabel)
       setMode('break')
-      flashTitle('⏰ Blok gotov!')
-      toast.success(`Blok od ${preset.workMin} min je gotov 🌿 Pauza: ${preset.breakMin} min.`)
+      flashTitle('Blok je gotov')
+      toast.success(`Blok od ${preset.workMin} min je gotov. Sledi pauza od ${preset.breakMin} min.`)
     } else {
       setMode('work')
-      flashTitle('⏰ Pauza gotova!')
-      toast('Pauza je gotova — nazad u fokus.')
+      flashTitle('Pauza je gotova')
+      toast('Pauza je gotova. Vreme je za sledeći blok.')
     }
   }, [flashTitle, mode, persistSession, preset, taskLabel])
 
@@ -276,7 +276,7 @@ export function PomodoroTimer({ tasks }: { tasks: FocusTask[] }) {
 
     if (mode === 'work' && elapsedMin >= 1) {
       persistSession(elapsedMin, false, taskLabel)
-      toast(`Sesija prekinuta — zabeleženo ${elapsedMin} min.`)
+      toast(`Sesija je prekinuta. Zabeleženo je ${elapsedMin} min.`)
     } else {
       toast('Sesija je poništena.')
     }

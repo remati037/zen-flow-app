@@ -34,7 +34,7 @@ function getDb(): NeonHttpDatabase<typeof schema> {
     throw new Error(
       'DATABASE_URL nije postavljen. Lokalno: dodaj ga u .env.local. ' +
         'Na Vercelu: Project Settings → Environment Variables, i proveri da je uključen za ' +
-        'okruženje koje deployuješ (Production I Preview — varijabla vezana samo za Production ' +
+        'okruženje koje deployuješ (Production I Preview, jer varijabla vezana samo za Production ' +
         'ne postoji u preview deployu).',
     )
   }

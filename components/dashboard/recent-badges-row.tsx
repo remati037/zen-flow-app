@@ -38,7 +38,7 @@ export function RecentBadgesRow({ earned }: { earned: EarnedBadge[] }) {
 
       {recent.length === 0 ? (
         <p className="mt-3 text-xs text-slate-soft">
-          Prvi bedž otključavaš prvom označenom dozom — kreni odmah danas.
+          Prvi bedž stiže uz prvu označenu dozu.
         </p>
       ) : (
         <ul className="mt-4 grid grid-cols-4 gap-2">

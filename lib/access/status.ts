@@ -178,7 +178,7 @@ export async function maintainAccessStatuses(): Promise<{ expired: number; resto
  * Ista formulacija kao `/nemas-pristup` ekran — ti-forma, bez internih detalja.
  */
 export const ACCESS_INACTIVE_MESSAGE =
-  'Tvoj ZenFlow pristup je istekao. Obnovi porudžbinu da nastaviš protokol.'
+  'Tvoj ZenFlow pristup je istekao. Nova porudžbina ga vraća i protokol se nastavlja.'
 
 /**
  * Server-side gejt pristupa za server akcije (S-M2).

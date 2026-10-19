@@ -15,26 +15,26 @@ type WinbackEmailProps = {
 
 const COPY: Record<WinbackStage, { preview: string; heading: string; body: string }> = {
   1: {
-    preview: 'Tvoj ZenFlow pristup je istekao — niz je pauziran, ne izgubljen.',
-    heading: 'Tvoj niz je pauziran ⏸️',
+    preview: 'Tvoj ZenFlow pristup je istekao. Niz je sačuvan i čeka te.',
+    heading: 'Tvoj niz je pauziran',
     body:
       'Pristup aplikaciji je istekao jer je od poslednje porudžbine prošlo više od 60 dana. ' +
-      'Ništa nije izgubljeno: istorija i niz čekaju tačno tamo gde su stali — nastavljaju se ' +
+      'Istorija i niz su sačuvani tačno tamo gde su stali. Nastavljaju se ' +
       'čim stigne nova porudžbina.',
   },
   2: {
-    preview: 'Efekti ZenFlow-a se grade doslednošću — i blede kad se protokol prekine.',
-    heading: 'Efekti se grade doslednošću 🌿',
+    preview: 'Efekat ZenFlow-a raste sa svakim danom protokola.',
+    heading: 'Efekat se gradi iz dana u dan',
     body:
-      'ZenFlow ne radi kao jednokratna doza: fokus i mirnoća se grade iz dana u dan, a blede ' +
-      'kad se protokol prekine. Što je pauza kraća, to je povratak lakši.',
+      'ZenFlow deluje postepeno. Fokus i mirnoća rastu uz svakodnevno uzimanje i slabe ' +
+      'kad protokol stane. Što je pauza kraća, lakše se vraćaš u ritam.',
   },
   3: {
-    preview: 'Poslednji podsetnik — tvoj ZenFlow protokol te čeka.',
+    preview: 'Poslednji podsetnik. Tvoj ZenFlow protokol čeka nastavak.',
     heading: 'Protokol te čeka',
     body:
-      'Ovo je poslednji podsetnik od nas. Ako želiš da nastaviš, dovoljna je jedna porudžbina — ' +
-      'pristup se vraća automatski, a niz se nastavlja odakle je stao.',
+      'Ovo je poslednji podsetnik od nas. Ako želiš da nastaviš, dovoljna je jedna porudžbina. ' +
+      'Pristup se vraća sam, a niz se nastavlja odakle je stao.',
   },
 }
 
@@ -59,8 +59,8 @@ export function WinbackEmail({ name, stage, pausedStreak, ctaHref, unsubscribeUr
 
       {pausedStreak > 0 && (
         <Text style={{ color: brand.ink, fontSize: 15, lineHeight: '24px', margin: '0 0 24px' }}>
-          Tvoj niz: <strong>{pausedStreak} {pausedStreak % 10 === 1 && pausedStreak % 100 !== 11 ? 'dan' : 'dana'}</strong> —
-          pauziran, spreman da se nastavi.
+          Sačuvan niz: <strong>{pausedStreak} {pausedStreak % 10 === 1 && pausedStreak % 100 !== 11 ? 'dan' : 'dana'}</strong>.
+          Nastavlja se čim obnoviš pristup.
         </Text>
       )}
 

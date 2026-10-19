@@ -10,22 +10,23 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { SupplyBottle } from "@/components/supply/supply-bottle";
 
 export const metadata: Metadata = {
-  title: "Style Guide — ZenFlow",
+  title: "Style Guide · ZenFlow",
 };
 
 const colors = [
   { name: "paper", value: "#ECF0F3", role: "pozadina", dark: false },
   { name: "white", value: "#FFFFFF", role: "kartice", dark: false },
   { name: "ink", value: "#203849", role: "tekst / tamna dugmad", dark: true },
-  { name: "slate", value: "#304F60", role: "—", dark: true },
+  { name: "slate", value: "#304F60", role: "hover tamnih dugmadi", dark: true },
   { name: "slate-mid", value: "#445662", role: "sekundarni tekst", dark: true },
   { name: "slate-soft", value: "#597080", role: "eyebrow", dark: true },
   { name: "lime", value: "#DEFE9C", role: "akcenat / CTA", dark: false },
-  { name: "lime-deep", value: "#DCF39E", role: "—", dark: false },
-  { name: "lime-soft", value: "#F0FFD0", role: "—", dark: false },
-  { name: "mint", value: "#D3FBD8", role: "—", dark: false },
+  { name: "lime-deep", value: "#DCF39E", role: "pomoćna", dark: false },
+  { name: "lime-soft", value: "#F0FFD0", role: "pomoćna", dark: false },
+  { name: "mint", value: "#D3FBD8", role: "pomoćna", dark: false },
 ];
 
 function Section({
@@ -61,6 +62,24 @@ export default function StyleGuidePage() {
         </p>
       </header>
 
+      {/* Bočica zaliha (mockup do prave bočice) */}
+      <Section eyebrow="Zalihe" title="Bočica zaliha">
+        <div className="flex flex-wrap items-end gap-10 rounded-xl bg-white p-8 shadow-soft">
+          <div className="flex flex-col items-center gap-2">
+            <SupplyBottle capsulesRemaining={128} />
+            <span className="text-xs text-slate-soft">128 kapsula</span>
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <SupplyBottle capsulesRemaining={38} />
+            <span className="text-xs text-slate-soft">38 kapsula</span>
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <SupplyBottle capsulesRemaining={10} low />
+            <span className="text-xs text-slate-soft">10 kapsula (niske zalihe)</span>
+          </div>
+        </div>
+      </Section>
+
       {/* Boje */}
       <Section eyebrow="Tokeni" title="Paleta boja">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
@@ -84,18 +103,18 @@ export default function StyleGuidePage() {
       </Section>
 
       {/* Tipografija */}
-      <Section eyebrow="Tip" title="Tipografija — Hanken Grotesk">
+      <Section eyebrow="Tip" title="Tipografija: Hanken Grotesk">
         <div className="space-y-6 rounded-lg border border-[var(--line)] bg-white p-8 shadow-soft">
           <span className="eyebrow">Eyebrow · uppercase · tracking .14em</span>
           <div className="space-y-3">
-            <h1 className="text-5xl text-ink">Naslov H1 — fokus i jasnoća</h1>
-            <h2 className="text-3xl text-ink">Naslov H2 — tvoj niz raste</h2>
-            <h3 className="text-2xl text-ink">Naslov H3 — dnevni protokol</h3>
+            <h1 className="text-5xl text-ink">Naslov H1: fokus i jasnoća</h1>
+            <h2 className="text-3xl text-ink">Naslov H2: tvoj niz raste</h2>
+            <h3 className="text-2xl text-ink">Naslov H3: dnevni protokol</h3>
           </div>
           <p className="max-w-2xl text-base text-slate-mid">
-            Body tekst (line-height 1.55). ZenFlow ne radi na trikove — radi
-            tako što ga piješ svaki dan, a efekat se gradi dozu po dozu, dan po
-            dan. Naslovi su weight 500 sa negativnim letter-spacing-om.
+            Body tekst (line-height 1.55). ZenFlow deluje kad se uzima svaki
+            dan, a efekat se gradi dozu po dozu, dan po dan. Naslovi su weight
+            500 sa negativnim letter-spacing-om.
           </p>
           <div className="flex flex-wrap gap-4 text-sm text-slate-soft">
             <span className="font-light">Light 300</span>
@@ -112,7 +131,7 @@ export default function StyleGuidePage() {
         <div className="space-y-8 rounded-lg border border-[var(--line)] bg-white p-8 shadow-soft">
           <div className="space-y-3">
             <p className="text-sm text-slate-soft">
-              shadcn Button — brend varijante
+              shadcn Button, brend varijante
             </p>
             <div className="flex flex-wrap items-center gap-4">
               <Button variant="lime" className="rounded-full px-6">
@@ -189,7 +208,7 @@ export default function StyleGuidePage() {
             </CardContent>
             <CardFooter>
               <Button variant="lime" className="w-full rounded-full">
-                Loguj večernju dozu
+                Označi popodnevnu dozu
               </Button>
             </CardFooter>
           </Card>

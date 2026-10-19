@@ -46,8 +46,8 @@ export function ErrorScreen({
         </h1>
         <p className="text-sm text-slate-mid">
           {offline
-            ? 'Proveri vezu i pokušaj ponovo — tvoji podaci su sačuvani.'
-            : 'Stranica nije uspela da se učita. Pokušaj ponovo; ako se ponavlja, javi nam se.'}
+            ? 'Proveri vezu i pokušaj ponovo. Tvoji podaci su sačuvani.'
+            : 'Stranica nije uspela da se učita. Pokušaj ponovo, a ako se greška ponavlja, javi nam se.'}
         </p>
       </div>
       <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-center">

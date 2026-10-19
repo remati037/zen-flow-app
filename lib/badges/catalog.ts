@@ -68,7 +68,7 @@ export const BADGE_CATALOG: readonly BadgeDefinition[] = [
   {
     key: 'niz-30',
     title: 'Niz od 30 dana',
-    description: 'Mesec dana doslednosti — pun efekat protokola.',
+    description: 'Mesec dana bez prekida. Tada protokol daje pun efekat.',
     icon: Crown,
   },
   {
@@ -86,7 +86,7 @@ export const BADGE_CATALOG: readonly BadgeDefinition[] = [
   {
     key: 'puna-nedelja',
     title: 'Puna nedelja',
-    description: 'Sakupi sedam kompletnih dana (obe doze) — ne moraju zaredom.',
+    description: 'Sakupi sedam dana sa obe doze. Ne moraju biti zaredom.',
     icon: CalendarCheck,
   },
 ]

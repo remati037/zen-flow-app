@@ -58,13 +58,13 @@ export function createAction<TSchema extends z.ZodType, TOutput>(
     // 1. Auth
     const profile = await getCurrentProfile()
     if (!profile) {
-      return actionError('Niste prijavljeni.')
+      return actionError('Sesija je istekla. Prijavi se ponovo.')
     }
     if (options.admin) {
       try {
         await requireAdmin()
       } catch {
-        return actionError('Nemate dozvolu za ovu akciju.')
+        return actionError('Nemaš dozvolu za ovu akciju.')
       }
     } else if (!options.allowInactive) {
       // 1b. Gejt pristupa (S-M2). Redirect u `(app)/layout.tsx` štiti samo render stranice;
@@ -96,7 +96,7 @@ export function createAction<TSchema extends z.ZodType, TOutput>(
       // Strukturno, sa `userId`-em, da se u logu može odvojiti „jedan korisnik ima
       // pokvaren profil" od „akcija je pukla svima".
       logError(EVENTS.actionFailed, err, { userId: profile.id })
-      return actionError('Došlo je do greške. Pokušaj ponovo.')
+      return actionError('Nešto nije u redu. Pokušaj ponovo.')
     }
   }
 }

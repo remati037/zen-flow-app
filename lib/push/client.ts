@@ -69,7 +69,7 @@ async function ensureSubscription(
 
   if (existing) {
     if (matchesVapidKey(existing, vapidKey) === false) {
-      console.warn('[push] pretplata je napravljena starim VAPID ključem — pravim novu')
+      console.warn('[push] pretplata je napravljena starim VAPID ključem, pravim novu')
       await existing.unsubscribe()
     } else {
       return existing

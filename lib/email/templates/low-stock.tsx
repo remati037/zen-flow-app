@@ -49,12 +49,12 @@ export function LowStockEmail({
     <EmailLayout
       preview={
         estimated
-          ? 'Po našoj proceni zalihe su ti pri kraju — vreme za refill.'
-          : `Ostalo ti je još ${capsulesRemaining} kapsula — vreme za refill.`
+          ? 'Po našoj proceni zalihe su ti pri kraju. Vreme je za novo pakovanje.'
+          : `Ostalo ti je još ${capsulesRemaining} kapsula. Vreme je za novo pakovanje.`
       }
     >
       <Heading style={{ color: brand.ink, fontSize: 24, fontWeight: 800, margin: '0 0 16px', letterSpacing: '-0.02em' }}>
-        Zalihe su ti pri kraju ⏳
+        Zalihe su ti pri kraju
       </Heading>
 
       <Text style={{ color: brand.ink, fontSize: 15, lineHeight: '24px', margin: '0 0 16px' }}>
@@ -66,7 +66,7 @@ export function LowStockEmail({
           Po našoj proceni zalihe su ti pri kraju
           {runout ? (
             <>
-              {' '}— ističu oko <strong>{runout}</strong>
+              {' '}i ističu oko <strong>{runout}</strong>
             </>
           ) : null}
           . Ako doze uzimaš, a ne štikliraš ih u aplikaciji, zalihe na ekranu
@@ -77,7 +77,7 @@ export function LowStockEmail({
           Ostalo ti je još <strong>{capsulesRemaining} kapsula</strong>
           {runout ? (
             <>
-              {' '}— po trenutnom ritmu, zaliha ti se završava oko <strong>{runout}</strong>
+              . Ovim tempom trajaće ti do oko <strong>{runout}</strong>
             </>
           ) : null}
           .
@@ -85,13 +85,13 @@ export function LowStockEmail({
       )}
 
       <Text style={{ color: brand.ink, fontSize: 15, lineHeight: '24px', margin: '0 0 24px' }}>
-        Setimo se kako ZenFlow radi: <strong>pauza u protokolu poništava napredak koji je do sada
-        izgrađen.</strong> Naruči refill na vreme da ne prekineš niz i ne izgubiš efekte.
+        <strong>Efekat ZenFlow-a se gradi redovnim uzimanjem i slabi tokom pauze.</strong> Naruči
+        na vreme i nastavi protokol bez prekida.
       </Text>
 
       <Section style={{ textAlign: 'center', margin: '8px 0 8px' }}>
         <Button href={ctaHref} style={brandButtonStyle()}>
-          Naruči refill
+          Naruči dopunu
         </Button>
       </Section>
 

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, Moon, Sun } from 'lucide-react'
+import { Check, Sun, Sunrise } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { logDose } from '@/app/(app)/protokol/actions'
@@ -49,12 +49,12 @@ const DOT_TITLES: Record<DayStatus, string> = {
   complete: 'Obe doze uzete',
   partial: 'Jedna doza uzeta',
   missed: 'Propušteno',
-  frozen: 'Pauza — nema aktivne porudžbine',
+  frozen: 'Pauza, nema aktivne porudžbine',
 }
 
 const DOSE_META: Record<Dose, { label: string; icon: typeof Sun }> = {
-  morning: { label: 'Jutarnja doza', icon: Sun },
-  evening: { label: 'Večernja doza', icon: Moon },
+  morning: { label: 'Jutarnja doza', icon: Sunrise },
+  evening: { label: 'Popodnevna doza', icon: Sun },
 }
 
 /**
@@ -89,13 +89,13 @@ export function WeekStrip({ weekStrip }: { weekStrip: WeekStripDay[] }) {
         setLocalDoses((s) => ({ ...s, [dose]: prev }))
         toast.error(
           navigator.onLine
-            ? 'Upis nije uspeo — pokušaj ponovo.'
-            : 'Nema internet veze — označi dozu kad budeš online.',
+            ? 'Upis nije uspeo. Pokušaj ponovo.'
+            : 'Nema internet veze. Označi dozu kad se veza vrati.',
         )
         return
       }
       if (result.ok) {
-        toast.success(next === 'taken' ? 'Doza zabeležena 🌿' : 'Doza poništena.')
+        toast.success(next === 'taken' ? 'Doza je zabeležena.' : 'Doza je poništena.')
         celebrateNewBadges(result.data.newBadges)
         router.refresh()
       } else {
@@ -113,7 +113,7 @@ export function WeekStrip({ weekStrip }: { weekStrip: WeekStripDay[] }) {
             key={day.date}
             type="button"
             onClick={() => openDay(day)}
-            title={`${DOT_TITLES[day.status]} — klikni za izmenu`}
+            title={`${DOT_TITLES[day.status]}. Klikni za izmenu.`}
             className="flex flex-1 flex-col items-center gap-1.5 rounded-lg py-1 transition-colors hover:bg-paper"
           >
             <span
@@ -142,7 +142,7 @@ export function WeekStrip({ weekStrip }: { weekStrip: WeekStripDay[] }) {
               {openDate ? formatFullDay(openDate) : ''}
             </DialogTitle>
             <DialogDescription>
-              Označi doze uzete tog dana. Menja i tvoj niz i zalihe.
+              Označi koje doze su uzete tog dana. Niz i zalihe se ažuriraju.
             </DialogDescription>
           </DialogHeader>
 

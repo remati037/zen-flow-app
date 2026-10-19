@@ -47,7 +47,7 @@ export function SupplyMiniCard({
 
       <p className="mt-1 text-xs text-slate-soft">
         {isEmpty ? (
-          'Nema evidentiranih kapsula — dopuni zalihe.'
+          'Nemaš više kapsula. Dopuni zalihe da nastaviš.'
         ) : (
           <>
             ≈ {daysRemaining} {daysRemaining === 1 ? 'dan' : 'dana'} protokola
@@ -59,7 +59,7 @@ export function SupplyMiniCard({
       {isLow && (
         <p className="mt-3 flex items-start gap-1.5 rounded-lg bg-caution-soft p-2.5 text-xs text-caution">
           <AlertTriangle className="mt-px size-3.5 shrink-0" />
-          <span>Pri kraju — naruči dopunu da ne prekineš protokol.</span>
+          <span>Zalihe su pri kraju. Naruči dopunu na vreme.</span>
         </p>
       )}
 

@@ -71,7 +71,7 @@ export default async function AdminPage() {
           accent
         />
         <MetricCard
-          label="Prosečan streak"
+          label="Prosečan niz"
           value={metrics.averageStreak}
           hint={`${metrics.streakUserCount} sa započetim protokolom`}
           icon={Flame}

@@ -95,7 +95,7 @@ export function CheckinsChart({ data }: { data: DailyCheckins[] }) {
         </div>
       ) : (
         <p className="mt-4 text-sm text-slate-soft">
-          Još nema označenih doza u ovom periodu — grafikon se popunjava od prvog check-ina.
+          Još nema označenih doza u ovom periodu. Grafikon se popunjava od prvog check-ina.
         </p>
       )}
     </section>

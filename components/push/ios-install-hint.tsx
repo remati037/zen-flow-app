@@ -50,7 +50,7 @@ export function IosInstallHint() {
         Dodaj ZenFlow na početni ekran
       </p>
       <p className="mt-1 text-sm leading-snug text-slate-mid">
-        Na iPhone-u i iPad-u podsetnici rade samo iz instalirane aplikacije. Traje 10 sekundi:
+        Na iPhone-u i iPad-u podsetnici rade samo iz instalirane aplikacije. Za to ti treba desetak sekundi.
       </p>
 
       <ol className="mt-3 flex flex-col gap-2 text-sm text-slate-mid">

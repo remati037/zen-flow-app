@@ -174,7 +174,7 @@ export function sendWelcomeEmail(profile: ProfileLike, options: SendOptions = {}
   return sendEmail({
     userId: profile.id,
     to: profile.email,
-    subject: 'Dobrodošlica u NuroLab 🌿',
+    subject: 'Dobrodošlica u ZenFlow aplikaciju',
     react: WelcomeEmail({ name: profile.name }),
     type: 'welcome',
     ...options,
@@ -199,7 +199,7 @@ export function sendLowStockEmail(
     to: profile.email,
     subject: supply.estimated
       ? 'Zalihe ti uskoro ističu'
-      : `Zalihe su pri kraju — ostalo ${supply.capsulesRemaining} kapsula`,
+      : `Ostalo ti je još ${supply.capsulesRemaining} kapsula`,
     react: LowStockEmail({
       name: profile.name,
       capsulesRemaining: supply.capsulesRemaining,
@@ -221,9 +221,9 @@ export function sendWinbackEmail(
   options: SendOptions = {},
 ): Promise<SendResult> {
   const subjects: Record<WinbackStage, string> = {
-    1: 'Tvoj ZenFlow niz je pauziran ⏸️',
-    2: 'Efekti ZenFlow-a se grade doslednošću',
-    3: 'Poslednji podsetnik — protokol te čeka',
+    1: 'Tvoj ZenFlow niz je pauziran',
+    2: 'Zašto se ZenFlow uzima svaki dan',
+    3: 'Poslednji podsetnik od nas',
   }
   return sendEmail({
     userId: profile.id,

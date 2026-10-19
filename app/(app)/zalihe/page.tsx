@@ -23,7 +23,7 @@ export default async function ZalihePage() {
     <div className="space-y-6">
       <header>
         <h1 className="text-2xl font-medium text-ink">Zalihe</h1>
-        <p className="text-slate-mid">Preostale kapsule i alerti za niske zalihe.</p>
+        <p className="text-slate-mid">Koliko kapsula ti je ostalo i kad je vreme za dopunu.</p>
       </header>
 
       <SupplyCard
