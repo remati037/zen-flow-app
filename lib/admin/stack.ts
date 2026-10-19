@@ -52,9 +52,11 @@ export async function getStackReport(today: string): Promise<StackReport> {
   const [aggregate, custom, onboardedRow, withStackRow] = await Promise.all([
     db.execute<{ supp_key: string; fresh_users: number; stale_users: number }>(sql`
       with eff as (
-        select user_id, active, last_confirmed_on,
-               coalesce(catalog_key, merged_into_key, 'custom:' || lower(custom_name)) as supp_key
-        from ${userSupplements}
+        select s.user_id, s.active, s.last_confirmed_on,
+               coalesce(s.catalog_key, s.merged_into_key, 'custom:' || lower(s.custom_name)) as supp_key
+        from ${userSupplements} s
+        join ${profiles} p on p.id = s.user_id
+        where p.role = 'user' and p.onboarding_completed
       ),
       per_user as (
         select user_id, supp_key,
@@ -73,10 +75,12 @@ export async function getStackReport(today: string): Promise<StackReport> {
       order by fresh_users desc, stale_users desc, supp_key
     `),
     db.execute<{ name: string; users: number }>(sql`
-      select lower(custom_name) as name, count(distinct user_id)::int as users
-      from ${userSupplements}
-      where custom_name is not null and merged_into_key is null and active
-      group by lower(custom_name)
+      select lower(s.custom_name) as name, count(distinct s.user_id)::int as users
+      from ${userSupplements} s
+      join ${profiles} p on p.id = s.user_id
+      where s.custom_name is not null and s.merged_into_key is null and s.active
+        and p.role = 'user' and p.onboarding_completed
+      group by lower(s.custom_name)
       order by users desc, name
       limit ${LIST_LIMIT}
     `),

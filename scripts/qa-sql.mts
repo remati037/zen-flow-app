@@ -661,6 +661,18 @@ async function runDatabaseChecks() {
     check('u bazi nema duplikata', total.length, 2)
   })
 
+  await inRollback('Moj stack: dodavanje osvežava potvrdu', async () => {
+    await seedProfile('qa_stk_fresh')
+    const today = stkToday()
+    const old = stkAdd(today, -20)
+    await stack.addSupplement('qa_stk_fresh', { catalogKey: 'zinc' }, { timeOfDay: 'morning' }, old)
+    check('pre dodavanja: najstarija potvrda je stara', (await stack.getStackSummary('qa_stk_fresh')).oldestConfirmedOn, old)
+    await stack.addSupplement('qa_stk_fresh', { catalogKey: 'iron' }, { timeOfDay: 'morning' }, today)
+    check('addSupplement osvežava potvrdu celog stack-a', (await stack.getStackSummary('qa_stk_fresh')).oldestConfirmedOn, today)
+    check('clearStack i dalje briše sve', await stack.clearStack('qa_stk_fresh'), 2)
+    check('posle clearStack: prazan summary', (await stack.getStackSummary('qa_stk_fresh')).activeCount, 0)
+  })
+
   await inRollback('Moj stack: ograničenja baze', async () => {
     await seedProfile('qa_stk_c')
     const today = stkToday()
@@ -771,6 +783,10 @@ async function runDatabaseChecks() {
     const today = stkToday()
     const stale = stkAdd(today, -60)
     const before = await stackAdmin.getStackReport(today)
+    await db
+      .insert(schema.profiles)
+      .values({ id: 'qa_sa_admin', email: 'qa_sa_admin@qa.local', role: 'admin', accessStatus: 'vip', onboardingCompleted: true })
+      .onConflictDoNothing()
     for (const id of ['qa_sa1', 'qa_sa2', 'qa_sa3', 'qa_sa4', 'qa_sa5', 'qa_sa6']) {
       await db
         .insert(schema.profiles)
@@ -791,7 +807,13 @@ async function runDatabaseChecks() {
     // nespojen slobodan unos
     await stack.addSupplement('qa_sa6', { customName: 'Ekstrakt X' }, { timeOfDay: 'morning' }, today)
 
+    // Admin sa magnezijumom i slobodnim unosom NE ulazi ni u agregat ni u listu slobodnih.
+    await stack.addSupplement('qa_sa_admin', { catalogKey: 'magnesium' }, { timeOfDay: 'evening' }, today)
+    await stack.addSupplement('qa_sa_admin', { customName: 'Admin Miks' }, { timeOfDay: 'evening' }, today)
+
     let report = await stackAdmin.getStackReport(today)
+    check('admin ne menja broj magnezijuma', report.rows.find((r) => r.key === 'magnesium')?.rawFreshUsers, 2)
+    check('admin ne ulazi u listu slobodnih', report.custom.some((c) => c.name === 'admin miks'), false)
     const mag = report.rows.find((r) => r.key === 'magnesium')
     check('pre spajanja: magnezijum sveži = 2 (maskirano)', mag?.freshUsers, null)
     check('pre spajanja: sirov broj svežih = 2', mag?.rawFreshUsers, 2)

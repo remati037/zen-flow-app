@@ -965,6 +965,9 @@ console.log('\n=== 18. Focus Score kroz vreme (procena iz ponašanja) ===')
   const { updateSupplementSchema } = await import('../lib/validations/stack')
   check('update: active:true se odbija (zaobilazi granicu)', updateSupplementSchema.safeParse({ id: 1, active: true }).success, false)
   check('update: active:false se prihvata', updateSupplementSchema.safeParse({ id: 1, active: false }).success, true)
+  const { addSupplementSchema } = await import('../lib/validations/stack')
+  check('add: naziv samo od interpunkcije se odbija', addSupplementSchema.safeParse({ customName: '--', timeOfDay: 'morning' }).success, false)
+  check('add: običan slobodan naziv se prihvata', addSupplementSchema.safeParse({ customName: 'Kurkuma Plus', timeOfDay: 'morning' }).success, true)
   check('update: bez ijedne promene se odbija', updateSupplementSchema.safeParse({ id: 1 }).success, false)
 }
 

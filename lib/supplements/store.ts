@@ -77,11 +77,15 @@ export async function addSupplement(
 
   const row = result.rows[0]
   if (!row) throw new Error('addSupplement: upis nije vratio red')
+  // Svaka izmena liste osvežava potvrdu (kao updateSupplementRow) — dve izjave, isti prihvaćen kompromis.
+  await confirmStack(userId, today)
   return { id: Number(row.id) }
 }
 
-/** `active: true` nije dostupno iz akcija i zaobišlo bi granicu — ponovno uključivanje ide kroz addSupplement. */
-/** `false` kad red ne postoji ili nije korisnikov (ili nema nijedne izmene). */
+/**
+ * `false` kad red ne postoji, nije korisnikov ili je izmena prazna. `active: true` nije dostupno iz
+ * akcija i zaobišlo bi granicu — ponovno uključivanje ide kroz addSupplement.
+ */
 export async function updateSupplementRow(
   userId: string,
   id: number,

@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { isCatalogKey } from '@/lib/supplements/catalog'
+import { normalizeSearch } from '@/lib/supplements/search'
 import { TIMES_OF_DAY } from '@/lib/supplements/time-of-day'
 
 export const timeOfDaySchema = z.enum(TIMES_OF_DAY)
@@ -10,7 +11,14 @@ const collapse = (s: string) => s.replace(/\s+/g, ' ').trim()
 const customNameSchema = z
   .string()
   .transform(collapse)
-  .pipe(z.string().min(2, 'Naziv je prekratak.').max(60, 'Naziv je predugačak (najviše 60 znakova).'))
+  .pipe(
+    z
+      .string()
+      .min(2, 'Naziv je prekratak.')
+      .max(60, 'Naziv je predugačak (najviše 60 znakova).')
+      // Samo interpunkcija („--") prođe dužinu, ali se normalizuje u prazan string.
+      .refine((v) => normalizeSearch(v).length >= 2, 'Naziv je prekratak.'),
+  )
 
 const doseNoteSchema = z
   .string()

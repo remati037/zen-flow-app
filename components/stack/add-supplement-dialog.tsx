@@ -19,7 +19,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { SUPPLEMENT_CATEGORIES, type SupplementCategory } from '@/lib/supplements/catalog'
-import { normalizeSearch, searchCatalog } from '@/lib/supplements/search'
+import { matchCatalogExact, normalizeSearch, searchCatalog } from '@/lib/supplements/search'
 import type { TimeOfDay } from '@/lib/supplements/time-of-day'
 import { cn } from '@/lib/utils'
 
@@ -40,7 +40,9 @@ export function AddSupplementDialog() {
     () => searchCatalog(query, trimmed === '' ? (category ?? undefined) : undefined),
     [query, trimmed, category],
   )
-  const hasExact = results.some((r) => normalizeSearch(r.label) === normalizeSearch(trimmed))
+  // Isto pravilo kao na serveru: tačno poklapanje sa katalogom se mapira na kataloški ključ.
+  const hasExact = matchCatalogExact(trimmed) !== undefined
+  const canAddCustom = normalizeSearch(trimmed).length >= 2
 
   function reset() {
     setQuery('')
@@ -138,7 +140,7 @@ export function AddSupplementDialog() {
                   </button>
                 </li>
               ))}
-              {trimmed.length >= 2 && !hasExact && (
+              {canAddCustom && !hasExact && (
                 <li>
                   <button
                     type="button"
