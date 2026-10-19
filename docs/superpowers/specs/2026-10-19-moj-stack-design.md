@@ -153,3 +153,19 @@ datumskim stringovima kroz helpere iz `lib/dates.ts`, nikad ms-aritmetikom. „D
 - Katalog je potvrđen (100 stavki).
 - Tekst politike privatnosti na `nurolab.rs` — van repoa, odgovornost Vladimira.
 - Ako nedeljna potvrda ima nisku stopu odziva: razmotriti push kroz postojeći dispatcher (Faza 2+).
+
+## Dopune (pri pisanju plana implementacije, 2026-10-20)
+
+- `needsConfirmation(oldestConfirmedOn: string | null, today: string)` — prima najstariji
+  `last_confirmed_on` među aktivnim redovima (`null` = nema aktivnih), ne broj redova.
+- Normalizacija pretrage: `đ` → `dj` (bez tolerancije „d"/„dj"); apostrofi se brišu
+  („Lion's mane" → „lions mane").
+- „Drugo" sa nazivom koji tačno odgovara nazivu ili aliasu iz kataloga (posle normalizacije)
+  čuva se pod `catalog_key` (`matchCatalogExact`) — manje ručnog spajanja u adminu.
+- Gornja granica: najviše 60 redova po korisniku (računaju se i neaktivni), proverava store
+  (check-then-act; nije invarijanta, pa trka sme da prekorači za koji red).
+- `EXPECTED_SCHEMA` podržava samo tabele, kolone i indekse: ulaze tabela + 5 indeksa; CHECK
+  ograničenja proverava `qa-sql` namernim prekršajima.
+- Prag „< 3" važi za tabelu po suplementu (kataloški ključevi). Lista slobodnih unosa prikazuje
+  tačne brojeve (adminu trebaju da odluči šta da spoji) i nikad ne nosi `user_id` ni mejl.
+- Kartica potvrde je JEDNA komponenta (`StackConfirmCard`) koja se renderuje na `/stack` i na dashboardu.
