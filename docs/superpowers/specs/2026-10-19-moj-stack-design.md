@@ -58,8 +58,8 @@ indeksi ne dozvoljavaju drugi. Upis je jedna SQL izjava (neon-http nema transakc
 `lib/supplements/catalog.ts` — čist modul bez `server-only`, ~100 stavki:
 `{ key, label, category, aliases }`. Ključevi su stabilni (`magnesium`, `omega3`, `vitamin_d3`,
 `creatine`, `collagen`, `whey_protein`, ...). ZenFlow se NE nalazi u katalogu (prati se
-protokolom). Predlog liste (108 stavki, po kategorijama, sa srpskim i engleskim aliasima) je u
-`2026-10-19-moj-stack-katalog-predlog.md`; Vladimir ga seče na konačnih ~100. Promena kataloga
+protokolom). Predlog liste (100 stavki, po kategorijama, sa srpskim i engleskim aliasima; potvrđeno) je u
+`2026-10-19-moj-stack-katalog-predlog.md`; Promena kataloga
 je deploy, bez migracije.
 
 **Pretraga** (`searchCatalog(query)` u istom modulu, čista funkcija, testirana u `qa-dates`):
@@ -150,6 +150,6 @@ datumskim stringovima kroz helpere iz `lib/dates.ts`, nikad ms-aritmetikom. „D
 
 ## Otvorena pitanja
 
-- Konačna lista kataloga (~30 stavki) — potvrđuje Vladimir.
+- Katalog je potvrđen (100 stavki).
 - Tekst politike privatnosti na `nurolab.rs` — van repoa, odgovornost Vladimira.
 - Ako nedeljna potvrda ima nisku stopu odziva: razmotriti push kroz postojeći dispatcher (Faza 2+).

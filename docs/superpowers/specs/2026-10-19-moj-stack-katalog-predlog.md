@@ -7,7 +7,7 @@ Ključevi su stabilni — posle puštanja se ne preimenuju.
 Namerno NIJE u katalogu: ZenFlow (prati se protokolom), lekovi na recept, anabolici/SARM-ovi,
 hormoni, CBD/kanabis. Ko to pije, koristi „Drugo".
 
-## Vitamini (11)
+## Vitamini (9)
 vitamin_d3 | Vitamin D3 | vitamin d, d3, holekalciferol, sunčani vitamin
 vitamin_c | Vitamin C | c vitamin, askorbinska kiselina
 vitamin_b12 | Vitamin B12 | b12, kobalamin, cijanokobalamin, metilkobalamin
@@ -16,9 +16,7 @@ vitamin_b6 | Vitamin B6 | b6, piridoksin
 folate | Folna kiselina / folat | b9, folat, metilfolat
 biotin | Biotin | b7, vitamin h
 vitamin_k2 | Vitamin K2 | k2, menahinon, mk-7
-vitamin_e | Vitamin E | e vitamin, tokoferol
 multivitamin | Multivitamin | multivitamini, multi, kompleks vitamina
-prenatal | Prenatalni vitamini | trudnoća, trudnice, prenatal
 
 ## Minerali (12)
 magnesium | Magnezijum | magnezium, magnesium, mg
@@ -34,10 +32,9 @@ iodine | Jod | iodine
 chromium | Hrom | chromium, krom pikolinat
 electrolytes | Elektroliti | electrolytes, soli, mineralni prah
 
-## Aminokiseline i sport (19)
+## Aminokiseline i sport (17)
 creatine | Kreatin | creatine, kreatin monohidrat, monohidrat
 whey_protein | Whey protein | protein, surutka, proteini, whey, izolat
-casein | Kazein | casein, kazein protein
 plant_protein | Biljni protein | vegan protein, protein graška, soja protein
 collagen | Kolagen | collagen, kolagen peptidi, hidrolizovani kolagen
 bcaa | BCAA | aminokiseline razgranatog lanca, leucin
@@ -53,14 +50,12 @@ nac | NAC | n-acetil cistein, acetilcistein
 l_tyrosine | L-tirozin | tirozin, tyrosine
 hmb | HMB | beta-hidroksi beta-metilbutirat
 pre_workout | Pre-workout | pred trening, pre workout, preworkout
-mass_gainer | Gejner | gainer, mass gainer, masa
 
-## Masne kiseline (5)
+## Masne kiseline (4)
 omega3 | Omega-3 | riblje ulje, fish oil, epa, dha, omega 3
 krill_oil | Krill ulje | krill
 algae_omega3 | Omega-3 iz algi | vegan omega, algae oil, algal
 mct_oil | MCT ulje | mct, kokosovo ulje
-cla | CLA | konjugovana linolna kiselina
 
 ## Fokus i nootropici (12)
 caffeine | Kofein | caffeine, tablete kofeina
@@ -76,7 +71,7 @@ citicoline | Citikolin | citicoline, cdp-holin
 phosphatidylserine | Fosfatidilserin | phosphatidylserine, ps
 cordyceps | Kordiceps | cordyceps
 
-## San i smirenje (10)
+## San i smirenje (9)
 melatonin | Melatonin | melatonin, za spavanje
 valerian | Valerijana | valerian, odoljen
 passionflower | Pasiflora | passiflora, passionflower
@@ -84,7 +79,6 @@ chamomile | Kamilica | chamomile
 lemon_balm | Matičnjak | maticnjak, melisa, lemon balm
 five_htp | 5-HTP | 5htp, hidroksitriptofan, grifonija
 gaba | GABA | gama-aminobuterna kiselina
-apigenin | Apigenin | apigenin
 saffron | Šafran | safran, saffron
 reishi | Reishi | ganoderma, reishi gljiva
 
@@ -99,7 +93,7 @@ hair_skin_nails | Kosa, koža i nokti | hair skin nails, formula za kosu
 silica | Silicijum | silica, silicijum dioksid, bambus
 astaxanthin | Astaksantin | astaxanthin
 
-## Imunitet i creva (10)
+## Imunitet i creva (9)
 probiotic | Probiotik | probiotici, probiotic, laktobacil
 prebiotic | Prebiotik | prebiotici, inulin
 psyllium | Psilijum | psyllium, vlakna
@@ -109,7 +103,6 @@ echinacea | Ehinacea | echinacea
 propolis | Propolis | propolis
 quercetin | Kvercetin | quercetin
 black_seed | Crni kim | nigella, black seed, crno seme
-colostrum | Kolostrum | colostrum
 
 ## Srce i metabolizam (12)
 coq10 | Koenzim Q10 | q10, coq10, ubikinol, ubiquinol
@@ -125,18 +118,15 @@ chlorella | Hlorela | chlorella
 greens_powder | Greens prah | zeleni prah, super greens
 lutein | Lutein | lutein, zeaksantin, za oči
 
-## Energija i longevity (NMN i dr.) i opšte zdravlje (8)
+## Energija i ostalo (7)
 nmn | NMN | nikotinamid mononukleotid
 pqq | PQQ | pirokinolin hinon
 maca | Maka | maca
 shilajit | Šilađit | shilajit
 tongkat_ali | Tongkat ali | tongkat, longjack
-tribulus | Tribulus | tribulus terrestris, čičak
 fenugreek | Piskavica | fenugreek, piskavica
 vitex | Konopljika | vitex, agnus castus, monk's pepper
 
 ## Ukupno
 
-Ukupno oko 108. Za 100 ostaju nakon sečenja npr.: `prenatal`, `vitamin_e`, `casein`,
-`mass_gainer`, `cla`, `apigenin`, `tribulus`, `colostrum` (najređe u domaćoj upotrebi).
-Konačnu listu potvrđuje Vladimir.
+100 stavki. Konačna lista potvrđena (Vladimir, 2026-10-20); izbačeno 8 najređih iz predloga.
