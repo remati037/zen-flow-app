@@ -123,8 +123,8 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
 - Build ide kroz **webpack** (`next build --webpack`), ne Turbopack — Serwist injector mod.
 - QA harness ima TRI sloja i sva tri moraju ostati zelena (`npm run qa` vozi sve):
   `qa-dates` (čiste funkcije: datumi/streak/prozori/Woo/access override/cap alerta/odjavni
-  token, Sprint 2–4 pravila, 266 provera), `qa-routes` (klasifikacija ruta, 50 provera) i **`qa-sql`**
-  (100 provera — SQL koji se STVARNO izvršava nad pravim Postgres-om). Lokalno bez Docker-a:
+  token, Sprint 2–6 pravila, 277 provera), `qa-routes` (klasifikacija ruta, 50 provera) i **`qa-sql`**
+  (103 provere — SQL koji se STVARNO izvršava nad pravim Postgres-om). Lokalno bez Docker-a:
   privremeni klaster sa Homebrew `postgresql@16` (`initdb --locale=C`, `pg_ctl -o "-p 5433"`).
 - **`qa-sql` postoji zato što prva dva sloja ne izvršavaju nijedan upit.** Dva produkciona
   otkaza su prošla kroz lint, build i obe stare provere netaknuta: `GROUP BY` sa bind
@@ -265,6 +265,11 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
   `not-found.tsx` i `global-error.tsx`. Ekran greške prikazuje `digest`, nikad poruku greške.
   Klijentski poziv server akcije MORA da hvata izuzetak (bez mreže akcija BACA, ne vraća
   `{ ok: false }`) i da vrati optimistično stanje — vidi `DoseCheckin`.
+- **Focus Score kroz vreme je PROCENA iz ponašanja** (`lib/focus/score.ts`, čist modul; upit u
+  `lib/focus/queries.ts`). Polazna tačka je kviz (`focus_score_baseline`); „efekat protokola"
+  raste ka udelu uzetih doza (~2 nedelje) i bledi brže kad se prekine; fokus blokovi nose 20%.
+  Današnji dan samo diže skor. UI mora da kaže da je procena — nikad ga ne predstavljati kao
+  merenje ili medicinski podatak. Model se menja samo uz izmenu QA sekcije 18 u `qa-dates`.
 - **Check-in iz notifikacije** (`/api/push/checkin`, javna, HMAC token iz
   `lib/push/checkin-token.ts` vezan za korisnika + dan + dozu; prihvata samo danas i juče).
   Upis ide kroz `recordDose` (`lib/protocol/record-dose.ts`) — ISTU funkciju koju zove

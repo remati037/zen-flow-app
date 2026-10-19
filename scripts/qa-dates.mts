@@ -824,5 +824,44 @@ console.log('\n=== 17. Sprint 4: token za check-in iz notifikacije ===')
   if (prevPush !== undefined) process.env.PUSH_ACTION_SECRET = prevPush
 }
 
+console.log('\n=== 18. Focus Score kroz vreme (procena iz ponašanja) ===')
+{
+  const { computeFocusTrend, MAX_UPLIFT, DEFAULT_BASELINE } = await import('../lib/focus/score')
+  const days = (from: string, n: number) => Array.from({ length: n }, (_, i) => addDaysIso(from, i))
+  const full = (list: string[]) => new Map(list.map((d) => [d, 2]))
+  const none = new Map<string, number>()
+
+  const noStart = computeFocusTrend({ baseline: 40, startDate: null, today: '2026-10-19', takenByDay: none, focusMinByDay: none })
+  check('bez protokola: skor = polazna tačka', noStart.current, 40)
+  check('bez kviza: polazna tačka je podrazumevana', computeFocusTrend({ baseline: null, startDate: null, today: '2026-10-19', takenByDay: none, focusMinByDay: none }).baseline, DEFAULT_BASELINE)
+
+  const d14 = days('2026-10-06', 14)
+  const steady = computeFocusTrend({ baseline: 50, startDate: '2026-10-06', today: '2026-10-19', takenByDay: full(d14), focusMinByDay: none })
+  check('14 punih dana → skor raste', steady.current > 50, true)
+  check('bez fokus blokova rast ne prelazi 80% prostora', steady.current <= 50 + Math.round(MAX_UPLIFT * 0.8), true)
+  check('trend: raste', steady.trend, 'up')
+  check('serija ima tačku po danu', steady.points.length, 14)
+
+  const stopped = computeFocusTrend({
+    baseline: 50, startDate: '2026-09-22', today: '2026-10-19',
+    takenByDay: full(days('2026-09-22', 14)), focusMinByDay: none,
+  })
+  check('posle pauze od 2 nedelje skor pada ka polaznoj', stopped.current < steady.current, true)
+  check('trend posle pauze: pada', stopped.trend, 'down')
+
+  const morningOnlyToday = new Map(full(days('2026-10-06', 13)))
+  const beforeToday = computeFocusTrend({ baseline: 50, startDate: '2026-10-06', today: '2026-10-19', takenByDay: morningOnlyToday, focusMinByDay: none })
+  morningOnlyToday.set('2026-10-19', 0)
+  const zeroToday = computeFocusTrend({ baseline: 50, startDate: '2026-10-06', today: '2026-10-19', takenByDay: morningOnlyToday, focusMinByDay: none })
+  check('današnji dan bez doza NE spušta skor (dan nije gotov)', zeroToday.current, beforeToday.current)
+
+  const practice = computeFocusTrend({
+    baseline: 50, startDate: '2026-10-06', today: '2026-10-19',
+    takenByDay: full(d14), focusMinByDay: new Map(d14.map((d) => [d, 25])),
+  })
+  check('fokus blokovi dodaju na skor', practice.current > steady.current, true)
+  check('skor nikad preko 100', computeFocusTrend({ baseline: 95, startDate: '2026-10-06', today: '2026-10-19', takenByDay: full(d14), focusMinByDay: new Map(d14.map((d) => [d, 60])) }).current <= 100, true)
+}
+
 console.log(`\n──────────────\nRezultat: ${pass} prošlo, ${fail} palo\n`)
 process.exit(fail > 0 ? 1 : 0)
