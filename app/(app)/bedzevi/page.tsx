@@ -21,23 +21,26 @@ export default async function BedzeviPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-medium text-ink">Bedževi</h1>
+        <h1 className="font-heading text-3xl font-medium tracking-[-0.03em] text-ink">Bedževi</h1>
         <p className="text-slate-mid">
           {earnedCount === 0
-            ? 'Doslednost otključava bedževe — kreni od prve doze.'
-            : 'Osvojeni bedževi za doslednost u protokolu i fokusu.'}
+            ? 'Bedževi stižu uz redovno uzimanje. Kreni od prve doze.'
+            : 'Tvoji bedževi iz protokola i fokusa.'}
         </p>
       </header>
 
-      <div className="rounded-xl bg-white p-6 shadow-soft ring-1 ring-foreground/10">
+      <div className="rounded-[24px] bg-white p-5 ring-1 ring-ink/[0.06]">
         <div className="flex items-baseline justify-between gap-4">
-          <span className="font-heading text-lg font-medium text-ink">
-            {earnedCount}/{BADGE_COUNT} osvojeno
+          <span className="flex items-baseline gap-1.5">
+            <span className="font-heading text-4xl leading-none font-semibold tracking-[-0.03em] text-ink tabular-nums">
+              {earnedCount}
+            </span>
+            <span className="text-sm text-slate-mid">od {BADGE_COUNT} osvojeno</span>
           </span>
-          <span className="text-sm text-slate-soft">{progress}%</span>
+          <span className="text-sm text-slate-soft tabular-nums">{progress}%</span>
         </div>
         <div
-          className="mt-3 h-2 w-full overflow-hidden rounded-full bg-paper"
+          className="mt-4 h-1 w-full overflow-hidden rounded-full bg-paper"
           role="progressbar"
           aria-valuenow={earnedCount}
           aria-valuemin={0}
@@ -45,13 +48,13 @@ export default async function BedzeviPage() {
           aria-label="Osvojeni bedževi"
         >
           <div
-            className="h-full rounded-full bg-lime transition-all"
+            className="h-full rounded-full bg-ink transition-all"
             style={{ width: `${progress}%` }}
           />
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         {BADGE_CATALOG.map((badge) => (
           <BadgeCard
             key={badge.key}

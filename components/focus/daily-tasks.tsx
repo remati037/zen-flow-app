@@ -33,7 +33,7 @@ export function DailyTasks({ tasks }: { tasks: FocusTask[] }) {
     const value = title.trim()
     if (!value) return
     if (full) {
-      toast.error(`Maksimalno ${MAX_TASKS} zadatka dnevno.`)
+      toast.error(`Najviše ${MAX_TASKS} zadatka dnevno.`)
       return
     }
 
@@ -55,7 +55,7 @@ export function DailyTasks({ tasks }: { tasks: FocusTask[] }) {
     startTransition(async () => {
       const result = await toggleTask({ id: task.id })
       if (result.ok) {
-        if (next) toast.success('Zadatak završen 🌿')
+        if (next) toast.success('Zadatak je završen.')
         router.refresh()
       } else {
         setItems((s) => s.map((t) => (t.id === task.id ? { ...t, done: task.done } : t))) // revert
@@ -79,7 +79,7 @@ export function DailyTasks({ tasks }: { tasks: FocusTask[] }) {
   }
 
   return (
-    <div className="rounded-xl bg-white p-6 shadow-soft ring-1 ring-foreground/10">
+    <div className="rounded-[24px] bg-white p-6 ring-1 ring-ink/[0.06]">
       <div className="flex items-baseline justify-between gap-4">
         <h2 className="font-heading text-lg font-medium text-ink">Tri zadatka za danas</h2>
         <span className="text-sm tabular-nums text-slate-soft">
@@ -87,7 +87,7 @@ export function DailyTasks({ tasks }: { tasks: FocusTask[] }) {
         </span>
       </div>
       <p className="mt-1 text-sm text-slate-mid">
-        Ne više od tri — fokus je izbor, ne lista. Resetuje se svakog dana.
+        Najviše tri, da ostane jasno šta je bitno. Lista se prazni svakog dana.
       </p>
 
       <ul className="mt-4 space-y-2">
@@ -142,7 +142,7 @@ export function DailyTasks({ tasks }: { tasks: FocusTask[] }) {
             key={`slot-${i}`}
             className="rounded-lg border border-dashed border-border p-3 text-sm text-slate-soft"
           >
-            Slobodan slot
+            Slobodno mesto
           </li>
         ))}
       </ul>

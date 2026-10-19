@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
   const result = await unsubscribe(req)
   return result.ok
     ? new NextResponse('OK', { status: 200, headers: { 'content-type': 'text/plain; charset=utf-8' } })
-    : new NextResponse('Neispravan ili istekao odjavni link.', { status: 400 })
+    : new NextResponse('Link za odjavu nije ispravan.', { status: 400 })
 }
 
 /** Klik iz mejla — posle odjave vodi na stranicu sa potvrdom i povratkom nazad. */

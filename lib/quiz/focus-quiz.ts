@@ -16,11 +16,6 @@ export interface FocusQuizQuestion {
   /** Kratak podnaslov ispod pitanja — kontekst da korisnik zna šta ocenjuje. */
   hint: string
   /**
-   * Emoji skala za odgovore 1–5 (indeks 0 = odgovor 1). Vizuelna zamena za
-   * gola 1–5 dugmad; semantika i scoring su nepromenjeni.
-   */
-  emojis: readonly [string, string, string, string, string]
-  /**
    * Bullet za "Tvoj 30-dnevni plan" kad je ovo pitanje među najslabijim
    * odgovorima. Vidi `buildPlanHighlights`.
    */
@@ -30,52 +25,47 @@ export interface FocusQuizQuestion {
 export const FOCUS_QUIZ_QUESTIONS: readonly FocusQuizQuestion[] = [
   {
     key: 'focus',
-    prompt: 'Koliko si u proseku fokusiran tokom radnog dana?',
+    prompt: 'Koliko lako se fokusiraš tokom radnog dana?',
     hint: 'Misli na tipičan radni dan poslednjih nedelju dana.',
-    emojis: ['🌪️', '😵‍💫', '😐', '🎯', '🧠'],
     weakPlan: {
       title: 'Blokovi umesto celog dana',
-      body: 'Kreni sa dva Pomodoro bloka dnevno u Fokusu — pažnja se lakše drži u intervalima nego kroz ceo dan.',
+      body: 'Kreni sa dva Pomodoro bloka dnevno u Fokusu. Pažnju je lakše držati u kraćim intervalima.',
     },
   },
   {
     key: 'energy',
     prompt: 'Kakav ti je nivo energije tokom dana?',
     hint: 'Uključi i onaj popodnevni pad, ako ga imaš.',
-    emojis: ['🪫', '🥱', '😌', '⚡', '🚀'],
     weakPlan: {
       title: 'Ujednači jutarnju dozu',
-      body: 'Drži jutarnju dozu u istom terminu (±30 min). Ravnomeran ritam je ono što najviše ravna krivu energije.',
+      body: 'Drži jutarnju dozu u istom terminu (±30 min). Stalan ritam najviše pomaže da energija bude ujednačena.',
     },
   },
   {
     key: 'clarity',
     prompt: 'Koliko ti je um bistar i jasan?',
     hint: 'Koliko lako hvataš misao i donosiš odluke.',
-    emojis: ['🌫️', '🌧️', '🌥️', '🌤️', '☀️'],
     weakPlan: {
       title: 'Bistrina se gradi nedeljama',
-      body: 'Prvi jasan pomak se najčešće oseti oko 10.–14. dana. Zato pratimo niz, a ne pojedinačan dan.',
+      body: 'Prvi jasan pomak se najčešće oseti od 10. do 14. dana. Zato pratimo niz uzastopnih dana.',
     },
   },
   {
     key: 'endurance',
     prompt: 'Koliko dugo zadržiš koncentraciju bez pada?',
     hint: 'Koliko traje jedan blok pre nego što ti pažnja odluta.',
-    emojis: ['💨', '⏳', '⏱️', '🏃', '🏔️'],
     weakPlan: {
       title: 'Produžavaj postepeno',
-      body: 'Prvih 7 dana radi 25-minutne blokove, pa tek onda idi na duže. Izdržljivost prati doslednost.',
+      body: 'Prvih 7 dana radi 25-minutne blokove, pa tek onda idi na duže. Koncentracija raste uz redovan ritam.',
     },
   },
   {
     key: 'morning',
     prompt: 'Koliko se budno i sveže osećaš ujutru?',
     hint: 'Prvih sat vremena posle buđenja.',
-    emojis: ['😴', '🥱', '🙂', '🌅', '🐦'],
     weakPlan: {
-      title: 'Jutro počinje večernjom dozom',
-      body: 'Podesi večernju dozu bar dva sata pre spavanja i uključi podsetnik — jutarnja svežina zavisi od nje.',
+      title: 'Ritam se oseti i ujutru',
+      body: 'Drži obe doze u istom terminu svakog dana, popodnevnu oko 14h, i uključi podsetnike. Stabilan ritam ti olakšava i jutra.',
     },
   },
 ] as const
@@ -87,7 +77,7 @@ export const FOCUS_QUIZ_LENGTH = FOCUS_QUIZ_QUESTIONS.length
 export const FOCUS_QUIZ_MIN = 1
 export const FOCUS_QUIZ_MAX = 5
 
-/** Labele skale (1–5) za UI — koriste se i kao pristupačan naziv emoji dugmeta. */
+/** Labele skale (1–5) za UI — prikazuju se ispod broja i u pristupačnom nazivu dugmeta. */
 export const FOCUS_QUIZ_SCALE_LABELS = ['Veoma loše', 'Loše', 'Osrednje', 'Dobro', 'Odlično'] as const
 
 /**
@@ -117,22 +107,22 @@ export const FOCUS_SCORE_BANDS: readonly FocusScoreBand[] = [
   {
     maxScore: 39,
     label: 'Niska osnova',
-    summary: 'Startna tačka je niska — što znači da će razlika biti najuočljivija upravo kod tebe.',
+    summary: 'Polazna tačka je niska, pa ćeš razliku verovatno osetiti najjasnije.',
   },
   {
     maxScore: 64,
     label: 'Solidna osnova',
-    summary: 'Dobra polazna tačka. Doslednost je jedina varijabla koja te deli od sledećeg nivoa.',
+    summary: 'Dobra polazna tačka. Uz redovan protokol sledeći nivo je blizu.',
   },
   {
     maxScore: 84,
     label: 'Jaka osnova',
-    summary: 'Već funkcionišeš dobro. Protokol ti čuva vrh forme i ravna loše dane.',
+    summary: 'Već ti ide dobro. Protokol pomaže da tako ostane i u lošijim danima.',
   },
   {
     maxScore: 100,
     label: 'Vrhunska osnova',
-    summary: 'Startuješ visoko. Cilj je da ovo postane tvoj prosek, a ne najbolji dan u nedelji.',
+    summary: 'Krećeš visoko. Cilj je da ovakvi dani postanu tvoj prosek.',
   },
 ] as const
 
@@ -164,13 +154,13 @@ const PLAN_MAX_HIGHLIGHTS = 3
 const PLAN_BASELINE_HIGHLIGHTS: readonly PlanHighlight[] = [
   {
     key: 'ritam',
-    title: 'Zaključaj ritam prve nedelje',
-    body: 'Sedam dana u istim terminima je cilj broj jedan — posle toga protokol ide skoro sam od sebe.',
+    title: 'Uhvati ritam prve nedelje',
+    body: 'Prvi cilj je sedam dana u istim terminima. Posle toga protokol postaje navika.',
   },
   {
     key: 'zalihe',
     title: 'Ne dozvoli prazan dan',
-    body: 'Prati zalihe u aplikaciji i naruči dopunu na vreme — pauza briše ono što si do tada izgradio.',
+    body: 'Prati zalihe u aplikaciji i naruči dopunu na vreme. Pauza poništava deo napretka.',
   },
 ] as const
 

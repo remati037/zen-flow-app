@@ -175,10 +175,10 @@ async function run(): Promise<NextResponse> {
               type: 'low_stock_alert',
               title: estimated
                 ? 'Zalihe ti uskoro ističu'
-                : `Zalihe su pri kraju — ostalo ${c.capsulesRemaining} kapsula`,
+                : `Ostalo ti je još ${c.capsulesRemaining} kapsula`,
               body: estimated
-                ? 'Po našoj proceni kapsule su pri kraju. Proveri zalihe i dopuni na vreme.'
-                : 'Dopuni zalihe da ne prekineš protokol.',
+                ? 'Po našoj proceni kapsule su pri kraju. Proveri zalihe i naruči na vreme.'
+                : 'Naruči na vreme da protokol ne stane.',
               url: '/zalihe',
               tag: 'low_stock_alert',
               dedup: { day: today },

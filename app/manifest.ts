@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "ZenFlow — NuroLab Companion",
+    name: "ZenFlow by NuroLab",
     short_name: "ZenFlow",
     description:
-      "Tvoj dnevni ZenFlow protokol, fokus alati i streak na dohvat ruke.",
+      "Tvoj dnevni ZenFlow protokol, niz i alati za fokus na jednom mestu.",
     // Pravo na dashboard: `/` za ulogovanog korisnika samo preusmerava — jedan
     // round-trip manje pri svakom otvaranju instalirane aplikacije.
     start_url: "/dashboard",

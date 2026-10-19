@@ -77,7 +77,7 @@ export function checkVapidConfig(): VapidStatus {
         ...base,
         pairMatches: false,
         problem:
-          'VAPID par se NE poklapa — javni ključ nije izveden iz ovog privatnog. ' +
+          'VAPID par se NE poklapa: javni ključ nije izveden iz ovog privatnog. ' +
           'Push servis vraća 403 na svako slanje i notifikacije se nikad ne isporuče. ' +
           'Postavi OBA ključa iz istog para na Vercel i uradi REDEPLOY (javni ključ se ugrađuje u bundle na build-u).',
       }

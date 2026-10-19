@@ -1,19 +1,15 @@
 import { and, count, desc, eq, gte, sql } from 'drizzle-orm'
 
-import { AdherenceChart } from '@/components/dashboard/adherence-chart'
-import { FocusMiniCard } from '@/components/dashboard/focus-mini-card'
+import { FocusScoreCard } from '@/components/dashboard/focus-score-card'
 import { GreetingHeader } from '@/components/dashboard/greeting-header'
+import { OverviewList } from '@/components/dashboard/overview-list'
 import { ProtocolCtaCard } from '@/components/dashboard/protocol-cta-card'
-import { RecentBadgesRow } from '@/components/dashboard/recent-badges-row'
-import { SupplyMiniCard } from '@/components/dashboard/supply-mini-card'
 import { requireAppAccess } from '@/lib/access/app-gate'
 import { badges, db, focusSessions, supply } from '@/lib/db'
 import { belgradeDayStart, belgradeToday } from '@/lib/dates'
+import { getFocusTrend } from '@/lib/focus/queries'
 import { getProtocolState } from '@/lib/protocol/queries'
 import { refillUrl as refillLink } from '@/lib/refill'
-
-/** Dužina prozora na grafikonu doslednosti = dužina stripa koji traži od upita. */
-const ADHERENCE_DAYS = 14
 
 /**
  * Početna: agregacija svih feature-a Faze 1 na jednom ekranu. Svaki podatak
@@ -28,8 +24,8 @@ export default async function DashboardPage() {
   const today = belgradeToday()
   const dayStart = belgradeDayStart()
 
-  const [protocol, supplyRows, focusRows, badgeRows] = await Promise.all([
-    getProtocolState(profile, { stripDays: ADHERENCE_DAYS }),
+  const [protocol, supplyRows, focusRows, badgeRows, focusTrend] = await Promise.all([
+    getProtocolState(profile),
     db
       .select({
         capsulesRemaining: supply.capsulesRemaining,
@@ -52,15 +48,16 @@ export default async function DashboardPage() {
       .from(badges)
       .where(eq(badges.userId, profile.id))
       .orderBy(desc(badges.earnedAt), desc(badges.id)),
+    getFocusTrend(profile),
   ])
 
-  const { streak, todayDoses, weekStrip: adherenceDays } = protocol
+  const { streak, todayDoses } = protocol
   const supplyRow = supplyRows[0]
   const focusStats = focusRows[0]
   const refillUrl = refillLink('dashboard')
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <GreetingHeader
         name={profile.name}
         protocolStartDate={profile.protocolStartDate}
@@ -75,21 +72,18 @@ export default async function DashboardPage() {
         eveningTime={profile.doseEveningTime}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <SupplyMiniCard
-          capsulesRemaining={supplyRow?.capsulesRemaining ?? 0}
-          estimatedRunoutDate={supplyRow?.estimatedRunoutDate ?? null}
-          refillUrl={refillUrl}
-        />
-        <FocusMiniCard
-          sessions={focusStats?.sessions ?? 0}
-          minutes={focusStats?.minutes ?? 0}
-        />
-      </div>
+      <FocusScoreCard trend={focusTrend} />
 
-      <AdherenceChart days={adherenceDays} />
+      <OverviewList
+        capsulesRemaining={supplyRow?.capsulesRemaining ?? 0}
+        estimatedRunoutDate={supplyRow?.estimatedRunoutDate ?? null}
+        refillUrl={refillUrl}
+        focusSessions={focusStats?.sessions ?? 0}
+        focusMinutes={focusStats?.minutes ?? 0}
+        earnedBadgeKeys={badgeRows.map((b) => b.badgeKey)}
+      />
 
-      <RecentBadgesRow earned={badgeRows} />
+
     </div>
   )
 }

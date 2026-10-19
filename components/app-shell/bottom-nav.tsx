@@ -8,7 +8,7 @@ import { NAV_ITEMS } from './nav-items'
 
 /**
  * Donja tab traka — mobilni (md:hidden). Fixed dno, safe-area padding za
- * PWA standalone režim. Aktivni tab dobija lime accent.
+ * PWA standalone režim. Aktivni tab: ink boja i tanka linija iznad.
  */
 export function BottomNav() {
   const pathname = usePathname()
@@ -28,18 +28,19 @@ export function BottomNav() {
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'flex flex-col items-center gap-1 py-2.5 text-xs font-medium transition-colors',
+                  'relative flex min-h-14 flex-col items-center justify-center gap-1 py-2 text-xs font-medium transition-colors',
                   active ? 'text-ink' : 'text-slate-soft hover:text-slate-mid',
                 )}
               >
+                {/* Aktivni tab: tanka lime linija iznad, umesto „pilule" oko ikonice. */}
                 <span
+                  aria-hidden
                   className={cn(
-                    'flex h-9 w-12 items-center justify-center rounded-full transition-colors',
-                    active && 'bg-lime',
+                    'absolute top-0 h-0.5 w-6 rounded-full transition-colors',
+                    active ? 'bg-ink' : 'bg-transparent',
                   )}
-                >
-                  <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 2} />
-                </span>
+                />
+                <Icon className="h-5 w-5" strokeWidth={active ? 2 : 1.6} />
                 {item.label}
               </Link>
             </li>

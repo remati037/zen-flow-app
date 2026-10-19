@@ -202,12 +202,12 @@ export function PomodoroTimer({ tasks }: { tasks: FocusTask[] }) {
     if (mode === 'work') {
       persistSession(preset.workMin, true, taskLabel)
       setMode('break')
-      flashTitle('⏰ Blok gotov!')
-      toast.success(`Blok od ${preset.workMin} min je gotov 🌿 Pauza: ${preset.breakMin} min.`)
+      flashTitle('Blok je gotov')
+      toast.success(`Blok od ${preset.workMin} min je gotov. Sledi pauza od ${preset.breakMin} min.`)
     } else {
       setMode('work')
-      flashTitle('⏰ Pauza gotova!')
-      toast('Pauza je gotova — nazad u fokus.')
+      flashTitle('Pauza je gotova')
+      toast('Pauza je gotova. Vreme je za sledeći blok.')
     }
   }, [flashTitle, mode, persistSession, preset, taskLabel])
 
@@ -276,7 +276,7 @@ export function PomodoroTimer({ tasks }: { tasks: FocusTask[] }) {
 
     if (mode === 'work' && elapsedMin >= 1) {
       persistSession(elapsedMin, false, taskLabel)
-      toast(`Sesija prekinuta — zabeleženo ${elapsedMin} min.`)
+      toast(`Sesija je prekinuta. Zabeleženo je ${elapsedMin} min.`)
     } else {
       toast('Sesija je poništena.')
     }
@@ -286,7 +286,7 @@ export function PomodoroTimer({ tasks }: { tasks: FocusTask[] }) {
   const isBreak = mode === 'break'
 
   return (
-    <div className="rounded-xl bg-white p-6 shadow-soft ring-1 ring-foreground/10">
+    <div className="rounded-[24px] bg-white p-6 ring-1 ring-ink/[0.06]">
       {/* Preseti */}
       <div className="flex items-center justify-center gap-2">
         {PRESET_KEYS.map((key) => (
@@ -313,19 +313,19 @@ export function PomodoroTimer({ tasks }: { tasks: FocusTask[] }) {
       <div className="mt-6 flex justify-center">
         <div className="relative size-60">
           <svg viewBox="0 0 120 120" className="size-full -rotate-90">
-            <circle cx="60" cy="60" r={RADIUS} fill="none" strokeWidth="8" className="stroke-paper" />
+            <circle cx="60" cy="60" r={RADIUS} fill="none" strokeWidth="3" className="stroke-paper" />
             <circle
               cx="60"
               cy="60"
               r={RADIUS}
               fill="none"
-              strokeWidth="8"
+              strokeWidth="3"
               strokeLinecap="round"
               strokeDasharray={CIRCUMFERENCE}
               strokeDashoffset={CIRCUMFERENCE * (1 - progress)}
               className={cn(
                 'transition-[stroke-dashoffset] duration-300 ease-linear',
-                isBreak ? 'stroke-mint' : 'stroke-lime',
+                isBreak ? 'stroke-mint' : 'stroke-ink',
               )}
             />
           </svg>

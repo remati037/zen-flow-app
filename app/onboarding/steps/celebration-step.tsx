@@ -46,7 +46,7 @@ export function CelebrationStep({
           Protokol je aktivan
         </h2>
         <p className="text-sm leading-relaxed text-slate-mid">
-          Sve je podešeno. Od danas se broji niz — prvi check-in te čeka na početnoj.
+          Sve je podešeno. Niz se broji od danas, a prvu dozu označavaš na početnoj.
         </p>
       </div>
 
@@ -88,7 +88,7 @@ export function CelebrationStep({
       )}
 
       <Button type="button" variant="lime" size="lg" className="w-full" onClick={onGoToDashboard}>
-        Kreni na Dashboard
+        Idi na početnu
       </Button>
     </div>
   )

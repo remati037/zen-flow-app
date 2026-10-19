@@ -40,7 +40,7 @@ export const MAX_PUSH_ENDPOINT_LENGTH = 1024
  * živi u ovom modulu — jedinom koji smeju da uvezu i klijent i server.
  */
 export const PUSH_ENDPOINT_TAKEN_ERROR =
-  'Ova push pretplata je vezana za drugi nalog. Osvežavamo je — pokušaj ponovo za par sekundi.'
+  'Ova push pretplata je vezana za drugi nalog. Osvežavamo je, pa pokušaj ponovo za par sekundi.'
 
 export const PUSH_ENDPOINT_ERROR =
   'Endpoint pretplate ne pripada nijednom poznatom push servisu (Google/Apple/Mozilla/Microsoft). Pretplata je odbijena.'

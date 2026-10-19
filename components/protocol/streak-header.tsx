@@ -2,6 +2,7 @@ import { WeekStrip } from '@/components/protocol/week-strip'
 import type { WeekStripDay } from '@/lib/protocol/queries'
 import type { StreakResult } from '@/lib/protocol/streak'
 
+/** Niz + poslednjih 7 dana. Isti tipografski brojač kao na dashboardu, bez ikonica. */
 export function StreakHeader({
   streak,
   weekStrip,
@@ -10,27 +11,26 @@ export function StreakHeader({
   weekStrip: WeekStripDay[]
 }) {
   return (
-    <div className="rounded-xl bg-white p-6 shadow-soft ring-1 ring-foreground/10">
-      <div className="flex items-center gap-4">
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-4xl" aria-hidden>
-            🔥
-          </span>
-          <span className="font-heading text-5xl font-semibold tabular-nums text-ink">
-            {streak.current}
-          </span>
+    <section className="rounded-[24px] bg-white p-5 ring-1 ring-ink/[0.06] sm:p-6">
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-medium tracking-[0.14em] text-slate-soft uppercase">Tvoj niz</p>
+          <p className="mt-1 flex items-baseline gap-2">
+            <span className="font-heading text-6xl leading-none font-semibold tracking-[-0.04em] text-ink tabular-nums">
+              {streak.current}
+            </span>
+            <span className="text-sm text-slate-mid">
+              {streak.current === 1 ? 'dan zaredom' : 'dana zaredom'}
+            </span>
+          </p>
         </div>
-        <div className="flex flex-col">
-          <span className="text-sm font-medium text-ink">
-            {streak.current === 1 ? 'dan zaredom' : 'dana zaredom'}
-          </span>
-          <span className="text-xs text-slate-soft">
-            Najduži niz: {streak.longest}
-          </span>
+        <div className="text-right">
+          <p className="text-xs text-slate-soft">Najduži</p>
+          <p className="font-heading text-lg font-semibold text-ink tabular-nums">{streak.longest}</p>
         </div>
       </div>
 
       <WeekStrip weekStrip={weekStrip} />
-    </div>
+    </section>
   )
 }

@@ -23,7 +23,7 @@ export function MetricCard({
   return (
     <div
       className={cn(
-        'rounded-xl p-4 shadow-soft ring-1 ring-foreground/10',
+        'rounded-[20px] p-4 ring-1 ring-ink/[0.06]',
         accent ? 'bg-lime' : 'bg-white',
       )}
     >

@@ -123,13 +123,13 @@ function serviceOf(endpoint: string): string {
 function explainStatus(statusCode: number | null, message: string): string {
   switch (statusCode) {
     case 400:
-      return 'Neispravan zahtev — najčešće loš VAPID subject ili oštećeni ključevi pretplate.'
+      return 'Neispravan zahtev. Najčešće je uzrok loš VAPID subject ili oštećeni ključevi pretplate.'
     case 401:
     case 403:
-      return 'Push servis je odbio VAPID potpis (403). Javni ključ kojim je napravljena pretplata ne odgovara privatnom ključu na serveru — postavi oba iz istog para i uradi redeploy.'
+      return 'Push servis je odbio VAPID potpis (403). Javni ključ kojim je napravljena pretplata ne odgovara privatnom ključu na serveru. Postavi oba iz istog para i uradi redeploy.'
     case 404:
     case 410:
-      return 'Pretplata više ne postoji (uređaj je odjavljen ili je app obrisan) — red je uklonjen.'
+      return 'Pretplata više ne postoji (uređaj je odjavljen ili je app obrisan). Red je uklonjen.'
     case 413:
       return 'Payload je prevelik za push servis.'
     case 429:

@@ -34,14 +34,40 @@ function getDb(): NeonHttpDatabase<typeof schema> {
     throw new Error(
       'DATABASE_URL nije postavljen. Lokalno: dodaj ga u .env.local. ' +
         'Na Vercelu: Project Settings → Environment Variables, i proveri da je uključen za ' +
-        'okruženje koje deployuješ (Production I Preview — varijabla vezana samo za Production ' +
+        'okruženje koje deployuješ (Production I Preview, jer varijabla vezana samo za Production ' +
         'ne postoji u preview deployu).',
     )
+  }
+
+  // Lokalni razvoj bez Neon-a (vidi README „Lokalni razvoj"): običan Postgres preko
+  // `pg` drajvera. `require` je NAMERNO unutar ove grane: webpack `NODE_ENV`
+  // zamenjuje konstantom i mrtvu granu ne parsira, pa `pg` ne ulazi u prod bundle.
+  if (process.env.NODE_ENV !== 'production' && isLocalPostgres(url)) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { Pool } = require('pg') as typeof import('pg')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { drizzle: drizzlePg } = require('drizzle-orm/node-postgres') as typeof import('drizzle-orm/node-postgres')
+    // node-postgres ima isti API za sve što app koristi (`select`/`insert`/`execute` → `{ rows }`).
+    instance = drizzlePg(new Pool({ connectionString: url, max: 5 }), { schema }) as unknown as NeonHttpDatabase<
+      typeof schema
+    >
+    return instance
   }
 
   instance = drizzle(neon(url), { schema })
   return instance
 }
+
+/** `postgres://…@localhost` / `127.0.0.1` — lokalni Postgres, ne Neon. */
+function isLocalPostgres(url: string): boolean {
+  try {
+    const host = new URL(url).hostname
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1'
+  } catch {
+    return false
+  }
+}
+
 
 /**
  * Proxy nad drizzle instancom, ne nad neon klijentom — namerno.

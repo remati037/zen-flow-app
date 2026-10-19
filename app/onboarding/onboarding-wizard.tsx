@@ -77,7 +77,8 @@ export function OnboardingWizard({ defaultPackages }: { defaultPackages: number 
   const [packages, setPackages] = useState(String(defaultPackages))
   const [startDate, setStartDate] = useState(belgradeToday())
   const [doseMorningTime, setDoseMorningTime] = useState('08:00')
-  const [doseEveningTime, setDoseEveningTime] = useState('20:00')
+  // Druga doza je popodnevna; preporučeni termin je oko 14h.
+  const [doseEveningTime, setDoseEveningTime] = useState('14:00')
   const [quizAnswers, setQuizAnswers] = useState<(number | null)[]>(
     Array(FOCUS_QUIZ_LENGTH).fill(null),
   )

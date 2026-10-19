@@ -42,9 +42,9 @@ export function PushToggle({ initialEnabled = false }: PushToggleProps) {
       const result = next ? await subscribeToPush() : await unsubscribeFromPush()
       if (result.ok) {
         setEnabled(next)
-        toast(next ? 'Podsetnici uključeni.' : 'Podsetnici isključeni.')
+        toast(next ? 'Podsetnici su uključeni.' : 'Podsetnici su isključeni.')
       } else {
-        toast(result.error ?? 'Nešto je pošlo naopako.')
+        toast(result.error ?? 'Nešto nije u redu. Pokušaj ponovo.')
       }
     })
   }
@@ -55,7 +55,7 @@ export function PushToggle({ initialEnabled = false }: PushToggleProps) {
     return (
       <div className="rounded-lg bg-muted/50 px-4 py-3 text-sm text-slate-mid">
         <p className="font-medium text-ink">Push notifikacije nisu dostupne</p>
-        <p className="mt-1">Ovaj browser ih ne podržava. Podsetnike i dalje dobijaš mejlom.</p>
+        <p className="mt-1">Ovaj browser ih ne podržava. Upozorenja o zalihama i dalje stižu mejlom.</p>
       </div>
     )
   }

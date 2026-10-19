@@ -21,6 +21,10 @@
   --color-mint: #d3fbd8;
   /* Upozorenje (niske zalihe): topla, ali prigušena — ne crvena „greška".
      `caution` na `caution-soft` ≈ 5.6:1 (AA za mali tekst). */
+  /* Tegla na Zalihama: oblik prati ambalažu, boja je brend ink (ne crna proizvoda).
+     Čep je nijansu tamniji da se odvoji od tela. */
+  --color-jar: #203849;
+  --color-jar-cap: #1a2f3d;
   --color-caution: #8a5a12;
   --color-caution-soft: #fdf3e3;
   --color-caution-line: #e9c98f;

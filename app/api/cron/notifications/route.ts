@@ -269,19 +269,19 @@ async function run(): Promise<NextResponse> {
     emptySupply.has(p.id)
       ? {
           title: 'Kapsule su ti potrošene',
-          body: 'Dopuni zalihe da nastaviš protokol — efekti se grade doslednošću.',
+          body: 'Dopuni zalihe da protokol ne stane. Efekat se gradi iz dana u dan.',
           url: '/zalihe',
         }
       : {
-          title: 'Vreme je za jutarnju dozu 🌿',
-          body: 'Uzmi dozu i označi je — dugmetom ispod ili u aplikaciji.',
+          title: 'Vreme je za jutarnju dozu',
+          body: 'Kad je uzmeš, označi je ovde ili u aplikaciji.',
           url: '/protokol',
           checkin: { date: today, dose: 'morning' },
         },
   )
   const evening = await sendReminders(eveningTargets, 'dose_reminder_evening', () => ({
-    title: 'Vreme je za večernju dozu 🌙',
-    body: 'Uzmi dozu i označi je — dugmetom ispod ili u aplikaciji.',
+    title: 'Vreme je za popodnevnu dozu',
+    body: 'Kad je uzmeš, označi je ovde ili u aplikaciji.',
     url: '/protokol',
     checkin: { date: today, dose: 'evening' },
   }))
@@ -307,8 +307,8 @@ async function run(): Promise<NextResponse> {
       const res = await sendPushToUser({
         userId: p.id,
         type: 'streak_at_risk',
-        title: `Tvoj niz od ${streak.current} dana je na ivici ⏳`,
-        body: 'Označi današnju dozu da ne prekineš niz.',
+        title: `Tvoj niz od ${streak.current} dana čeka današnje doze`,
+        body: 'Označi ih do ponoći da se niz ne prekine.',
         url: '/protokol',
         tag: 'streak_at_risk',
         dedup: { day: today },

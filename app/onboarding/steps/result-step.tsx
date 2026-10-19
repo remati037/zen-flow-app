@@ -39,7 +39,7 @@ export function ResultStep({
       <StepHeading
         eyebrow="Korak 3 od 5 · Rezultat"
         title="Tvoj startni Focus Score"
-        description="Ovo je nulta tačka. Za 30 dana ponovo merimo i porediš razliku."
+        description="Ovo je tvoja polazna tačka. Za 30 dana radimo novo merenje, pa vidiš razliku."
       />
 
       <FocusGauge score={score} bandLabel={band.label} />

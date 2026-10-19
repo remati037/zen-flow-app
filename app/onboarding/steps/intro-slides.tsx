@@ -27,25 +27,25 @@ const SLIDES: readonly IntroSlide[] = [
   {
     icon: Sparkles,
     eyebrow: 'Uvod · 1 od 3',
-    title: 'ZenFlow nije tableta — to je protokol',
-    body: 'Dve doze dnevno, u istim terminima. Jutarnja nosi fokus kroz radni deo dana, večernja radi na oporavku i bistrini sutradan. Ceo protokol staje u te dve tačke.',
+    title: 'ZenFlow se uzima po protokolu',
+    body: 'Dve doze dnevno, svaki dan u isto vreme. Jutarnja pokriva prepodne, a popodnevna, oko 14h, ostatak dana.',
   },
   {
     icon: TrendingDown,
     eyebrow: 'Uvod · 2 od 3',
-    title: 'Efekat se gradi doslednošću — i bledi kad prekineš',
-    body: 'Sastojci se akumuliraju. Prvi jasan pomak se obično oseti oko 10.–14. dana, a nekoliko propuštenih dana te vraća unazad. Zato ova aplikacija broji niz, a ne pojedinačne dane — i zato te opomene za zalihe stižu pre nego što ostaneš bez.',
+    title: 'Efekat raste sa svakim danom',
+    body: 'Sastojci se nakupljaju postepeno. Prvi jasan pomak se obično oseti od 10. do 14. dana, a nekoliko propuštenih dana te vraća unazad. Zato aplikacija broji niz i javlja ti na vreme, pre nego što ostaneš bez kapsula.',
   },
   {
     icon: Flame,
     eyebrow: 'Uvod · 3 od 3',
     title: 'Šta te čeka unutra',
-    body: 'Sve je podređeno jednoj stvari: da niz ne pukne.',
+    body: 'Sve što ti treba da ostaneš u ritmu.',
     bullets: [
       { icon: CalendarCheck, text: 'Dnevni check-in obe doze i niz koji raste' },
-      { icon: Flame, text: 'Praćenje zaliha i podsetnik pre nego što ponestane' },
+      { icon: Flame, text: 'Praćenje zaliha i podsetnik pre nego što ti ponestane' },
       { icon: Timer, text: 'Pomodoro fokus blokovi i tri dnevna zadatka' },
-      { icon: Sparkles, text: 'Bedževi za prekretnice u protokolu' },
+      { icon: Sparkles, text: 'Bedževi za važne korake u protokolu' },
     ],
   },
 ] as const

@@ -42,7 +42,7 @@ export function ProtocolStep({
       <StepHeading
         eyebrow="Korak 1 od 5"
         title="Postavi svoj protokol"
-        description="Koliko pakovanja imaš i kad počinješ — po tome računamo kada ti ističu zalihe."
+        description="Koliko pakovanja imaš i od kog dana kreneš? Po tome računamo kad ti ističu zalihe."
       />
 
       <div className="flex flex-col gap-4">

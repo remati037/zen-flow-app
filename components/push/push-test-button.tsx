@@ -29,14 +29,14 @@ export function PushTestButton() {
       }
 
       if (data.sent > 0) {
-        toast.success(`Test push poslat na ${data.sent} uređaj(a). 🌿`)
+        toast.success(`Test push je poslat na ${data.sent} uređaj(a).`)
         return
       }
 
       // Bez ovog grananja svaki neuspeh je izgledao kao "nema pretplate",
       // pa je pravi uzrok (npr. 403 zbog VAPID nepoklapanja) ostajao skriven.
       if (data.subscriptions === 0) {
-        toast('Nemaš aktivnu pretplatu — uključi push podsetnike u Podešavanjima.')
+        toast('Nemaš aktivnu pretplatu. Uključi push podsetnike u Podešavanjima.')
         return
       }
 
@@ -44,7 +44,7 @@ export function PushTestButton() {
       toast.error(
         first
           ? `Slanje odbijeno${first.statusCode ? ` (${first.statusCode})` : ''}: ${first.reason}`
-          : 'Slanje nije uspelo iz nepoznatog razloga — vidi dijagnostiku.',
+          : 'Slanje nije uspelo iz nepoznatog razloga. Pogledaj dijagnostiku.',
         { duration: 12_000 },
       )
     } catch {

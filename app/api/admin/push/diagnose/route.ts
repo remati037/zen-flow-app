@@ -156,8 +156,8 @@ export async function GET() {
       return {
         ...base,
         reason: !profile.onboardingCompleted
-          ? 'Onboarding nije završen — dispatcher preskače takve naloge.'
-          : 'Nalog je `inactive` — dispatcher ne šalje neaktivnima.',
+          ? 'Onboarding nije završen. Dispatcher preskače takve naloge.'
+          : 'Nalog je `inactive`. Dispatcher ne šalje neaktivnim nalozima.',
       }
     }
     if (!time) return { ...base, reason: 'Vreme doze nije podešeno u Podešavanjima.' }
@@ -167,7 +167,7 @@ export async function GET() {
     // Ranije je ovde stajalo hardkodovano `+ 30`, pa je dijagnostika prikazivala
     // lažan prozor čim se `NOTIFICATION_WINDOW_MIN` promeni — a onda „van prozora"
     // u dijagnostici ne bi značilo isto što i u ruti koja stvarno šalje.
-    const window = `${minutesToHm(start)}–${minutesToHm(start + WINDOW_MIN)}`
+    const window = `od ${minutesToHm(start)} do ${minutesToHm(start + WINDOW_MIN)}`
     const isIn = inWindow(nowMin, start)
 
     if (takenToday[dose]) {
@@ -180,15 +180,15 @@ export async function GET() {
         inWindowNow: isIn,
         reason:
           slot!.status === 'pending'
-            ? `Rezervacija od ${notifiedAt} nije zatvorena — slanje je prekinuto u letu (timeout funkcije ili deploy usred run-a). Slot za danas je potrošen, pa dispatcher preskače. Oslobodi ga sa "Resetuj dedup za danas".`
-            : `Podsetnik je danas već poslat u ${notifiedAt} — dedup blokira drugi isti dan. Promena vremena doze ga NE resetuje. Za ponovni test koristi "Resetuj dedup za danas".`,
+            ? `Rezervacija od ${notifiedAt} nije zatvorena. Slanje je prekinuto usred run-a (timeout funkcije ili deploy). Slot za danas je potrošen, pa dispatcher preskače. Oslobodi ga dugmetom "Resetuj dedup za danas".`
+            : `Podsetnik je danas već poslat u ${notifiedAt}. Dedup blokira drugo slanje istog dana, a promena vremena doze ga NE resetuje. Za ponovni test koristi "Resetuj dedup za danas".`,
       }
     }
     if (!isIn) {
       return {
         ...base,
         window,
-        reason: `Trenutno je ${nowHm}, van prozora ${window} (širina ${WINDOW_MIN} min). Dispatcher šalje SAMO unutar prozora — ako se ne pokreće na 15 min, prozor se propusti.`,
+        reason: `Trenutno je ${nowHm}, van prozora ${window} (širina ${WINDOW_MIN} min). Dispatcher šalje SAMO unutar prozora. Ako se ne pokreće na 15 min, prozor se propusti.`,
       }
     }
     return { ...base, window, inWindowNow: true, wouldSendNow: true, reason: 'Poslao bi podsetnik odmah.' }
@@ -212,12 +212,12 @@ export async function GET() {
   if (vapid.problem) blockers.push(vapid.problem)
   if (subs.length === 0) {
     blockers.push(
-      'Nemaš nijednu push pretplatu u bazi. Uključi "Push podsetnike" u Podešavanjima — ' +
-        'na iOS-u tek POSLE dodavanja app-a na početni ekran (u Safariju Notification API ne postoji).',
+      'Nemaš nijednu push pretplatu u bazi. Uključi "Push podsetnike" u Podešavanjima. ' +
+        'Na iOS-u to radi tek POSLE dodavanja app-a na početni ekran (u Safariju Notification API ne postoji).',
     )
   }
   if (!process.env.CRON_SECRET) {
-    blockers.push('CRON_SECRET nije postavljen — sve cron rute vraćaju 401, pa nema podsetnika za doze.')
+    blockers.push('CRON_SECRET nije postavljen. Sve cron rute vraćaju 401, pa nema podsetnika za doze.')
   }
 
   const pushFailures = recent.filter((r) => r.channel === 'push' && r.status !== 'success').length
@@ -231,8 +231,8 @@ export async function GET() {
 
   if (dispatcherHealth.status !== 'never' && !seenDoseReminders) {
     blockers.push(
-      'Dispatcher se poziva, ali nijedan podsetnik za dozu nikad nije poslat. To više NIJE scheduler — ' +
-        'proveri vremena doza u Podešavanjima, da je onboarding završen i da postoji push pretplata.',
+      'Dispatcher se poziva, ali nijedan podsetnik za dozu nikad nije poslat. Problem NIJE scheduler. ' +
+        'Proveri vremena doza u Podešavanjima, da je onboarding završen i da postoji push pretplata.',
     )
   }
 

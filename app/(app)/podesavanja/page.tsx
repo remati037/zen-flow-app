@@ -56,8 +56,8 @@ export default async function PodesavanjaPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-medium text-ink">Podešavanja</h1>
-        <p className="text-slate-mid">Vreme doza, push notifikacije i profil.</p>
+        <h1 className="font-heading text-3xl font-medium tracking-[-0.03em] text-ink">Podešavanja</h1>
+        <p className="text-slate-mid">Profil, termini doza i notifikacije.</p>
       </header>
 
       <Card>

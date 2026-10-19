@@ -11,7 +11,7 @@ import { and, inArray, sql } from 'drizzle-orm'
 import { OnboardingWizard } from './onboarding-wizard'
 
 export const metadata = {
-  title: 'Onboarding — NuroLab',
+  title: 'Podešavanje protokola · NuroLab',
 }
 
 /**

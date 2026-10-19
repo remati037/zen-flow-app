@@ -7,7 +7,7 @@ import { formatIsoDateSr } from '@/lib/dates'
 /** Ljudsko ime tipa notifikacije; nepoznat tip se prikazuje kakav jeste. */
 const TYPE_LABELS: Record<string, string> = {
   dose_reminder_morning: 'Jutarnja doza',
-  dose_reminder_evening: 'Večernja doza',
+  dose_reminder_evening: 'Popodnevna doza',
   streak_at_risk: 'Streak u riziku',
   low_stock_alert: 'Niske zalihe',
   welcome: 'Dobrodošlica',
@@ -97,7 +97,7 @@ export function DeliveryPanel({ report }: { report: DeliveryReport }) {
                   />
                 </div>
                 <span className="w-24 shrink-0 text-right text-slate-mid">
-                  {total === 0 ? '—' : `${d.push.success + d.email.success}/${total}`}
+                  {total === 0 ? 'nema slanja' : `${d.push.success + d.email.success}/${total}`}
                 </span>
               </div>
             )

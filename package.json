@@ -15,7 +15,8 @@
     "qa:routes": "tsx scripts/qa-routes.mts",
     "qa:sql": "tsx --conditions=react-server scripts/qa-sql.mts",
     "qa": "npm run lint && npm run qa:dates && npm run qa:routes && npm run qa:sql",
-    "db:status": "tsx scripts/db-status.mts"
+    "db:status": "tsx scripts/db-status.mts",
+    "dev:seed": "tsx scripts/dev-seed.mts"
   },
   "dependencies": {
     "@clerk/localizations": "^4.23.0",

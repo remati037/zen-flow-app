@@ -608,6 +608,26 @@ async function runDatabaseChecks() {
       report.unregisteredBuyers.some((r) => r.email === 'kupac_bez_naloga@qa.local'))
   })
 
+  const focusQ = await import('../lib/focus/queries')
+  await inRollback('Focus Score: GROUP BY po beogradskom danu se izvršava', async () => {
+    const today = bt()
+    await db.insert(schema.profiles).values({
+      id: 'qa_fs', email: 'qa_fs@qa.local', role: 'user', accessStatus: 'vip',
+      onboardingCompleted: true, protocolStartDate: add(today, -5), focusScoreBaseline: 40,
+    })
+    for (let i = 5; i >= 1; i--) {
+      for (const dose of ['morning', 'evening'] as const) {
+        await db.insert(schema.protocolLogs).values({ userId: 'qa_fs', date: add(today, -i), dose, status: 'taken' })
+      }
+    }
+    await db.insert(schema.focusSessions).values({ userId: 'qa_fs', durationMin: 25, completed: true })
+    const [prof] = await db.select().from(schema.profiles).where(eq(schema.profiles.id, 'qa_fs'))
+    const t = await focusQ.getFocusTrend(prof!)
+    check('polazna tačka iz kviza', t.baseline, 40)
+    ok('5 punih dana + blok → skor iznad polazne', t.current > 40, `skor ${t.current}`)
+    check('serija od početka protokola do danas', t.points.length, 6)
+  })
+
   ok('adapter je stvarno korišćen', adapter.queryCount() > 0, `${adapter.queryCount()} upita kroz pg`)
 
   // ── pomoćne ───────────────────────────────────────────────────────────────

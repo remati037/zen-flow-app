@@ -9,9 +9,9 @@ export default function SignUpPage() {
         uputstvo stoji IZNAD forme, vidljivo pre nego što se mejl unese.
       */}
       <div className="w-full rounded-2xl bg-lime-soft px-5 py-4 text-center text-sm text-ink ring-1 ring-lime">
-        <p className="font-medium">Registruj se mejlom koji je korišćen pri kupovini</p>
+        <p className="font-medium">Registruj se istim mejlom kao pri kupovini</p>
         <p className="mt-1 text-slate-mid">
-          Pristup aplikaciji dobijaš automatski kad se mejl poklopi sa porudžbinom na nurolab.rs.
+          Pristup se otvara sam kad se mejl poklopi sa porudžbinom na nurolab.rs.
         </p>
       </div>
       <SignUp />

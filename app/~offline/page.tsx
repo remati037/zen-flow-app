@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Offline — ZenFlow",
+  title: "Offline · ZenFlow",
 };
 
 // Mora biti statična (bez data fetchinga) da bi je service worker precache-ovao
@@ -16,8 +16,8 @@ export default function OfflinePage() {
           Trenutno si offline
         </h1>
         <p className="max-w-sm text-slate-soft">
-          Nema veze sa internetom. Tvoj protokol te čeka — vrati se čim ponovo
-          budeš online i streak ostaje netaknut.
+          Nema veze sa internetom. Niz ostaje sačuvan, a doze možeš da označiš
+          čim se veza vrati.
         </p>
       </div>
 

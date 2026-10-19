@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
 
   const today = belgradeToday()
   if (date !== today && date !== addDaysIso(today, -1)) {
-    return NextResponse.json({ error: 'Podsetnik je istekao — označi dozu u aplikaciji.' }, { status: 410 })
+    return NextResponse.json({ error: 'Podsetnik je istekao. Označi dozu u aplikaciji.' }, { status: 410 })
   }
 
   const [profile] = await db.select().from(profiles).where(eq(profiles.id, userId)).limit(1)
