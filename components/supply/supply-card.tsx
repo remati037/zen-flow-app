@@ -20,10 +20,10 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
-import { formatIsoDateSr } from '@/lib/dates'
+import { belgradeToday, formatIsoDateSr } from '@/lib/dates'
 import {
   CAPSULES_PER_PACKAGE,
-  LOW_STOCK_THRESHOLD,
+  isLowStock,
   estimateDaysRemaining,
 } from '@/lib/protocol/dosing'
 import { cn } from '@/lib/utils'
@@ -44,7 +44,8 @@ export function SupplyCard({
 
   const daysRemaining = estimateDaysRemaining(capsulesRemaining)
   const runoutLabel = estimatedRunoutDate ? formatIsoDateSr(estimatedRunoutDate) : null
-  const isLow = capsulesRemaining <= LOW_STOCK_THRESHOLD
+  // Isto pravilo kao low-stock cron: broj kapsula ILI procenjeni datum isteka.
+  const isLow = isLowStock(capsulesRemaining, estimatedRunoutDate, belgradeToday())
   // Referentni "pun" = jedno pakovanje (60 kapsula / 15 dana). Preko toga bar ostaje pun.
   const percent = Math.min(100, Math.round((capsulesRemaining / CAPSULES_PER_PACKAGE) * 100))
 

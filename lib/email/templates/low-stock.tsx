@@ -15,6 +15,11 @@ type LowStockEmailProps = {
    * ijedne vidljive odjave se ne odjavljuje — prijavljuje se kao spam.
    */
   unsubscribeUrl?: string | null
+  /**
+   * Alert je okinut po procenjenom datumu isteka, ne po broju kapsula: korisnik ne
+   * štiklira doze, pa `capsulesRemaining` u bazi nije tačan i ne prikazuje se.
+   */
+  estimated?: boolean
 }
 
 function formatDate(value?: string | null) {
@@ -31,6 +36,7 @@ export function LowStockEmail({
   capsulesRemaining,
   runoutDate,
   unsubscribeUrl,
+  estimated = false,
 }: LowStockEmailProps) {
   const greeting = name ? `Zdravo ${name},` : 'Zdravo,'
   const runout = formatDate(runoutDate)
@@ -39,7 +45,13 @@ export function LowStockEmail({
   const ctaHref = refillUrl('email_low_stock') ?? `${APP_URL}/zalihe`
 
   return (
-    <EmailLayout preview={`Ostalo ti je još ${capsulesRemaining} kapsula — vreme za refill.`}>
+    <EmailLayout
+      preview={
+        estimated
+          ? 'Po našoj proceni zalihe su ti pri kraju — vreme za refill.'
+          : `Ostalo ti je još ${capsulesRemaining} kapsula — vreme za refill.`
+      }
+    >
       <Heading style={{ color: brand.ink, fontSize: 24, fontWeight: 800, margin: '0 0 16px', letterSpacing: '-0.02em' }}>
         Zalihe su ti pri kraju ⏳
       </Heading>
@@ -48,15 +60,28 @@ export function LowStockEmail({
         {greeting}
       </Text>
 
-      <Text style={{ color: brand.ink, fontSize: 15, lineHeight: '24px', margin: '0 0 16px' }}>
-        Ostalo ti je još <strong>{capsulesRemaining} kapsula</strong>
-        {runout ? (
-          <>
-            {' '}— po trenutnom ritmu, zaliha ti se završava oko <strong>{runout}</strong>
-          </>
-        ) : null}
-        .
-      </Text>
+      {estimated ? (
+        <Text style={{ color: brand.ink, fontSize: 15, lineHeight: '24px', margin: '0 0 16px' }}>
+          Po našoj proceni zalihe su ti pri kraju
+          {runout ? (
+            <>
+              {' '}— ističu oko <strong>{runout}</strong>
+            </>
+          ) : null}
+          . Ako doze uzimaš, a ne štikliraš ih u aplikaciji, zalihe na ekranu
+          pokazuju više nego što stvarno imaš.
+        </Text>
+      ) : (
+        <Text style={{ color: brand.ink, fontSize: 15, lineHeight: '24px', margin: '0 0 16px' }}>
+          Ostalo ti je još <strong>{capsulesRemaining} kapsula</strong>
+          {runout ? (
+            <>
+              {' '}— po trenutnom ritmu, zaliha ti se završava oko <strong>{runout}</strong>
+            </>
+          ) : null}
+          .
+        </Text>
+      )}
 
       <Text style={{ color: brand.ink, fontSize: 15, lineHeight: '24px', margin: '0 0 24px' }}>
         Setimo se kako ZenFlow radi: <strong>pauza u protokolu poništava napredak koji je do sada

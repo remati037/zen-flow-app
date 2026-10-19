@@ -14,9 +14,18 @@ Sprint 1 je završen na grani `sprint-1-hardening`:
 - QA skripte rade na putanji sa razmakom
 - Clerk ekrani su na srpskoj latinici, sa uputstvom da se registruje mejlom sa kupovine
 
+Sprint 2 je završen na grani `sprint-2-supply-alerts` (stoji na Sprintu 1):
+- onboarding: zalihe oduzimaju protekle dane, prefil samo iz porudžbina u prozoru pristupa, upis atomaran (bez duplog submit-a i polovičnog stanja)
+- Woo top-up je atomaran; backfill dopunjuje porudžbine posle onboardinga
+- low-stock alert se pali i po procenjenom datumu (hvata korisnike koji ne štikliraju)
+- na 0 kapsula: umesto „vreme je za dozu" stiže poruka o dopuni
+- heartbeat za `refresh-access`; dnevni izveštaj prijavljuje stale i pale cron-ove
+- logovi više ne nose mejlove ni parametre upita
+- QA: 238 / 50 / 84 provere (novi SQL se izvršava nad pravim Postgres-om)
+
 ## Sledeći korak
-- Vladimir pregleda i spoji granu `sprint-1-hardening`
-- Sprint 2: popravke zaliha i alerta (onboarding, backfill, okidač po datumu, 0 kapsula) i heartbeat za cron-ove
+- Vladimir spoji Sprint 1, pa Sprint 2 (redom)
+- Sprint 3: win-back tok za istekle kupce, feedback niza (slavlje, „još X do bedža", niz u opasnosti)
 
 ## Šta fali od Vladimira
 - dev Neon `DATABASE_URL` i pravi Clerk dev ključevi u `.env.local` (sada su tu privremeni Clerk keyless ključevi)

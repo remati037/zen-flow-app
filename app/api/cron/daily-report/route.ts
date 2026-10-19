@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 import { DELIVERY_SERIES_DAYS, getDeliveryReport } from '@/lib/admin/delivery'
 import { requireCronAuth } from '@/lib/cron/auth'
-import { CRON_JOBS, describeDispatcherHealth } from '@/lib/cron/health'
+import { CRON_JOBS, describeDispatcherHealth, isDailyJobStale } from '@/lib/cron/health'
 import { readCronRun, recordCronRun } from '@/lib/cron/heartbeat'
 import { addDaysIso, belgradeToday } from '@/lib/dates'
 import { EVENTS, logInfo, logWarn } from '@/lib/observability/log'
@@ -32,11 +32,28 @@ export async function GET(req: NextRequest) {
   const startedAt = Date.now()
   const yesterday = addDaysIso(belgradeToday(), -1)
 
-  const [report, notificationsRun, lowStockRun] = await Promise.all([
+  const [report, notificationsRun, lowStockRun, refreshAccessRun] = await Promise.all([
     getDeliveryReport(DELIVERY_SERIES_DAYS),
     readCronRun(CRON_JOBS.notifications),
     readCronRun(CRON_JOBS.lowStock),
+    readCronRun(CRON_JOBS.refreshAccess),
   ])
+  const now = new Date()
+  const staleDailyJobs = [
+    { job: CRON_JOBS.lowStock, run: lowStockRun },
+    { job: CRON_JOBS.refreshAccess, run: refreshAccessRun },
+  ]
+    .filter(({ run }) => isDailyJobStale(run?.lastRunAt ?? null, now))
+    .map(({ job }) => job)
+  // Run koji je pao i dalje upisuje heartbeat (`{ ok: false }`) — „živ" po vremenu,
+  // ali bez ijednog poslatog podsetnika. Bez ove provere to se ne bi videlo.
+  const failedLastRun = [
+    { job: CRON_JOBS.notifications, run: notificationsRun },
+    { job: CRON_JOBS.lowStock, run: lowStockRun },
+    { job: CRON_JOBS.refreshAccess, run: refreshAccessRun },
+  ]
+    .filter(({ run }) => (run?.lastResult as { ok?: unknown } | null)?.ok === false)
+    .map(({ job }) => job)
 
   const day = report.days.find((d) => d.date === yesterday) ?? {
     date: yesterday,
@@ -46,7 +63,7 @@ export async function GET(req: NextRequest) {
 
   const dispatcher = describeDispatcherHealth({
     run: notificationsRun,
-    now: new Date(),
+    now,
     windowMin: WINDOW_MIN,
   })
 
@@ -70,6 +87,11 @@ export async function GET(req: NextRequest) {
       runsTotal: dispatcher.runsTotal,
     },
     lowStockLastRunAt: lowStockRun?.lastRunAt.toISOString() ?? null,
+    refreshAccessLastRunAt: refreshAccessRun?.lastRunAt.toISOString() ?? null,
+    /** Dnevni poslovi koji ćute duže od `DAILY_JOB_STALE_HOURS` (ili nikad nisu radili). */
+    staleDailyJobs,
+    /** Poslovi čiji je POSLEDNJI run pao (heartbeat postoji, posao nije urađen). */
+    failedLastRun,
     durationMs: Date.now() - startedAt,
   }
 
@@ -89,6 +111,20 @@ export async function GET(req: NextRequest) {
   // da li neko svakodnevno čita info redove.
   if (dispatcher.status !== 'ok') {
     logWarn(EVENTS.dailyReport, { day: body.day, problem: 'dispatcher', status: dispatcher.status })
+  }
+  if (staleDailyJobs.length > 0) {
+    logWarn(EVENTS.dailyReport, {
+      day: body.day,
+      problem: 'stale_daily_jobs',
+      jobs: staleDailyJobs.join(','),
+    })
+  }
+  if (failedLastRun.length > 0) {
+    logWarn(EVENTS.dailyReport, {
+      day: body.day,
+      problem: 'last_run_failed',
+      jobs: failedLastRun.join(','),
+    })
   }
   if (body.delivery.stuckPending > 0) {
     logWarn(EVENTS.dailyReport, {

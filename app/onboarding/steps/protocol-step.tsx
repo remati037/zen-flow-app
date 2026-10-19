@@ -77,7 +77,8 @@ export function ProtocolStep({
           className="rounded-lg bg-paper px-4 py-3 text-sm text-slate-mid"
         >
           <p>
-            {estimate.capsules} kapsula · ≈ <strong className="text-ink">{estimate.days} dana</strong>
+            Ostalo ti je oko {estimate.capsules} kapsula · ≈{' '}
+            <strong className="text-ink">{estimate.days} dana</strong>
           </p>
           {estimate.runoutLabel && (
             <p>
