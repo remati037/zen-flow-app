@@ -80,6 +80,7 @@ export async function addSupplement(
   return { id: Number(row.id) }
 }
 
+/** `active: true` nije dostupno iz akcija i zaobišlo bi granicu — ponovno uključivanje ide kroz addSupplement. */
 /** `false` kad red ne postoji ili nije korisnikov (ili nema nijedne izmene). */
 export async function updateSupplementRow(
   userId: string,

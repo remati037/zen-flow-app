@@ -38,7 +38,8 @@ export const updateSupplementSchema = z
       .nullable()
       .optional()
       .transform((v) => (v === '' ? null : v)),
-    active: z.boolean().optional(),
+    // Ponovno uključivanje ide kroz addSupplement (ima granicu); update sme samo da ukloni.
+    active: z.literal(false).optional(),
   })
   .refine((v) => v.timeOfDay !== undefined || v.doseNote !== undefined || v.active !== undefined, {
     message: 'Nema promene.',

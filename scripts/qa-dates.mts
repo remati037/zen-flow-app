@@ -961,5 +961,12 @@ console.log('\n=== 18. Focus Score kroz vreme (procena iz ponašanja) ===')
   check('50 → vidljivo', maskSmallGroup(50), 50)
 }
 
+{
+  const { updateSupplementSchema } = await import('../lib/validations/stack')
+  check('update: active:true se odbija (zaobilazi granicu)', updateSupplementSchema.safeParse({ id: 1, active: true }).success, false)
+  check('update: active:false se prihvata', updateSupplementSchema.safeParse({ id: 1, active: false }).success, true)
+  check('update: bez ijedne promene se odbija', updateSupplementSchema.safeParse({ id: 1 }).success, false)
+}
+
 console.log(`\n──────────────\nRezultat: ${pass} prošlo, ${fail} palo\n`)
 process.exit(fail > 0 ? 1 : 0)
