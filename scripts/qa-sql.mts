@@ -770,6 +770,7 @@ async function runDatabaseChecks() {
   await inRollback('Admin stack: agregat po ključu, spajanje, zastareli, prag malih grupa', async () => {
     const today = stkToday()
     const stale = stkAdd(today, -60)
+    const before = await stackAdmin.getStackReport(today)
     for (const id of ['qa_sa1', 'qa_sa2', 'qa_sa3', 'qa_sa4', 'qa_sa5', 'qa_sa6']) {
       await db
         .insert(schema.profiles)
@@ -807,8 +808,8 @@ async function runDatabaseChecks() {
     check('zinc sa 2 korisnika je maskiran', report.rows.find((r) => r.key === 'zinc')?.freshUsers, null)
     check('neaktivan gvožđe ne ulazi', report.rows.some((r) => r.key === 'iron'), false)
     check('nespojen unos ostaje u listi', report.custom.find((c) => c.name === 'ekstrakt x')?.users, 1)
-    ok('onboardovani ≥ 6', report.onboarded >= 6, `${report.onboarded}`)
-    ok('korisnika sa svežim stack-om ≥ 4 (sa1, sa2, sa3, sa6)', report.usersWithStack >= 4, `${report.usersWithStack}`)
+    check('onboardovani: tačno +6', report.onboarded - before.onboarded, 6)
+    check('korisnika sa svežim stack-om: tačno +4 (sa1, sa2, sa3, sa6; bez sa4 zastarelog i sa5 neaktivnog)', report.usersWithStack - before.usersWithStack, 4)
   })
 
   ok('adapter je stvarno korišćen', adapter.queryCount() > 0, `${adapter.queryCount()} upita kroz pg`)

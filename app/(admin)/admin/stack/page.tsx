@@ -40,6 +40,7 @@ export default async function AdminStackPage() {
           {report.rows.length === 0 ? (
             <p className="text-sm text-slate-mid">Još nema unosa.</p>
           ) : (
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-slate-soft">
@@ -62,6 +63,7 @@ export default async function AdminStackPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -70,7 +72,7 @@ export default async function AdminStackPage() {
         <CardHeader>
           <CardTitle>Slobodni unosi („Drugo“)</CardTitle>
           <CardDescription>
-            Nespojeni nazivi, najčešći prvi (najviše 50). Spoji ih sa stavkom iz kataloga da uđu u zbir iznad.
+            Nespojeni nazivi, najčešći prvi (najviše 50). Spoji ih sa stavkom iz kataloga da uđu u zbir iznad. Ovde su tačni brojevi (bez praga „&lt; 3“), ali nikad ne vidiš ko je uneo.
           </CardDescription>
         </CardHeader>
         <CardContent>

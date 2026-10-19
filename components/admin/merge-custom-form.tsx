@@ -21,7 +21,7 @@ export function MergeCustomForm({ name }: { name: string }) {
       try {
         const result = await mergeCustom({ name, intoKey })
         if (result.ok) {
-          toast.success(`Spojeno (${result.data.updated}).`)
+          toast.success(`Spojeno: ${result.data.updated} ${result.data.updated === 1 ? 'unos' : 'unosa'}.`)
           router.refresh()
         } else {
           toast.error(result.error)
@@ -38,7 +38,7 @@ export function MergeCustomForm({ name }: { name: string }) {
         aria-label={`Spoji „${name}“ sa`}
         value={intoKey}
         onChange={(e) => setIntoKey(e.target.value)}
-        className="min-h-11 rounded-xl border border-ink/15 bg-white px-3 text-sm text-ink"
+        className="min-h-11 max-w-full min-w-0 rounded-xl border border-ink/15 bg-white px-3 text-sm text-ink"
       >
         <option value="">Spoji sa…</option>
         {OPTIONS.map((o) => (

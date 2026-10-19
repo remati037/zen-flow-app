@@ -85,9 +85,11 @@ export async function getStackReport(today: string): Promise<StackReport> {
       .from(profiles)
       .where(and(eq(profiles.role, 'user'), eq(profiles.onboardingCompleted, true))),
     db.execute<{ n: number }>(sql`
-      select count(distinct user_id)::int as n
-      from ${userSupplements}
-      where active and last_confirmed_on >= ${cutoff}
+      select count(distinct s.user_id)::int as n
+      from ${userSupplements} s
+      join ${profiles} p on p.id = s.user_id
+      where s.active and s.last_confirmed_on >= ${cutoff}
+        and p.role = 'user' and p.onboarding_completed
     `),
   ])
 
