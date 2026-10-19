@@ -30,9 +30,16 @@ Sprint 3 je završen na grani `sprint-3-winback-streak` (stoji na Sprintu 2):
 - rodno neutralni tekstovi u app-u i mejlovima; ispravljena dupla tačka u datumu low-stock mejla
 - QA: 257 / 50 / 89
 
+Sprint 4 je završen na grani `sprint-4-admin-push-perf` (stoji na Sprintu 3):
+- admin `/admin/retencija`: funnel, ponovna kupovina sa/bez app-a, konverzija low-stock alerta, liste „ističu uskoro", „istekao pristup", „kupili a nemaju nalog"
+- dugme „✓ Uzeto" u podsetniku za dozu (Android/desktop; iOS ga ne podržava)
+- manje DB poziva po stranici i check-in-u (keširan profil i porudžbine)
+- QA: 266 / 52 / 100 (check-in iz app-a sada se izvršava nad Postgres-om)
+
 ## Sledeći korak
-- Vladimir spoji PR-ove redom: Sprint 1 → 2 → 3
-- Sprint 4: admin funnel i liste za akciju, „Uzeo sam" dugme u push notifikaciji, performanse (manje DB poziva po check-in-u)
+- Vladimir spoji PR-ove redom: Sprint 1 → 2 → 3 → 4
+- Proveriti region: Vercel funkcije vs Neon (ako je Neon u EU, `"regions": ["fra1"]` u vercel.json)
+- Sledeće (po želji): Woo zaštita od redosleda webhook-a (migracija 0005), loading/error ekrani, pristupačnost (fokus, veličina dugmadi), Stripe/Faza 2
 
 ## Šta fali od Vladimira
 - dev Neon `DATABASE_URL` i pravi Clerk dev ključevi u `.env.local` (sada su tu privremeni Clerk keyless ključevi)

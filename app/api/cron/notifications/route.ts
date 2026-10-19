@@ -213,7 +213,13 @@ async function run(): Promise<NextResponse> {
   }
 
   // ── Dedup po danu (kanal: push) i paralelno slanje ────────────────────────
-  type ReminderMessage = { title: string; body: string; url: string }
+  type ReminderMessage = {
+    title: string
+    body: string
+    url: string
+    /** Dugme „Uzeto" u notifikaciji — samo za podsetnik na stvarnu dozu. */
+    checkin?: { date: string; dose: 'morning' | 'evening' }
+  }
   const sendReminders = async (
     targets: Profile[],
     type: NotificationType,
@@ -231,13 +237,14 @@ async function run(): Promise<NextResponse> {
 
     const outcomes = await runChunked<Profile, Outcome>(targets, async (p) => {
       if (notified.has(p.id)) return 'skipped_dedup'
-      const { title, body, url } = message(p)
+      const { title, body, url, checkin } = message(p)
       const res = await sendPushToUser({
         userId: p.id,
         type,
         title,
         body,
         url,
+        checkin,
         tag: type,
         // Bulk `filterNotifiedSince` iznad je samo jeftin pred-filter; ODLUKU donosi
         // rezervacija u `sendPushToUser`. Dva run-a u istom prozoru oba prođu filter
@@ -267,14 +274,16 @@ async function run(): Promise<NextResponse> {
         }
       : {
           title: 'Vreme je za jutarnju dozu 🌿',
-          body: 'Otvori protokol i označi dozu.',
+          body: 'Uzmi dozu i označi je — dugmetom ispod ili u aplikaciji.',
           url: '/protokol',
+          checkin: { date: today, dose: 'morning' },
         },
   )
   const evening = await sendReminders(eveningTargets, 'dose_reminder_evening', () => ({
     title: 'Vreme je za večernju dozu 🌙',
-    body: 'Otvori protokol i označi dozu.',
+    body: 'Uzmi dozu i označi je — dugmetom ispod ili u aplikaciji.',
     url: '/protokol',
+    checkin: { date: today, dose: 'evening' },
   }))
 
   // Streak-at-risk: dodatni uslov streak ≥ 1 (skup query po korisniku, ali samo

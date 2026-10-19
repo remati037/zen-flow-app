@@ -36,6 +36,12 @@ export const PUBLIC_ROUTES = [
    */
   '/api/push/rotate',
   /**
+   * Check-in iz notifikacije (dugme „Uzeto") — zove je service worker iz
+   * `notificationclick`, bez sesije. Autentikacija je HMAC token vezan za
+   * korisnika, dan i dozu (`lib/push/checkin-token.ts`). Tačna putanja.
+   */
+  '/api/push/checkin',
+  /**
    * Odjava sa alert mejlova (V10). Zovu je mejl klijent i mailbox provider —
    * nijedan nema Clerk sesiju, a Gmail-ov one-click POST bi iza `auth.protect()`
    * dobio 404. Autentikacija je HMAC token u query stringu, ne sesija.

@@ -799,5 +799,30 @@ console.log('\n=== 16. Sprint 3: sledeći bedž niza i win-back faze ===')
   check('tip notifikacije po fazi', winbackType(2), 'winback_2')
 }
 
+console.log('\n=== 17. Sprint 4: token za check-in iz notifikacije ===')
+{
+  const prevCron = process.env.CRON_SECRET
+  const prevPush = process.env.PUSH_ACTION_SECRET
+  delete process.env.PUSH_ACTION_SECRET
+  process.env.CRON_SECRET = 'qa-cron-secret'
+  const { checkinToken, verifyCheckinToken } = await import('../lib/push/checkin-token')
+  const t = checkinToken('user_a', '2026-10-19', 'morning')!
+  check('token je 64 hex znaka', /^[0-9a-f]{64}$/.test(t), true)
+  check('validan token prolazi', verifyCheckinToken('user_a', '2026-10-19', 'morning', t), true)
+  check('drugi KORISNIK ne prolazi', verifyCheckinToken('user_b', '2026-10-19', 'morning', t), false)
+  check('drugi DAN ne prolazi', verifyCheckinToken('user_a', '2026-10-20', 'morning', t), false)
+  check('druga DOZA ne prolazi', verifyCheckinToken('user_a', '2026-10-19', 'evening', t), false)
+  check('skraćen token ne prolazi (bez bacanja)', verifyCheckinToken('user_a', '2026-10-19', 'morning', t.slice(0, 10)), false)
+  check('nije isti kao odjavni token (druga namena)',
+    t === (await import('../lib/email/unsubscribe')).unsubscribeToken('user_a'), false)
+  const { BADGE_CATALOG } = await import('../lib/badges/catalog')
+  const { BADGE_KEYS } = await import('../lib/badges/keys')
+  check('katalog bedževa prati redosled ključeva', BADGE_CATALOG.map((b) => b.key), [...BADGE_KEYS])
+  delete process.env.CRON_SECRET
+  check('bez tajne nema tokena (dugme se izostavlja)', checkinToken('user_a', '2026-10-19', 'morning'), null)
+  if (prevCron !== undefined) process.env.CRON_SECRET = prevCron
+  if (prevPush !== undefined) process.env.PUSH_ACTION_SECRET = prevPush
+}
+
 console.log(`\n──────────────\nRezultat: ${pass} prošlo, ${fail} palo\n`)
 process.exit(fail > 0 ? 1 : 0)

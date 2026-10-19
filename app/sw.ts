@@ -93,12 +93,25 @@ self.addEventListener("activate", (event) => {
 // Web Push (Korak 1.8)
 // ────────────────────────────────────────────────────────────
 
+type CheckinPayload = {
+  userId: string;
+  date: string;
+  dose: "morning" | "evening";
+  token: string;
+};
+
 type PushPayload = {
   title?: string;
   body?: string;
   url?: string;
   tag?: string;
+  /** Podsetnik za dozu: dugme „Uzeto" upisuje dozu bez otvaranja app-a. */
+  checkin?: CheckinPayload;
 };
+
+/** Ruta za check-in iz notifikacije. Vidi `app/api/push/checkin/route.ts`. */
+const CHECKIN_URL = "/api/push/checkin";
+const CHECKIN_ACTION = "checkin";
 
 self.addEventListener("push", (event) => {
   let payload: PushPayload = {};
@@ -112,21 +125,68 @@ self.addEventListener("push", (event) => {
   const title = payload.title ?? "NuroLab";
   const url = payload.url ?? "/dashboard";
 
-  event.waitUntil(
-    self.registration.showNotification(title, {
-      body: payload.body ?? "",
-      // `tag` spaja notifikacije istog tipa → nema gomilanja duplikata.
-      tag: payload.tag,
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
-      data: { url },
-    }),
-  );
+  // Dugme se prikazuje samo uz potpisan check-in. Browseri bez podrške za akcije
+  // (iOS Safari) ga prosto izostave — klik na notifikaciju i dalje otvara app.
+  const options: NotificationOptions & { actions?: { action: string; title: string }[] } = {
+    body: payload.body ?? "",
+    // `tag` spaja notifikacije istog tipa → nema gomilanja duplikata.
+    tag: payload.tag,
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    data: { url, checkin: payload.checkin },
+    ...(payload.checkin ? { actions: [{ action: CHECKIN_ACTION, title: "✓ Uzeto" }] } : {}),
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
 });
+
+/**
+ * Check-in iz notifikacije, bez otvaranja app-a. Uspeh se potvrđuje novom
+ * (tihom) notifikacijom; neuspeh otvara app na protokolu, gde korisnik može da
+ * označi dozu ručno — dugme ne sme da „proguta" dozu bez traga.
+ */
+async function checkinFromNotification(checkin: CheckinPayload, tag: string | undefined): Promise<boolean> {
+  try {
+    const res = await fetch(CHECKIN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(checkin),
+    });
+    if (!res.ok) return false;
+    const data = (await res.json()) as { streak?: number; todayComplete?: boolean };
+    const streak = data.streak ?? 0;
+    await self.registration.showNotification(
+      data.todayComplete ? `Dan je kompletan! Niz: ${streak} 🔥` : "Doza zabeležena 🌿",
+      {
+        body: data.todayComplete ? "Obe doze su uzete — vidimo se sutra." : "Druga doza te čeka kasnije.",
+        tag,
+        icon: "/icons/icon-192.png",
+        badge: "/icons/icon-192.png",
+        silent: true,
+        data: { url: "/dashboard" },
+      },
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl = (event.notification.data as { url?: string } | undefined)?.url ?? "/dashboard";
+  const data = event.notification.data as { url?: string; checkin?: CheckinPayload } | undefined;
+
+  if (event.action === CHECKIN_ACTION && data?.checkin) {
+    const checkin = data.checkin;
+    event.waitUntil(
+      checkinFromNotification(checkin, event.notification.tag || undefined).then((ok) =>
+        ok ? undefined : self.clients.openWindow("/protokol").then(() => undefined),
+      ),
+    );
+    return;
+  }
+
+  const targetUrl = data?.url ?? "/dashboard";
 
   event.waitUntil(
     (async () => {

@@ -555,6 +555,59 @@ async function runDatabaseChecks() {
     check('ručni override NIJE kandidat', byId.has('qa_wb_override'), false)
   })
 
+  // ── Sprint 4 ──────────────────────────────────────────────────────────────
+  const record = await import('../lib/protocol/record-dose')
+  const { belgradeToday: bt, addDaysIso: add } = await import('../lib/dates')
+  await inRollback('recordDose: log + zalihe u JEDNOJ izjavi (double-tap, undo, prozor)', async () => {
+    const today = bt()
+    await db.insert(schema.profiles).values({
+      id: 'qa_dose', email: 'qa_dose@qa.local', role: 'user', accessStatus: 'vip',
+      onboardingCompleted: true, protocolStartDate: add(today, -3),
+    })
+    await db.insert(schema.supply).values({ userId: 'qa_dose', capsulesRemaining: 20 })
+    const [prof] = await db.select().from(schema.profiles).where(eq(schema.profiles.id, 'qa_dose'))
+    const supplyOf = async () =>
+      (await db.select().from(schema.supply).where(eq(schema.supply.userId, 'qa_dose')))[0]?.capsulesRemaining
+
+    const first = await record.recordDose(prof!, { date: today, dose: 'morning', status: 'taken' })
+    check('uzeta doza troši 2 kapsule', first.capsulesRemaining, 18)
+    await record.recordDose(prof!, { date: today, dose: 'morning', status: 'taken' })
+    check('double-tap ne troši ponovo', await supplyOf(), 18)
+    const second = await record.recordDose(prof!, { date: today, dose: 'evening', status: 'taken' })
+    check('obe doze → dan kompletan', second.streak.todayComplete, true)
+    ok('bedž „prva-doza" dodeljen', first.newBadges.includes('prva-doza'), first.newBadges.join(',') || 'nijedan')
+    await record.recordDose(prof!, { date: today, dose: 'evening', status: 'skipped' })
+    check('undo vraća 2 kapsule', await supplyOf(), 18)
+    await mustFail('dan van backfill prozora se odbija', 'poslednjih', () =>
+      record.recordDose(prof!, { date: add(today, -30), dose: 'morning', status: 'taken' }),
+    )
+  })
+
+  const retention = await import('../lib/admin/retention')
+  await inRollback('Retencija: funnel, konverzija i liste se IZVRŠAVAJU', async () => {
+    const today = '2026-10-19'
+    await db.insert(schema.profiles).values({
+      id: 'qa_ret', email: 'qa_ret@qa.local', role: 'user', accessStatus: 'vip', onboardingCompleted: true,
+    })
+    await db.insert(schema.orders).values([
+      { wooOrderId: 'ret-1', email: 'qa_ret@qa.local', productType: 'full', quantityPackages: 1, capsulesTotal: 60, orderDate: new Date('2026-09-01T10:00:00Z'), status: 'completed' },
+      { wooOrderId: 'ret-2', email: 'qa_ret@qa.local', productType: 'refill', quantityPackages: 1, capsulesTotal: 60, orderDate: new Date('2026-10-10T10:00:00Z'), status: 'completed' },
+      { wooOrderId: 'ret-3', email: 'kupac_bez_naloga@qa.local', productType: 'full', quantityPackages: 1, capsulesTotal: 60, orderDate: new Date('2026-10-01T10:00:00Z'), status: 'processing' },
+    ])
+    await db.insert(schema.supply).values({ userId: 'qa_ret', capsulesRemaining: 10, estimatedRunoutDate: '2026-10-21' })
+    await db.insert(schema.notificationsLog).values({
+      userId: 'qa_ret', type: 'low_stock_alert', channel: 'email', status: 'success', sentAt: new Date('2026-10-05T08:00:00Z'),
+    })
+    const report = await retention.getRetentionReport(today)
+    ok('funnel broji kupce', report.funnel.buyers >= 2, `kupaca: ${report.funnel.buyers}`)
+    ok('ponovna kupovina sa app-om', report.funnel.repeatRegistered.repeat >= 1)
+    ok('konverzija: porudžbina 5 dana posle alerta se broji', report.refill.converted >= 1,
+      `${report.refill.converted}/${report.refill.alerted}`)
+    ok('„ističu uskoro" sadrži korisnika', report.runningOut.some((r) => r.userId === 'qa_ret'))
+    ok('„kupili, a nemaju nalog" sadrži kupca',
+      report.unregisteredBuyers.some((r) => r.email === 'kupac_bez_naloga@qa.local'))
+  })
+
   ok('adapter je stvarno korišćen', adapter.queryCount() > 0, `${adapter.queryCount()} upita kroz pg`)
 
   // ── pomoćne ───────────────────────────────────────────────────────────────

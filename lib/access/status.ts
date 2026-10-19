@@ -1,7 +1,8 @@
 import 'server-only'
 
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
 
+import { getValidOrderDates } from '@/lib/access/orders'
 import { accessWindowCutoff } from '@/lib/access/window'
 import { asOverride, resolveAccessStatus, type AccessStatus, type Role } from '@/lib/access/resolve'
 import { isAdmin } from '@/lib/auth'
@@ -36,14 +37,9 @@ const grantsAccess = inArray(orders.status, [...SYNCED_STATUSES])
  * a `profiles.email` dolazi iz Clerk-a u proizvoljnom case-u.
  */
 export async function getLatestOrderDate(email: string): Promise<Date | null> {
-  const [row] = await db
-    .select({ orderDate: orders.orderDate })
-    .from(orders)
-    .where(and(sql`lower(${orders.email}) = ${email.trim().toLowerCase()}`, grantsAccess))
-    .orderBy(desc(orders.orderDate))
-    .limit(1)
-
-  return row?.orderDate ?? null
+  // Deli upit sa `getProtocolState` u okviru zahteva — vidi `lib/access/orders.ts`.
+  const dates = await getValidOrderDates(email)
+  return dates[0] ?? null
 }
 
 type RefreshResult = { changed: boolean; status: AccessStatus }
