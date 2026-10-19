@@ -1,5 +1,5 @@
 # Status: ZenFlow app (NuroLab Companion PWA)
-Ažurirano: 2026-10-19
+Ažurirano: 2026-10-20
 Faza: pred-lansiranje
 
 ## Gde smo stali
@@ -51,19 +51,33 @@ Sprint 6 je na grani `sprint-6-copy-design` (stoji na Sprintu 5):
 - premium dizajn: tamna glavna kartica sa brojačem niza, doze kao redovi, pregled kao grupisana lista, bedževi u mreži, ujednačeni naslovi i kartice bez teških senki
 - lokalni razvoj: `npm run dev:seed` + lokalni Postgres (testiranje bez produkcije)
 
+Moj stack je na grani `sprint-6-copy-design` (stoji na Sprintu 6):
+- `/stack`: korisnik beleži dodatne suplemente (katalog od 100 + „Drugo"), grupisano po dobu dana, do 60 aktivnih unosa; prekidač „Još pijem" samo isključuje unos, ponovo se dodaje kroz „Dodaj suplement"
+- nedeljna potvrda liste (kartica na `/stack` i dashboardu), „Obriši ceo stack"
+- `/admin/stack`: zbirni pregled (samo sveži unosi, grupe od 1-2 korisnika maskirane kao „< 3"), spajanje slobodnih unosa sa katalogom, bez korisničkih podataka
+- migracija `0005` (`user_supplements` + enum `supplement_time`), NIJE primenjena na produkciju
+- QA: 341 / 54 / 171, build prolazi
+
 ## Sledeći korak
+- Primeniti migraciju `0005` (Moj stack) na produkciju PRE deploy-a, pa deploy
 - Vladimir spoji PR-ove redom: Sprint 1 → 2 → 3 → 4 → 5 → 6
 - Prava bočica (SVG/PNG) → zamena mockup crteža u `components/supply/supply-bottle.tsx`
 - Na Vercelu dodati Preview env varijable (dev Neon + Clerk dev ključevi) da preview deploy-evi rade
 - Proveriti region: Vercel funkcije vs Neon (ako je Neon u EU, `"regions": ["fra1"]` u vercel.json)
-- Sledeće (po želji): Woo zaštita od redosleda webhook-a (migracija 0005), loading/error ekrani, pristupačnost (fokus, veličina dugmadi), Stripe/Faza 2
+- Sledeće (po želji): Woo zaštita od redosleda webhook-a (nova migracija, 0005 je zauzet za Moj stack), loading/error ekrani, pristupačnost (fokus, veličina dugmadi), Stripe/Faza 2
 
 ## Šta fali od Vladimira
 - dev Neon `DATABASE_URL` i pravi Clerk dev ključevi u `.env.local` (sada su tu privremeni Clerk keyless ključevi)
 - `NEXT_PUBLIC_SHOP_REFILL_URL` na Vercelu kad webshop proradi
 - odluka o pristupu za kupce koji uzmu više pakovanja (danas je fiksno 60 dana)
-- odobrenje za migraciju `0005` (indeksi + `date_modified` za Woo porudžbine)
+- primeniti migraciju `0005` (Moj stack) na produkcionu bazu pre deploy-a
+- dopuniti politiku privatnosti na nurolab.rs (prikupljanje i zbirna upotreba podataka o stack-u)
+- ručno proveriti `/stack` i `/admin/stack` u ulogovanoj browser sesiji (UI nikad nije proveren u browseru jer nije bilo Clerk sesije):
+  - `/stack`: dodavanje kroz pretragu (kolagen, mg, riblje ulje), „Drugo", isključivanje unosa, nedeljna potvrda (u bazi `last_confirmed_on = current_date - 8`), „Obriši ceo stack", raspored na 375px, čista konzola
+  - `/admin/stack`: tabela, spajanje slobodnog unosa, raspored na 375px
+- odobrenje za buduću migraciju (indeksi + `date_modified` za Woo porudžbine)
 
 ## Otvorena pitanja / rizici
 - Webshop još nije aktivan: dok `NEXT_PUBLIC_SHOP_REFILL_URL` nije postavljen, refill CTA u app-u se ne prikazuje, a mejl vodi na `/zalihe`
+- Spisak suplemenata je zdravstveni podatak: ostaje van izveštaja na nivou korisnika; nema push/mejl podsetnika za potvrdu stack-a (dodati kroz dispatcher ako je odziv nizak)
 - Woo webhook nema zaštitu od redosleda isporuke (refund pa zakasneli `processing` vraća VIP)

@@ -158,9 +158,9 @@ Uz env varijable, za pun launch treba i **scheduler** za `/api/cron/notification
 | `npm run build` | Production build |
 | `npm run start` | Pokreni production build |
 | `npm run lint` | ESLint |
-| `npx tsx scripts/qa-dates.mts` | QA harness: timezone/DST, streak, prozori dispatchera, Woo integritet, access override, cap alerta, odjavni token (218 provera) |
-| `npx tsx scripts/qa-routes.mts` | QA harness: koje rute traže Clerk sesiju, koje rolu, koje su javne (50 provera) |
-| `npm run qa:sql` | **QA harness: SQL koji se stvarno izvršava** (69 provera). Bez `TEST_DATABASE_URL` preskače DB deo. Sa bazom: `TEST_DATABASE_URL="postgres://postgres:qa@localhost:5433/postgres" npm run qa:sql` |
+| `npx tsx scripts/qa-dates.mts` | QA harness: timezone/DST, streak, prozori dispatchera, Woo integritet, access override, cap alerta, odjavni token, Moj stack (341 provera) |
+| `npx tsx scripts/qa-routes.mts` | QA harness: koje rute traže Clerk sesiju, koje rolu, koje su javne (54 provere) |
+| `npm run qa:sql` | **QA harness: SQL koji se stvarno izvršava** (171 provera). Bez `TEST_DATABASE_URL` preskače DB deo. Sa bazom: `TEST_DATABASE_URL="postgres://postgres:qa@localhost:5433/postgres" npm run qa:sql` |
 | `npm run qa` | Sve odjednom: lint + tri harness-a |
 | `npx tsx scripts/db-status.mts` | **Read-only:** koje su migracije primenjene na datoj bazi. Bez prefiksa gleda `.env.local` (dev); za produkciju: `DATABASE_URL="<prod url>" npx tsx scripts/db-status.mts` |
 | `npm run db:generate` | Generiši SQL migraciju iz promena u `lib/db/schema.ts` |
@@ -263,6 +263,7 @@ Korisnik se registruje preko Clerk-a, sistem mu proverom WooCommerce porudžbine
 
 - **Protokol** (`/protokol`) — dva tap check-ina dnevno (jutarnja / večernja doza), streak sa flame brojačem, 7-dnevni strip, naknadni check-in do 7 dana unazad. Check-in troši 2 kapsule, undo ih vraća.
 - **Zalihe** (`/zalihe`) — preostale kapsule, procena datuma isteka, ručna korekcija, refill CTA. Nova Woo porudžbina automatski top-upuje zalihe (tačno jednom — replay webhook-a ne duplira).
+- **Moj stack** (`/stack`) — evidencija dodatnih suplemenata (katalog od 100 + „Drugo"), grupisano po dobu dana, nedeljna potvrda liste. Admin zbirni pregled na `/admin/stack` (bez korisničkih podataka, grupe od 1–2 korisnika maskirane).
 - **Fokus** (`/fokus`) — Pomodoro 25/5 i 50/10 sa timestamp-based odbrojavanjem (preživljava throttling taba i refresh), do 3 dnevna zadatka.
 - **Bedževi** (`/bedzevi`) — 9 bedževa; dodela na check-in / fokus sesiju / onboarding, sa toast + confetti.
 - **Početna** (`/dashboard`) — agregat svega + Recharts grafikon doslednosti za 14 dana, inline check-in.
