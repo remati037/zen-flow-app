@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import { AlertTriangle, PackagePlus, Pill } from 'lucide-react'
 
-import { formatIsoDateSr } from '@/lib/dates'
-import { LOW_STOCK_THRESHOLD, estimateDaysRemaining } from '@/lib/protocol/dosing'
+import { belgradeToday, formatIsoDateSr } from '@/lib/dates'
+import { estimateDaysRemaining, isLowStock } from '@/lib/protocol/dosing'
 import { cn } from '@/lib/utils'
 
 /**
@@ -21,7 +21,8 @@ export function SupplyMiniCard({
   refillUrl: string | null
 }) {
   const daysRemaining = estimateDaysRemaining(capsulesRemaining)
-  const isLow = capsulesRemaining <= LOW_STOCK_THRESHOLD
+  // Isto pravilo kao low-stock cron: broj kapsula ILI procenjeni datum isteka.
+  const isLow = isLowStock(capsulesRemaining, estimatedRunoutDate, belgradeToday())
   const isEmpty = capsulesRemaining === 0
   const runoutLabel = estimatedRunoutDate ? formatIsoDateSr(estimatedRunoutDate) : null
 

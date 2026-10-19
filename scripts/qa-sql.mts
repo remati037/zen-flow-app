@@ -456,6 +456,75 @@ async function runDatabaseChecks() {
     check('SQL delta nad tekućom vrednošću', row?.n, 1)
   })
 
+  // ── Sprint 2: SQL koji je do sada proveravan samo JS simulacijom ──────────
+  const onboarding = await import('../lib/onboarding/finalize')
+  const woo = await import('../lib/woocommerce/sync')
+
+  await inRollback('Onboarding: profil + zalihe + kviz u JEDNOJ izjavi, jednokratno', async () => {
+    await seedProfile('qa_onb')
+    const input = {
+      userId: 'qa_onb',
+      startDate: '2026-09-29',
+      doseMorningTime: '08:00',
+      doseEveningTime: '20:00',
+      score: 42,
+      quizAnswers: [3, 3, 3, 3, 3],
+      capsulesRemaining: 40,
+      estimatedRunoutDate: '2026-10-29',
+      today: '2026-10-19',
+    }
+    check('prvi poziv upisuje', await onboarding.finalizeOnboarding(input), true)
+    check('drugi poziv (dupli submit) ne upisuje ništa',
+      await onboarding.finalizeOnboarding({ ...input, capsulesRemaining: 999 }), false)
+    const [sup] = await db.select().from(schema.supply).where(eq(schema.supply.userId, 'qa_onb'))
+    check('zalihe iz PRVOG poziva', sup?.capsulesRemaining, 40)
+    const quiz = await db.select().from(schema.focusQuizResults).where(eq(schema.focusQuizResults.userId, 'qa_onb'))
+    check('tačno jedan red kviza', quiz.length, 1)
+    const [prof] = await db.select().from(schema.profiles).where(eq(schema.profiles.id, 'qa_onb'))
+    check('onboarding označen', prof?.onboardingCompleted, true)
+  })
+
+  const wooOrder = (id: number, email: string, createdGmt: string) => ({
+    id,
+    status: 'processing',
+    date_created_gmt: createdGmt,
+    date_paid_gmt: createdGmt,
+    billing: { email },
+    line_items: [{ sku: 'NURO-002', quantity: 1 }],
+  })
+  const capsulesOf = async (userId: string) =>
+    (await db.select().from(schema.supply).where(eq(schema.supply.userId, userId)))[0]
+
+  await inRollback('Woo top-up: delta nad tekućom vrednošću + reset epizode', async () => {
+    await db.insert(schema.profiles)
+      .values({ id: 'qa_woo', email: 'QA_Woo@qa.local', role: 'user', accessStatus: 'vip' })
+    await db.insert(schema.supply).values({ userId: 'qa_woo', capsulesRemaining: 10, lowStockAlertsSent: 2 })
+    const first = await woo.upsertOrder(wooOrder(990001, 'qa_woo@qa.local', '2026-10-18T10:00:00'))
+    check('nova porudžbina → created', first.result, 'created')
+    const after = await capsulesOf('qa_woo')
+    check('zalihe 10 + 60 (mejl case-insensitive)', after?.capsulesRemaining, 70)
+    check('epizoda niskih zaliha zatvorena', after?.lowStockAlertsSent, 0)
+    ok('runout datum preračunat', after?.estimatedRunoutDate !== null, String(after?.estimatedRunoutDate))
+    const again = await woo.upsertOrder(wooOrder(990001, 'qa_woo@qa.local', '2026-10-18T10:00:00'))
+    check('ponovljen webhook → updated', again.result, 'updated')
+    check('ponovljen webhook NE naduvava ponovo', (await capsulesOf('qa_woo'))?.capsulesRemaining, 70)
+  })
+
+  await inRollback('Backfill top-up samo za porudžbine POSLE onboardinga', async () => {
+    await db.insert(schema.profiles)
+      .values({ id: 'qa_bf', email: 'qa_bf@qa.local', role: 'user', accessStatus: 'vip' })
+    await db.insert(schema.supply).values({ userId: 'qa_bf', capsulesRemaining: 5 })
+    await db.insert(schema.focusQuizResults).values({ userId: 'qa_bf', date: '2026-08-10', score: 40 })
+    await woo.upsertOrder(wooOrder(990002, 'qa_bf@qa.local', '2026-08-05T10:00:00'), { topUpSupply: 'after-onboarding' })
+    check('porudžbina PRE onboardinga ne dopunjuje', (await capsulesOf('qa_bf'))?.capsulesRemaining, 5)
+    await woo.upsertOrder(wooOrder(990003, 'qa_bf@qa.local', '2026-08-10T10:00:00'), { topUpSupply: 'after-onboarding' })
+    check('porudžbina ISTOG dana ne dopunjuje (dvosmisleno)', (await capsulesOf('qa_bf'))?.capsulesRemaining, 5)
+    await woo.upsertOrder(wooOrder(990004, 'qa_bf@qa.local', '2026-08-12T10:00:00'), { topUpSupply: 'after-onboarding' })
+    check('porudžbina POSLE onboardinga dopunjuje', (await capsulesOf('qa_bf'))?.capsulesRemaining, 65)
+    await woo.upsertOrder(wooOrder(990005, 'qa_bf@qa.local', '2026-08-13T10:00:00'), { topUpSupply: false })
+    check('topUpSupply=false ne dopunjuje', (await capsulesOf('qa_bf'))?.capsulesRemaining, 65)
+  })
+
   ok('adapter je stvarno korišćen', adapter.queryCount() > 0, `${adapter.queryCount()} upita kroz pg`)
 
   // ── pomoćne ───────────────────────────────────────────────────────────────

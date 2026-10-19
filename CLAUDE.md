@@ -123,8 +123,9 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
 - Build ide kroz **webpack** (`next build --webpack`), ne Turbopack — Serwist injector mod.
 - QA harness ima TRI sloja i sva tri moraju ostati zelena (`npm run qa` vozi sve):
   `qa-dates` (čiste funkcije: datumi/streak/prozori/Woo/access override/cap alerta/odjavni
-  token, 218 provera), `qa-routes` (klasifikacija ruta, 50 provera) i **`qa-sql`**
-  (69 provera — SQL koji se STVARNO izvršava nad pravim Postgres-om).
+  token, Sprint 2 pravila, 238 provera), `qa-routes` (klasifikacija ruta, 50 provera) i **`qa-sql`**
+  (84 provere — SQL koji se STVARNO izvršava nad pravim Postgres-om). Lokalno bez Docker-a:
+  privremeni klaster sa Homebrew `postgresql@16` (`initdb --locale=C`, `pg_ctl -o "-p 5433"`).
 - **`qa-sql` postoji zato što prva dva sloja ne izvršavaju nijedan upit.** Dva produkciona
   otkaza su prošla kroz lint, build i obe stare provere netaknuta: `GROUP BY` sa bind
   parametrom (upit se kompajlira, Postgres ga odbija) i produkcijska baza zaostala na
@@ -173,7 +174,10 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
   BEZ OBZIRA na ishod. `notifications_log` ne može da posluži: run bez kandidata ne upiše nijedan
   red, pa se „scheduler je mrtav" ne razlikuje od „nema kandidata". Klasifikacija stanja je u
   `lib/cron/health.ts` (čist modul, bez `server-only`, da ga QA importuje); admin je vidi kao
-  blocker u „Dijagnostika push-a".
+  blocker u „Dijagnostika push-a". Heartbeat ide i kad run PADNE (`try/catch` oko `run()`,
+  `last_result = { ok: false }`); dnevni izveštaj prijavljuje `failed_last_run` i dnevne
+  poslove koji ćute duže od `DAILY_JOB_STALE_HOURS` (36h) — `low-stock` i `refresh-access`.
+  `db-check` je ručna dijagnostika, ne raspoređen posao, i nema heartbeat.
 - **Batch cron rute idu kroz `runChunked`** (`lib/cron/fanout.ts`, chunk 12) i imaju
   `export const maxDuration = 60` (Hobby maksimum). `Promise.allSettled` izoluje pad na jednog
   korisnika — sekvencijalna petlja bez `try/catch` je jednim `throw`-om obarala ceo batch, a bez
@@ -240,7 +244,20 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
   `supply.low_stock_alerts_sent` + `LOW_STOCK_MAX_ALERTS_PER_EPISODE` (3) drže UKUPAN broj po
   epizodi. Brojač se resetuje kad zalihe pređu `LOW_STOCK_THRESHOLD` — reset je vezan za STANJE,
   ne za događaj „dopuna", pa mora da stoji u SVAKOM putu upisa u `supply`
-  (`updateSupply`, Woo `topUpSupplyForEmail`, CTE u `logDose`).
+  (`updateSupply`, Woo `topUpSupplyForEmail`, CTE u `logDose`, `finalizeOnboarding`).
+- **„Niske zalihe" = `isLowStock`** (`lib/protocol/dosing.ts`): broj kapsula ≤ praga ILI
+  `estimated_runout_date` ≤ danas + `LOW_STOCK_LEAD_DAYS`. Samo broj ne hvata korisnika koji
+  pije a ne štiklira — on nikad ne spusti `capsules_remaining`. Cron i UI kartice koriste ISTO
+  pravilo; alert okinut po datumu (`estimated`) ne prikazuje broj kapsula, jer nije tačan.
+  Na 0 kapsula dispatcher jutarnji podsetnik menja porukom o dopuni, a večernji i
+  streak-at-risk preskače.
+- **Woo top-up je JEDNA izjava sa deltom** (`capsules_remaining + n`), nikad čitanje pa upis
+  apsolutne vrednosti — paralelan check-in bi bio pregažen. Backfill dopunjuje SAMO porudžbine
+  od dana POSLE onboardinga (`topUpSupply: 'after-onboarding'`; dan onboardinga = prvi
+  `focus_quiz_results` red); ranije je uračunao korisnik kroz broj pakovanja.
+- **Onboarding upisuje profil, zalihe i kviz JEDNOM izjavom** (`lib/onboarding/finalize.ts`),
+  sa guard-om `where onboarding_completed = false` u samom UPDATE-u. Početne zalihe su
+  `initialCapsulesForStart` — protekli dani od početka protokola su već potrošeni.
 - **`profiles.email_alerts` gasi SAMO alert mejlove** (`EMAIL_ALERT_TYPES` u `lib/email/send.ts`),
   nikad transakcione (`welcome`) i nikad push. Provera stoji na DVA mesta: cron pred-filtrira
   (ušteda upita + tačan brojač), a `sendEmail` je garancija — nova ruta ne može da procuri kroz

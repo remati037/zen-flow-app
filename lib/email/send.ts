@@ -172,7 +172,12 @@ export function sendWelcomeEmail(profile: ProfileLike, options: SendOptions = {}
   })
 }
 
-type SupplyLike = { capsulesRemaining: number; estimatedRunoutDate?: string | null }
+type SupplyLike = {
+  capsulesRemaining: number
+  estimatedRunoutDate?: string | null
+  /** Alert je okinut po procenjenom datumu, ne po broju kapsula (vidi `isLowStock`). */
+  estimated?: boolean
+}
 
 /** Low-stock alert (cron). */
 export function sendLowStockEmail(
@@ -183,11 +188,14 @@ export function sendLowStockEmail(
   return sendEmail({
     userId: profile.id,
     to: profile.email,
-    subject: `Zalihe su pri kraju — ostalo ${supply.capsulesRemaining} kapsula`,
+    subject: supply.estimated
+      ? 'Zalihe ti uskoro ističu'
+      : `Zalihe su pri kraju — ostalo ${supply.capsulesRemaining} kapsula`,
     react: LowStockEmail({
       name: profile.name,
       capsulesRemaining: supply.capsulesRemaining,
       runoutDate: supply.estimatedRunoutDate,
+      estimated: supply.estimated,
       // Vidljiv link u podnožju uz `List-Unsubscribe` zaglavlje: zaglavlje vide
       // samo neki klijenti (Gmail, Apple Mail), a odjava mora da postoji u SVAKOM.
       unsubscribeUrl: unsubscribeUrl(profile.id),

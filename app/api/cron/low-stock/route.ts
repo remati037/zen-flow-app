@@ -1,16 +1,20 @@
-import { and, eq, lte, ne, sql } from 'drizzle-orm'
+import { and, eq, lte, ne, or, sql } from 'drizzle-orm'
 import { NextResponse, type NextRequest } from 'next/server'
 
 import { requireCronAuth } from '@/lib/cron/auth'
 import { runChunked } from '@/lib/cron/fanout'
 import { CRON_JOBS } from '@/lib/cron/health'
 import { recordCronRun } from '@/lib/cron/heartbeat'
-import { belgradeToday } from '@/lib/dates'
+import { addDaysIso, belgradeToday } from '@/lib/dates'
 import { db, profiles, supply } from '@/lib/db'
 import { sendLowStockEmail } from '@/lib/email/send'
 import { EVENTS, logError, logInfo } from '@/lib/observability/log'
 import { filterNotifiedSince } from '@/lib/push/dedup'
-import { LOW_STOCK_MAX_ALERTS_PER_EPISODE, LOW_STOCK_THRESHOLD } from '@/lib/protocol/dosing'
+import {
+  LOW_STOCK_LEAD_DAYS,
+  LOW_STOCK_MAX_ALERTS_PER_EPISODE,
+  LOW_STOCK_THRESHOLD,
+} from '@/lib/protocol/dosing'
 import { sendPushToUser } from '@/lib/push/send'
 
 export const runtime = 'nodejs'
@@ -68,10 +72,24 @@ export async function GET(req: NextRequest) {
   const unauthorized = requireCronAuth(req)
   if (unauthorized) return unauthorized
 
+  // Heartbeat i kad run padne pre kraja (npr. Neon nedostupan na prvom upitu):
+  // bez ovoga bi pad izgledao kao „scheduler ne zove rutu", a uzrok je drugde.
+  try {
+    return await run()
+  } catch (err) {
+    logError(EVENTS.cronRun, err, { job: CRON_JOBS.lowStock })
+    await recordCronRun(CRON_JOBS.lowStock, { ok: false })
+    return NextResponse.json({ error: 'lowStock run failed' }, { status: 500 })
+  }
+}
+
+async function run(): Promise<NextResponse> {
   const startedAt = Date.now()
   const today = belgradeToday()
 
-  // Kandidati: niske zalihe + aktivan pristup (ne 'inactive').
+  // Kandidati: niske zalihe + aktivan pristup (ne 'inactive'). „Niske" = po broju
+  // kapsula ILI po procenjenom datumu isteka — isto pravilo kao `isLowStock`
+  // (`lib/protocol/dosing.ts`); datum hvata korisnike koji piju, a ne štikliraju.
   // `lowStockAlertsSent` i `emailAlerts` se čitaju ovde da bi se cap i opt-out
   // videli u brojačima; oba se svejedno PONOVO proveravaju na mestu slanja —
   // ovo je pred-filter, ne garancija (isti obrazac kao `filterNotifiedSince`).
@@ -88,7 +106,13 @@ export async function GET(req: NextRequest) {
     .from(supply)
     .innerJoin(profiles, eq(profiles.id, supply.userId))
     .where(
-      and(lte(supply.capsulesRemaining, LOW_STOCK_THRESHOLD), ne(profiles.accessStatus, 'inactive')),
+      and(
+        or(
+          lte(supply.capsulesRemaining, LOW_STOCK_THRESHOLD),
+          lte(supply.estimatedRunoutDate, addDaysIso(today, LOW_STOCK_LEAD_DAYS)),
+        ),
+        ne(profiles.accessStatus, 'inactive'),
+      ),
     )
 
   // Epizoda je potrošila svoje pokušaje — ćuti dok se zalihe ne dopune.
@@ -117,6 +141,10 @@ export async function GET(req: NextRequest) {
     const outcomes = await runChunked<(typeof candidates)[number], UserOutcome>(
       candidates,
       async (c) => {
+        // Okidač po datumu, ne po broju: broj kapsula u bazi tada nije tačan (korisnik
+        // ne štiklira), pa poruka govori o datumu, ne o „ostalo X kapsula".
+        const estimated = c.capsulesRemaining > LOW_STOCK_THRESHOLD
+
         // Dva kanala jednog korisnika idu paralelno: nezavisni su i po dedup-u i
         // po servisu, pa nema razloga da push čeka Resend.
         const [emailOut, pushOut] = await Promise.all([
@@ -125,7 +153,11 @@ export async function GET(req: NextRequest) {
             if (emailedRecently.has(c.id)) return 'skipped_dedup'
             const res = await sendLowStockEmail(
               { id: c.id, email: c.email, name: c.name },
-              { capsulesRemaining: c.capsulesRemaining, estimatedRunoutDate: c.estimatedRunoutDate },
+              {
+                capsulesRemaining: c.capsulesRemaining,
+                estimatedRunoutDate: c.estimatedRunoutDate,
+                estimated,
+              },
               // Rezervacija je po DANU, a prozor dedup-a je 3 dana: dnevni slot
               // sprečava duplikat iz dva preklapajuća run-a, a `emailedRecently`
               // iznad i dalje drži trodnevnu tišinu. Dve različite uloge, oba treba.
@@ -140,8 +172,12 @@ export async function GET(req: NextRequest) {
             const res = await sendPushToUser({
               userId: c.id,
               type: 'low_stock_alert',
-              title: `Zalihe su pri kraju — ostalo ${c.capsulesRemaining} kapsula`,
-              body: 'Dopuni zalihe da ne prekineš protokol.',
+              title: estimated
+                ? 'Zalihe ti uskoro ističu'
+                : `Zalihe su pri kraju — ostalo ${c.capsulesRemaining} kapsula`,
+              body: estimated
+                ? 'Po našoj proceni kapsule su pri kraju. Proveri zalihe i dopuni na vreme.'
+                : 'Dopuni zalihe da ne prekineš protokol.',
               url: '/zalihe',
               tag: 'low_stock_alert',
               dedup: { day: today },

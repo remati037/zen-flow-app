@@ -2,10 +2,10 @@ import 'server-only'
 
 import { eq, sql } from 'drizzle-orm'
 
-import { db, orders, profiles, supply } from '@/lib/db'
+import { db, focusQuizResults, orders, profiles, supply } from '@/lib/db'
 import { EVENTS, logError, logInfo, logWarn } from '@/lib/observability/log'
-import { belgradeToday } from '@/lib/dates'
-import { LOW_STOCK_THRESHOLD, estimateRunoutDate } from '@/lib/protocol/dosing'
+import { BELGRADE_TZ, belgradeToday } from '@/lib/dates'
+import { CAPSULES_PER_DAY, LOW_STOCK_THRESHOLD } from '@/lib/protocol/dosing'
 import { classifyOrderStatus, resolveOrderDate, wasInserted } from '@/lib/woocommerce/order-rules'
 import { resolveProductFromLineItems } from '@/lib/woocommerce/products'
 import { wooOrderSchema, type WooOrderPayload } from '@/lib/validations/woocommerce'
@@ -18,57 +18,99 @@ export { REVOKED_STATUSES, SYNCED_STATUSES } from '@/lib/woocommerce/order-rules
 type UpsertOrderOptions = {
   /**
    * Da li nova porudžbina naduvava zalihe (`supply.capsulesRemaining += capsulesTotal`).
-   * Webhook: `true` (nova kupovina = nove kapsule). Backfill istorijskih porudžbina: `false`
-   * (istorija ne sme retroaktivno da naduva zalihe). Top-up ide SAMO na `created` grani.
+   *  - `true` (webhook): nova kupovina = nove kapsule.
+   *  - `'after-onboarding'` (backfill): samo porudžbina od beogradskog dana POSLE
+   *    onboardinga. Woo gasi webhook posle niza neuspeha; porudžbine koje backfill
+   *    tada dovuče nikad nisu naduvale zalihe, pa je kupac koji je platio ostajao na 0
+   *    i dobijao „naruči refill". Ranije porudžbine je korisnik već uračunao kroz broj
+   *    pakovanja na onboardingu; isti dan je dvosmislen i preskače se (dupli top-up je
+   *    gori od propuštenog — ne vidi se, a gasi alert).
+   *  - `false`: bez top-up-a.
+   * Top-up ide SAMO na `created` grani.
    */
-  topUpSupply?: boolean
+  topUpSupply?: boolean | 'after-onboarding'
 }
 
 /**
  * Naduva zalihe korisnika za `capsulesTotal` iz nove porudžbine i recompute-uje istek.
  * Vezuje porudžbinu (email) za profil (userId). Bezbedno preskače ako:
  *  - profil za email još ne postoji (webhook stigao pre Clerk registracije), ili
- *  - supply red ne postoji (profil nije završio onboarding — onboarding ga seed-uje).
+ *  - supply red ne postoji (profil nije završio onboarding — onboarding ga seed-uje), ili
+ *  - je zadat `orderedAfterOnboarding`, a porudžbina nije od dana posle onboardinga.
  * Nikad ne baca — greška ovde ne sme da obori webhook/backfill.
+ *
+ * JEDNA izjava, delta nad tekućom vrednošću: ranije je ovde bio select-pa-update sa
+ * apsolutnom vrednošću, pa je check-in ili ručna korekcija u istom trenutku bila
+ * pregažena (izgubljen upis).
  *
  * Poređenje mejla je case-insensitive: `orders.email` normalizujemo u lowercase, ali
  * `profiles.email` dolazi iz Clerk-a u proizvoljnom case-u (`Marko@Primer.rs`) — striktno
  * `=` je tiho preskakalo top-up baš za te korisnike.
  */
-async function topUpSupplyForEmail(email: string, capsulesTotal: number): Promise<void> {
+async function topUpSupplyForEmail(
+  email: string,
+  capsulesTotal: number,
+  orderedAfterOnboarding?: Date,
+): Promise<void> {
   if (capsulesTotal <= 0) return
   const normalized = email.trim().toLowerCase()
-  try {
-    const [profile] = await db
-      .select({ id: profiles.id })
-      .from(profiles)
-      .where(sql`lower(${profiles.email}) = ${normalized}`)
-      .limit(1)
-    if (!profile) return // Nema koga da naduvamo; supply se seed-uje na onboardingu.
+  const today = belgradeToday()
 
-    const [supplyRow] = await db
-      .select({ capsulesRemaining: supply.capsulesRemaining })
-      .from(supply)
-      .where(eq(supply.userId, profile.id))
-      .limit(1)
-    if (!supplyRow) {
-      logWarn(EVENTS.wooTopUpSkipped, { userId: profile.id, reason: 'no_supply_row' })
+  // Dan onboardinga = prvi `focus_quiz_results` red (upisuje ga ISTA izjava koja
+  // završava onboarding, pa postoji tačno kad postoji i `supply` red).
+  const onboardingGate = orderedAfterOnboarding
+    ? sql`and (${orderedAfterOnboarding.toISOString()}::timestamptz at time zone ${BELGRADE_TZ})::date > (
+        select min(${focusQuizResults.date}) from ${focusQuizResults}
+        where ${focusQuizResults.userId} = ${profiles.id}
+      )`
+    : sql``
+
+  const newCapsules = sql`(${supply.capsulesRemaining} + ${capsulesTotal}::int)`
+
+  try {
+    const result = await db.execute<{ user_id: string | null; updated: number; eligible: number }>(sql`
+      with target as (
+        select ${profiles.id} as id from ${profiles}
+        where lower(${profiles.email}) = ${normalized}
+        limit 1
+      ),
+      eligible as (
+        select ${profiles.id} as id from ${profiles}
+        where ${profiles.id} = (select id from target) ${onboardingGate}
+      ),
+      updated as (
+        update ${supply}
+        set "capsules_remaining" = ${newCapsules},
+            "estimated_runout_date" =
+              ${today}::date + ceil(${newCapsules}::numeric / ${CAPSULES_PER_DAY}::int)::int,
+            -- Dopuna zatvara epizodu niskih zaliha → brojač alerta na 0. Uslov je nad
+            -- NOVIM stanjem, ne nad činjenicom dopune: refill od 1 kapsule ne sme da
+            -- otvori novu rundu od tri alerta dok su zalihe i dalje ispod praga.
+            "low_stock_alerts_sent" = case
+              when ${newCapsules} > ${LOW_STOCK_THRESHOLD}::int then 0
+              else ${supply.lowStockAlertsSent}
+            end,
+            "updated_at" = now()
+        from eligible
+        where ${supply.userId} = eligible.id
+        returning ${supply.userId}
+      )
+      select
+        (select id from target) as user_id,
+        (select count(*) from eligible)::int as eligible,
+        (select count(*) from updated)::int as updated
+    `)
+
+    const row = result.rows[0]
+    const userId = row?.user_id ?? null
+    if (!userId) return // Nema koga da naduvamo; supply se seed-uje na onboardingu.
+    if (Number(row?.eligible ?? 0) === 0) {
+      logInfo(EVENTS.wooTopUpSkipped, { userId, reason: 'before_onboarding' })
       return
     }
-
-    const capsulesRemaining = supplyRow.capsulesRemaining + capsulesTotal
-    await db
-      .update(supply)
-      .set({
-        capsulesRemaining,
-        estimatedRunoutDate: estimateRunoutDate(belgradeToday(), capsulesRemaining),
-        updatedAt: new Date(),
-        // Dopuna zatvara epizodu niskih zaliha → brojač alerta na 0. Uslov je nad
-        // NOVIM stanjem, ne nad činjenicom dopune: refill od 1 kapsule ne sme da
-        // otvori novu rundu od tri alerta dok su zalihe i dalje ispod praga.
-        ...(capsulesRemaining > LOW_STOCK_THRESHOLD ? { lowStockAlertsSent: 0 } : {}),
-      })
-      .where(eq(supply.userId, profile.id))
+    if (Number(row?.updated ?? 0) === 0) {
+      logWarn(EVENTS.wooTopUpSkipped, { userId, reason: 'no_supply_row' })
+    }
   } catch (err) {
     // Mejl NE ide u log (lični podatak); količina nosi dovoljno konteksta.
     logError(EVENTS.wooTopUpFailed, err, { capsulesTotal })
@@ -185,7 +227,11 @@ export async function upsertOrder(
   const created = wasInserted(row?.inserted)
 
   if (created && topUpSupply) {
-    await topUpSupplyForEmail(email, values.capsulesTotal)
+    await topUpSupplyForEmail(
+      email,
+      values.capsulesTotal,
+      topUpSupply === 'after-onboarding' ? values.orderDate : undefined,
+    )
   }
 
   return { result: created ? 'created' : 'updated', wooOrderId, email }

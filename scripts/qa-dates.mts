@@ -725,5 +725,52 @@ check('List-Unsubscribe je u uglastim zagradama',
 check('one-click je deklarisan',
   unsubscribeHeaders('user_aaa')['List-Unsubscribe-Post'], 'List-Unsubscribe=One-Click')
 
+console.log('\n=== 15. Sprint 2: početne zalihe, low-stock po datumu, dnevni cron ===')
+{
+  const { initialCapsulesForStart, isLowStock, LOW_STOCK_LEAD_DAYS } = await import('../lib/protocol/dosing')
+  const { isDailyJobStale, DAILY_JOB_STALE_HOURS } = await import('../lib/cron/health')
+  const { refillUrl } = await import('../lib/refill')
+
+  // Onboarding: protekli dani su potrošeni (4 kapsule/dan), danas još nije.
+  check('start danas → puna pakovanja', initialCapsulesForStart(2, '2026-10-19', '2026-10-19'), 120)
+  check('start pre 20 dana → 120 − 80', initialCapsulesForStart(2, '2026-09-29', '2026-10-19'), 40)
+  check('start davno → clamp na 0', initialCapsulesForStart(1, '2026-08-20', '2026-10-19'), 0)
+  check('start preko DST granice (25.10.) broji kalendarske dane',
+    initialCapsulesForStart(1, '2026-10-24', '2026-10-27'), 60 - 3 * 4)
+
+  // Low-stock: broj kapsula ILI procenjeni datum isteka.
+  check('LEAD_DAYS prati prag (14 kapsula / 4 dnevno)', LOW_STOCK_LEAD_DAYS, 4)
+  check('ispod praga → low', isLowStock(LOW_STOCK_THRESHOLD, '2026-12-01', '2026-10-19'), true)
+  check('iznad praga, datum daleko → nije low', isLowStock(60, '2026-11-03', '2026-10-19'), false)
+  check('iznad praga, datum za 4 dana → low (ne štiklira)', isLowStock(60, '2026-10-23', '2026-10-19'), true)
+  check('iznad praga, datum za 5 dana → nije low', isLowStock(60, '2026-10-24', '2026-10-19'), false)
+  check('iznad praga, datum u prošlosti → low', isLowStock(60, '2026-10-01', '2026-10-19'), true)
+  check('bez datuma odlučuje samo broj', isLowStock(60, null, '2026-10-19'), false)
+
+  // Dnevni cron-ovi: stali = nikad ili duže od praga.
+  const now = new RealDate('2026-10-19T08:00:00Z')
+  check('nikad nije radio → stao', isDailyJobStale(null, now), true)
+  check('radio pre 24h → živ', isDailyJobStale(new RealDate('2026-10-18T08:00:00Z'), now), false)
+  check(`radio pre ${DAILY_JOB_STALE_HOURS + 1}h → stao`,
+    isDailyJobStale(new RealDate(now.getTime() - (DAILY_JOB_STALE_HOURS + 1) * 3_600_000), now), true)
+
+  // Refill link: UTM tagovi, postojeća kampanja se ne gazi, neispravan URL → null.
+  const prev = process.env.NEXT_PUBLIC_SHOP_REFILL_URL
+  process.env.NEXT_PUBLIC_SHOP_REFILL_URL = 'https://nurolab.rs/proizvod/zenflow'
+  const email = new URL(refillUrl('email_low_stock')!)
+  check('mejl: utm_source=email', email.searchParams.get('utm_source'), 'email')
+  check('mejl: utm_content=email_low_stock', email.searchParams.get('utm_content'), 'email_low_stock')
+  check('app: utm_source=app', new URL(refillUrl('dashboard')!).searchParams.get('utm_source'), 'app')
+  process.env.NEXT_PUBLIC_SHOP_REFILL_URL = 'https://nurolab.rs/p?utm_campaign=jesen'
+  check('postojeća kampanja se ne gazi',
+    new URL(refillUrl('zalihe')!).searchParams.get('utm_campaign'), 'jesen')
+  process.env.NEXT_PUBLIC_SHOP_REFILL_URL = 'javascript:alert(1)'
+  check('ne-http URL → null', refillUrl('zalihe'), null)
+  process.env.NEXT_PUBLIC_SHOP_REFILL_URL = ''
+  check('bez env-a → null (CTA se sakriva)', refillUrl('zalihe'), null)
+  if (prev === undefined) delete process.env.NEXT_PUBLIC_SHOP_REFILL_URL
+  else process.env.NEXT_PUBLIC_SHOP_REFILL_URL = prev
+}
+
 console.log(`\n──────────────\nRezultat: ${pass} prošlo, ${fail} palo\n`)
 process.exit(fail > 0 ? 1 : 0)

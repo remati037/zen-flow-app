@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { refreshAccessStatusForEmail } from '@/lib/access/status'
 import { requireAdmin } from '@/lib/auth'
+import { EVENTS, logError, logWarn } from '@/lib/observability/log'
 import { getRestCredentials } from '@/lib/woocommerce/env'
 import {
   REVOKED_STATUSES,
@@ -66,8 +67,7 @@ export async function POST() {
       })
 
       if (!res.ok) {
-        const body = await res.text()
-        console.error(`[woo-backfill] REST greška ${res.status} na strani ${page}:`, body)
+        logWarn(EVENTS.wooBackfillFailed, { stage: 'rest', status: res.status, page })
         return NextResponse.json(
           { error: `WooCommerce API ${res.status}`, page, ...tally },
           { status: 502 },
@@ -81,8 +81,9 @@ export async function POST() {
 
       const batch = (await res.json()) as unknown[]
       for (const order of batch) {
-        // Istorijske porudžbine NE naduvavaju zalihe — top-up važi samo za žive webhook-e.
-        const outcome: SyncOutcome = await upsertOrder(order, { topUpSupply: false })
+        // Istorija ne naduvava zalihe retroaktivno — osim porudžbina posle onboardinga,
+        // koje je webhook propustio (vidi `topUpSupply` u `lib/woocommerce/sync.ts`).
+        const outcome: SyncOutcome = await upsertOrder(order, { topUpSupply: 'after-onboarding' })
         if (outcome.result === 'skipped') {
           tally.skipped += 1
         } else {
@@ -94,7 +95,7 @@ export async function POST() {
       page += 1
     } while (page <= totalPages)
   } catch (err) {
-    console.error('[woo-backfill] neočekivana greška:', err)
+    logError(EVENTS.wooBackfillFailed, err, { stage: 'sync', page })
     return NextResponse.json({ error: 'Backfill failed', ...tally }, { status: 500 })
   }
 
@@ -105,7 +106,8 @@ export async function POST() {
       const res = await refreshAccessStatusForEmail(email)
       if (res?.changed) accessRefreshed += 1
     } catch (err) {
-      console.error('[woo-backfill] osvežavanje access_status nije uspelo za', email, err)
+      // Mejl NE ide u log (lični podatak).
+      logError(EVENTS.wooBackfillFailed, err, { stage: 'refresh_access' })
     }
   }
 
