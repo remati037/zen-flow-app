@@ -55,11 +55,23 @@ indeksi ne dozvoljavaju drugi. Upis je jedna SQL izjava (neon-http nema transakc
 
 ## Katalog
 
-`lib/supplements/catalog.ts` — čist modul bez `server-only`, ~30 stavki:
-`{ key, label, aliases? }`. Ključevi su stabilni (`magnesium`, `omega3`, `vitamin_d`,
-`creatine`, `caffeine`, `ashwagandha`, `l_theanine`, ...). ZenFlow se NE nalazi u katalogu
-(prati se protokolom). Konačnu listu potvrđuje Vladimir u fazi implementacije; promena kataloga
-je deploy, bez migracije. Ključ koji je izbačen iz kataloga ostaje u bazi i prikazuje se kao
+`lib/supplements/catalog.ts` — čist modul bez `server-only`, ~100 stavki:
+`{ key, label, category, aliases }`. Ključevi su stabilni (`magnesium`, `omega3`, `vitamin_d3`,
+`creatine`, `collagen`, `whey_protein`, ...). ZenFlow se NE nalazi u katalogu (prati se
+protokolom). Predlog liste (108 stavki, po kategorijama, sa srpskim i engleskim aliasima) je u
+`2026-10-19-moj-stack-katalog-predlog.md`; Vladimir ga seče na konačnih ~100. Promena kataloga
+je deploy, bez migracije.
+
+**Pretraga** (`searchCatalog(query)` u istom modulu, čista funkcija, testirana u `qa-dates`):
+- normalizacija: mala slova, uklanjanje dijakritika (`č ć š ž đ` → `c c s z dj`; `dj`/`d` oba
+  matchuju) i razmaka/crtica, na upitu i na label/aliasima;
+- poklapanje po prefiksu reči, pa po podstringu; prefiks rangira iznad podstringa, a poklapanje
+  naziva iznad poklapanja aliasa;
+- primeri koji moraju raditi: `kolagen`, `collagen`, `magnezijum`, `mg`, `kreatin`, `protein`,
+  `cink`/`zink`, `riblje ulje` → Omega-3, `ashvaganda`, `b12`;
+- pretraga radi na klijentu nad statičnom listom (bez upita ka bazi); kategorije su filter-čipovi
+  kad je upit prazan.
+- Kad upit nema rezultata, prvi red je „Dodaj kao Drugo: ‹upit›". Ključ koji je izbačen iz kataloga ostaje u bazi i prikazuje se kao
 sirov naziv — admin ga vidi u agregatu.
 
 ## Akcije (`app/(app)/stack/actions.ts`)
