@@ -35,8 +35,11 @@ export function AddSupplementDialog() {
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>('morning')
   const [doseNote, setDoseNote] = useState('')
 
-  const results = useMemo(() => searchCatalog(query, category ?? undefined), [query, category])
   const trimmed = query.trim()
+  const results = useMemo(
+    () => searchCatalog(query, trimmed === '' ? (category ?? undefined) : undefined),
+    [query, trimmed, category],
+  )
   const hasExact = results.some((r) => normalizeSearch(r.label) === normalizeSearch(trimmed))
 
   function reset() {
