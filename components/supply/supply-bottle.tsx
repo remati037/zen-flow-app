@@ -1,30 +1,71 @@
 'use client'
 
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 
 import { CAPSULES_PER_PACKAGE } from '@/lib/protocol/dosing'
 import { pluralSr } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 /**
- * ZenFlow tegla koja pokazuje koliko je kapsula ostalo.
+ * ZenFlow tegla koja se PUNI do nivoa preostalih kapsula.
  *
- * Crtež prati pravu ambalažu: niska mat crna tegla, čep iste širine, svetao
- * tanak natpis (NuroLab · ZENFLOW · FOKUS • ENERGIJA • KONCENTRACIJA ·
- * 60 kapsula | 100% veganski). Tegla je u stvarnosti neprovidna, pa se nivo
- * prikazuje kao „pogled kroz staklo": kapsule su blago vidljive do nivoa, a vrh
- * gomile označava tanka lime linija. Natpis ostaje čitljiv preko toga.
+ * Crtež prati render ambalaže (proporcije, čep iste širine, natpis NuroLab ·
+ * ZENFLOW · FOKUS • ENERGIJA • KONCENTRACIJA · 60 kapsula | 100% veganski).
+ * Dva sloja iste tegle:
+ *  - „duh" (svetla, prazna tegla) — koliko staje;
+ *  - prava, crna tegla, otkrivena odozdo do nivoa, sa blago talasastom ivicom i
+ *    tankom lime linijom (pri kraju zaliha: topla linija).
  *
- * Jedna tegla = jedno pakovanje (`CAPSULES_PER_PACKAGE`). Kad korisnik ima više
- * od jednog pakovanja, tegla pokazuje tekuću (načetu), a pune stoje kao oznaka
- * „+N pune". Tako 70 kapsula ne izgleda isto kao 60.
+ * Animacija se vozi u JS-u (tween nivoa + faza talasa), ne CSS transform-om
+ * unutar `clipPath`-a — to Safari na iOS-u ne animira pouzdano. Talas se smiri
+ * kad punjenje stane, pa nema stalnog pokreta na ekranu. Uz „Smanji pokrete"
+ * tegla odmah stoji na nivou.
  *
- * Nivo se animira od dna pri prvom prikazu i pri svakoj korekciji; globalno
- * `prefers-reduced-motion` pravilo u `globals.css` gasi tranziciju.
+ * Jedna tegla = jedno pakovanje (`CAPSULES_PER_PACKAGE`). Za više pakovanja
+ * tegla pokazuje tekuće (načeto), a pune stoje kao „+N pune tegle".
  */
 
-/** Unutrašnji prozor tegle u kom „stoje" kapsule (viewBox 160×236). */
-const INNER = { x: 20, y: 80, w: 120, h: 140, r: 12 }
+/** Geometrija tegle u viewBox-u 162×242 (izvedena iz rendera, ~1:5). */
+const CAP = { x: 2, y: 2, w: 158, h: 49, r: 9 }
+const BODY = { x: 1, y: 53, w: 160, h: 186, r: 13 }
+/** Visina koju nivo pokriva: od dna tela do vrha čepa (tegla se puni cela). */
+const FILL_TOP = CAP.y
+const FILL_BOTTOM = BODY.y + BODY.h
+const FILL_H = FILL_BOTTOM - FILL_TOP
+
+const DURATION_MS = 1600
+const WAVE_AMP = 2.4
+const WAVE_LEN = 54
+
+function easeOutCubic(t: number): number {
+  return 1 - Math.pow(1 - t, 3)
+}
+
+/** Tačke talasastog vrha „tečnosti" na visini `y`, šire od tegle (seče ih clip). */
+function wavePoints(y: number, amp: number, phase: number): string[] {
+  const left = -10
+  const right = 172
+  const steps = 24
+  const pts: string[] = []
+  for (let i = 0; i <= steps; i++) {
+    const x = left + ((right - left) * i) / steps
+    const yy = y + Math.sin((x / WAVE_LEN) * Math.PI * 2 + phase) * amp
+    pts.push(`${x.toFixed(2)} ${yy.toFixed(2)}`)
+  }
+  return pts
+}
+
+/** Zatvorena površina „tečnosti": talasasti vrh, pa dole do dna tegle. */
+function fillPath(y: number, amp: number, phase: number): string {
+  const pts = wavePoints(y, amp, phase)
+  return `M -10 ${FILL_BOTTOM + 4} L ${pts.join(' L ')} L 172 ${FILL_BOTTOM + 4} Z`
+}
+
+/** Samo talasasta ivica (za tanku liniju nivoa). */
+function edgePath(y: number, amp: number, phase: number): string {
+  const [first, ...rest] = wavePoints(y, amp, phase)
+  return `M ${first} L ${rest.join(' L ')}`
+}
 
 export function SupplyBottle({
   capsulesRemaining,
@@ -41,98 +82,89 @@ export function SupplyBottle({
   const inCurrent = capsules - extraFull * CAPSULES_PER_PACKAGE
   const target = inCurrent / CAPSULES_PER_PACKAGE
 
-  // Kreće od 0 i odmah posle prvog prikaza skoči na cilj, da se punjenje vidi.
-  // `setTimeout`, ne `requestAnimationFrame`: rAF se ne izvršava u skrivenom tabu
-  // (npr. app otvoren u pozadini), pa bi tegla ostala prazna do prvog fokusa.
-  const [level, setLevel] = useState(0)
+  // Animirano stanje: nivo (0–1), amplituda i faza talasa.
+  const [frame, setFrame] = useState({ level: 0, amp: WAVE_AMP, phase: 0 })
+  const fromRef = useRef(0)
+
   useEffect(() => {
-    const id = window.setTimeout(() => setLevel(target), 60)
-    return () => window.clearTimeout(id)
+    const from = fromRef.current
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduce) {
+      fromRef.current = target
+      const id = window.setTimeout(() => setFrame({ level: target, amp: 0, phase: 0 }), 0)
+      return () => window.clearTimeout(id)
+    }
+
+    let raf = 0
+    const start = performance.now()
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / DURATION_MS)
+      const level = from + (target - from) * easeOutCubic(t)
+      // Talas je živ dok se puni, pa se smiri na blagu ivicu.
+      const amp = WAVE_AMP * (1 - t) + 0.8 * t
+      setFrame({ level, amp, phase: (now - start) / 260 })
+      fromRef.current = level
+      if (t < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
   }, [target])
 
-  const offset = (1 - level) * INNER.h
+  const levelY = FILL_BOTTOM - frame.level * FILL_H
+  const showEdge = frame.level > 0.005 && frame.level < 0.995
 
   return (
     <div className={cn('relative inline-flex flex-col items-center', className)}>
       <svg
-        viewBox="0 0 160 236"
-        className="h-60 w-auto drop-shadow-[0_22px_32px_rgba(20,24,26,0.28)]"
+        viewBox="0 0 162 248"
+        className="h-64 w-auto"
         role="img"
         aria-label={`Tekuća tegla: ${inCurrent} od ${CAPSULES_PER_PACKAGE} kapsula`}
       >
         <defs>
-          <clipPath id={`inner-${uid}`}>
-            <rect x={INNER.x} y={INNER.y} width={INNER.w} height={INNER.h} rx={INNER.r} />
+          <clipPath id={`fill-${uid}`}>
+            <path d={fillPath(levelY, frame.amp, frame.phase)} />
           </clipPath>
-          <pattern id={`caps-${uid}`} width="36" height="24" patternUnits="userSpaceOnUse">
-            <Capsule x={4} y={4} low={low} />
-            <Capsule x={21} y={16} low={low} tilt />
-          </pattern>
-          {/* Mat sjaj: blago svetlija leva ivica, kao na fotografiji. */}
+          {/* Mat sjaj kao na renderu: svetlija leva ivica, tamnija sredina. */}
           <linearGradient id={`sheen-${uid}`} x1="0" x2="1" y1="0" y2="0">
-            <stop offset="0" stopColor="white" stopOpacity="0.10" />
-            <stop offset="0.18" stopColor="white" stopOpacity="0.03" />
-            <stop offset="0.75" stopColor="white" stopOpacity="0" />
-            <stop offset="1" stopColor="white" stopOpacity="0.05" />
+            <stop offset="0" stopColor="white" stopOpacity="0.09" />
+            <stop offset="0.12" stopColor="white" stopOpacity="0.035" />
+            <stop offset="0.55" stopColor="white" stopOpacity="0" />
+            <stop offset="0.92" stopColor="white" stopOpacity="0.03" />
+            <stop offset="1" stopColor="white" stopOpacity="0.07" />
           </linearGradient>
         </defs>
 
-        {/* Senka ispod */}
-        <ellipse cx="80" cy="230" rx="62" ry="5" className="fill-ink/15" />
+        {/* Senka */}
+        <ellipse cx="81" cy="243" rx="70" ry="4" className="fill-ink/10" />
 
-        {/* Telo tegle */}
-        <rect x="10" y="68" width="140" height="160" rx="16" className="fill-jar" />
+        {/* „Duh" — prazna tegla */}
+        <Jar tone="ghost" sheenId={`sheen-${uid}`} />
 
-        {/* „Pogled kroz staklo": kapsule do nivoa */}
-        <g clipPath={`url(#inner-${uid})`}>
-          <g
-            style={{ transform: `translateY(${offset}px)` }}
-            className="transition-transform duration-[1400ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
-          >
-            <rect x={INNER.x} y={INNER.y} width={INNER.w} height={INNER.h} className="fill-white/[0.04]" />
-            <rect x={INNER.x} y={INNER.y} width={INNER.w} height={INNER.h} fill={`url(#caps-${uid})`} />
-            <rect
-              x={INNER.x}
-              y={INNER.y}
-              width={INNER.w}
-              height="1.5"
-              className={low ? 'fill-caution-line' : 'fill-lime'}
-            />
-          </g>
+        {/* Prava tegla, otkrivena do nivoa */}
+        <g clipPath={`url(#fill-${uid})`}>
+          <Jar tone="solid" sheenId={`sheen-${uid}`} />
         </g>
 
-        {/* Natpis kao na tegli */}
-        <text x="80" y="128" textAnchor="middle" className="fill-paper/80 text-[9px] font-semibold tracking-[-0.01em]">
-          NuroLab
-        </text>
-        <text
-          x="81"
-          y="152"
-          textAnchor="middle"
-          className="fill-paper/90 text-[17px] font-light tracking-[0.16em]"
-        >
-          ZENFLOW
-        </text>
-        <rect x="27" y="192" width="106" height="11" rx="5.5" fill="none" className="stroke-paper/55" strokeWidth="0.6" />
-        <text x="80" y="199.6" textAnchor="middle" className="fill-paper/75 text-[5px] font-semibold tracking-[0.04em]">
-          FOKUS • ENERGIJA • KONCENTRACIJA
-        </text>
-        <text x="80" y="212" textAnchor="middle" className="fill-paper/60 text-[5px]">
-          60 kapsula | 100% veganski
-        </text>
-
-        {/* Mat sjaj preko tela */}
-        <rect x="10" y="68" width="140" height="160" rx="16" fill={`url(#sheen-${uid})`} />
-
-        {/* Čep: iste širine, zaobljen gornji obod, spoj sa teglom */}
-        <rect x="9" y="8" width="142" height="62" rx="14" className="fill-jar-cap" />
-        <rect x="9" y="8" width="142" height="62" rx="14" fill={`url(#sheen-${uid})`} />
-        <rect x="9" y="64" width="142" height="4" className="fill-black/30" />
-        <rect x="12" y="10" width="136" height="3" rx="1.5" className="fill-white/[0.06]" />
+        {/* Ivica punjenja */}
+        {showEdge && (
+          <g clipPath={`url(#jar-shape-${uid})`}>
+            <path
+              d={edgePath(levelY, frame.amp, frame.phase)}
+              fill="none"
+              strokeWidth="1.4"
+              className={low ? 'stroke-caution-line' : 'stroke-lime'}
+            />
+          </g>
+        )}
+        <clipPath id={`jar-shape-${uid}`}>
+          <rect x={CAP.x} y={CAP.y} width={CAP.w} height={CAP.h} rx={CAP.r} />
+          <rect x={BODY.x} y={BODY.y} width={BODY.w} height={BODY.h} rx={BODY.r} />
+        </clipPath>
       </svg>
 
       {extraFull > 0 && (
-        <span className="mt-3 rounded-full bg-ink px-3 py-1 text-xs font-medium text-paper">
+        <span className="mt-2 rounded-full bg-ink px-3 py-1 text-xs font-medium text-paper">
           + {extraFull} {pluralSr(extraFull, 'puna tegla', 'pune tegle', 'punih tegli')}
         </span>
       )}
@@ -140,12 +172,63 @@ export function SupplyBottle({
   )
 }
 
-/** Jedna kapsula iz uzorka: dvobojna, blago vidljiva kroz teglu. */
-function Capsule({ x, y, low, tilt = false }: { x: number; y: number; low: boolean; tilt?: boolean }) {
+/** Tegla u dve varijante: `solid` (proizvod) i `ghost` (prazna, svetla). */
+function Jar({ tone, sheenId }: { tone: 'solid' | 'ghost'; sheenId: string }) {
+  const solid = tone === 'solid'
+  const text = solid ? 'fill-paper' : 'fill-ink/15'
   return (
-    <g transform={tilt ? `rotate(-16 ${x + 6} ${y + 3})` : undefined} opacity="0.22">
-      <rect x={x} y={y} width="13" height="6" rx="3" className="fill-paper" />
-      <rect x={x} y={y} width="6.5" height="6" rx="3" className={low ? 'fill-caution-line' : 'fill-lime'} />
+    <g className="font-sans">
+      {/* Telo */}
+      <rect
+        x={BODY.x}
+        y={BODY.y}
+        width={BODY.w}
+        height={BODY.h}
+        rx={BODY.r}
+        className={solid ? 'fill-jar' : 'fill-ink/[0.045] stroke-ink/15'}
+        strokeWidth={solid ? 0 : 0.8}
+      />
+      {/* Čep + spoj */}
+      <rect
+        x={CAP.x}
+        y={CAP.y}
+        width={CAP.w}
+        height={CAP.h}
+        rx={CAP.r}
+        className={solid ? 'fill-jar-cap' : 'fill-ink/[0.06] stroke-ink/15'}
+        strokeWidth={solid ? 0 : 0.8}
+      />
+      {solid && (
+        <>
+          <rect x={BODY.x} y={BODY.y} width={BODY.w} height={BODY.h} rx={BODY.r} fill={`url(#${sheenId})`} />
+          <rect x={CAP.x} y={CAP.y} width={CAP.w} height={CAP.h} rx={CAP.r} fill={`url(#${sheenId})`} />
+          <rect x={CAP.x} y={CAP.y + CAP.h - 3} width={CAP.w} height="3" className="fill-black/35" />
+        </>
+      )}
+
+      {/* Natpis (pozicije i veličine iz rendera) */}
+      <text x="81" y="86" textAnchor="middle" className={cn(text, 'text-[11px] font-medium tracking-[-0.02em]')}>
+        NuroLab
+      </text>
+      <text x="82" y="135" textAnchor="middle" className={cn(text, 'text-[19px] font-light tracking-[0.1em]')}>
+        ZENFLOW
+      </text>
+      <rect
+        x="19"
+        y="194"
+        width="124"
+        height="11"
+        rx="5.5"
+        fill="none"
+        strokeWidth="0.7"
+        className={solid ? 'stroke-paper/80' : 'stroke-ink/15'}
+      />
+      <text x="81" y="201.8" textAnchor="middle" className={cn(text, 'text-[5.6px] font-semibold tracking-[0.02em]')}>
+        FOKUS • ENERGIJA • KONCENTRACIJA
+      </text>
+      <text x="81" y="216" textAnchor="middle" className={cn(text, 'text-[5.6px] opacity-85')}>
+        60 kapsula | 100% veganski
+      </text>
     </g>
   )
 }
