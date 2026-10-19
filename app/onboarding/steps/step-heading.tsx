@@ -14,7 +14,7 @@ export function StepHeading({
   return (
     <div className="flex flex-col gap-1">
       {eyebrow && (
-        <p className="text-[11px] font-medium tracking-wide text-slate-soft uppercase">{eyebrow}</p>
+        <p className="text-xs font-medium tracking-wide text-slate-soft uppercase">{eyebrow}</p>
       )}
       <h2 className="font-heading text-lg leading-snug font-medium text-ink">{title}</h2>
       {description && <p className="text-sm text-slate-mid">{description}</p>}

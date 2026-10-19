@@ -41,7 +41,7 @@ export function FocusMiniCard({
       <div className="mt-4">
         <Link
           href="/fokus"
-          className="inline-flex items-center rounded-full bg-ink px-3.5 py-1.5 text-xs font-medium text-paper transition-opacity hover:opacity-90"
+          className="inline-flex min-h-11 items-center rounded-full bg-ink px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90"
         >
           {sessions === 0 ? 'Pokreni Pomodoro' : 'Nastavi fokus'}
         </Link>

@@ -71,7 +71,7 @@ export function BadgeCard({
 
       <span
         className={cn(
-          'mt-1 text-[11px] font-medium',
+          'mt-1 text-xs font-medium',
           earned ? 'text-ink' : 'text-slate-soft',
         )}
       >

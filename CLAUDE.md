@@ -255,6 +255,16 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
   apsolutne vrednosti — paralelan check-in bi bio pregažen. Backfill dopunjuje SAMO porudžbine
   od dana POSLE onboardinga (`topUpSupply: 'after-onboarding'`; dan onboardinga = prvi
   `focus_quiz_results` red); ranije je uračunao korisnik kroz broj pakovanja.
+- **Pristupačnost (Sprint 5) — minimum za svaki nov UI:** fokus je PUN ink (`--ring`,
+  globalni `:focus-visible` outline); cilj za dodir ≥ 44px (`min-h-11`/`size-11`, ili
+  `after:-inset-*` kad je vizuelni element manji); tekst ≥ 12px (`text-xs`, nikad
+  `text-[10px]`/`[11px]`); ikonica-dugme ima `aria-label`; grafikon ima `sr-only` sažetak.
+  Animacije poštuju `prefers-reduced-motion` (globalno u `globals.css` + `MotionConfig
+  reducedMotion="user"` u onboardingu). Boja upozorenja je token `caution` — nikad `amber-*`.
+- **Svaka grupa ruta ima `loading.tsx` i `error.tsx`** (`components/states/*`); koren ima i
+  `not-found.tsx` i `global-error.tsx`. Ekran greške prikazuje `digest`, nikad poruku greške.
+  Klijentski poziv server akcije MORA da hvata izuzetak (bez mreže akcija BACA, ne vraća
+  `{ ok: false }`) i da vrati optimistično stanje — vidi `DoseCheckin`.
 - **Check-in iz notifikacije** (`/api/push/checkin`, javna, HMAC token iz
   `lib/push/checkin-token.ts` vezan za korisnika + dan + dozu; prihvata samo danas i juče).
   Upis ide kroz `recordDose` (`lib/protocol/record-dose.ts`) — ISTU funkciju koju zove

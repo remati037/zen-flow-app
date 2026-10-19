@@ -132,13 +132,13 @@ function FocusGauge({ score, bandLabel }: { score: number; bandLabel: string }) 
           <span className="font-heading text-4xl leading-none font-semibold text-ink tabular-nums">
             {display}
           </span>
-          <span className="text-[11px] font-medium tracking-wide text-slate-soft uppercase">
+          <span className="text-xs font-medium tracking-wide text-slate-soft uppercase">
             {bandLabel}
           </span>
         </div>
       </div>
 
-      <div className="mt-1 flex justify-between px-1 text-[10px] font-medium text-slate-soft">
+      <div className="mt-1 flex justify-between px-1 text-xs font-medium text-slate-soft">
         <span>0</span>
         <span>100</span>
       </div>

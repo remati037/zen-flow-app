@@ -18,7 +18,7 @@ function BadgeToast({ badge, onDismiss }: { badge: BadgeDefinition; onDismiss: (
         <Icon className="size-6" />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-medium tracking-wide text-slate-soft uppercase">
+        <p className="text-xs font-medium tracking-wide text-slate-soft uppercase">
           Novi bedž
         </p>
         <p className="font-heading text-base font-medium text-ink">{badge.title}</p>
@@ -28,7 +28,7 @@ function BadgeToast({ badge, onDismiss }: { badge: BadgeDefinition; onDismiss: (
         type="button"
         onClick={onDismiss}
         aria-label="Zatvori"
-        className="-mt-1 -mr-1 rounded-full p-1 text-slate-soft transition-colors hover:bg-paper hover:text-ink"
+        className="-mt-2 -mr-2 flex size-11 items-center justify-center rounded-full text-slate-soft transition-colors hover:bg-paper hover:text-ink"
       >
         <X className="size-4" />
       </button>

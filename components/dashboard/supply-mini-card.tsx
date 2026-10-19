@@ -30,7 +30,7 @@ export function SupplyMiniCard({
     <section
       className={cn(
         'flex flex-col rounded-xl bg-white p-5 shadow-soft ring-1',
-        isLow ? 'ring-amber-300' : 'ring-foreground/10',
+        isLow ? 'ring-caution-line' : 'ring-foreground/10',
       )}
     >
       <div className="flex items-center gap-2 text-slate-mid">
@@ -57,7 +57,7 @@ export function SupplyMiniCard({
       </p>
 
       {isLow && (
-        <p className="mt-3 flex items-start gap-1.5 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-900">
+        <p className="mt-3 flex items-start gap-1.5 rounded-lg bg-caution-soft p-2.5 text-xs text-caution">
           <AlertTriangle className="mt-px size-3.5 shrink-0" />
           <span>Pri kraju — naruči dopunu da ne prekineš protokol.</span>
         </p>
@@ -69,7 +69,7 @@ export function SupplyMiniCard({
             href={refillUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-full bg-lime px-3.5 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-lime-deep"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-lime px-4 text-sm font-medium text-ink transition-colors hover:bg-lime-deep"
           >
             <PackagePlus className="size-3.5" />
             Naruči dopunu
@@ -77,7 +77,7 @@ export function SupplyMiniCard({
         )}
         <Link
           href="/zalihe"
-          className="rounded-full px-2 py-1.5 text-xs font-medium text-slate-mid transition-colors hover:bg-paper hover:text-ink"
+          className="inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium text-slate-mid transition-colors hover:bg-paper hover:text-ink"
         >
           Detaljno →
         </Link>

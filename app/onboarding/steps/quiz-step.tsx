@@ -127,7 +127,7 @@ export function QuizStep({
                   <span className="text-2xl leading-none" aria-hidden="true">
                     {emoji}
                   </span>
-                  <span className="text-[10px] leading-tight font-medium">{label}</span>
+                  <span className="text-xs leading-tight font-medium">{label}</span>
                 </motion.button>
               )
             })}

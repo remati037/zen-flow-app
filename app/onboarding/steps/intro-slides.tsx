@@ -97,7 +97,7 @@ export function IntroSlides({
           </span>
 
           <div className="flex flex-col gap-1.5">
-            <p className="text-[11px] font-medium tracking-wide text-slate-soft uppercase">
+            <p className="text-xs font-medium tracking-wide text-slate-soft uppercase">
               {slide.eyebrow}
             </p>
             <h2 className="font-heading text-xl leading-tight font-medium text-ink">{slide.title}</h2>
@@ -159,7 +159,7 @@ export function IntroSlides({
           <button
             type="button"
             onClick={onSkip}
-            className="self-center rounded-lg px-2 py-1 text-xs font-medium text-slate-soft underline-offset-4 transition-colors hover:text-ink hover:underline"
+            className="inline-flex min-h-11 items-center self-center rounded-lg px-3 text-sm font-medium text-slate-soft underline-offset-4 transition-colors hover:text-ink hover:underline"
           >
             Preskoči uvod
           </button>

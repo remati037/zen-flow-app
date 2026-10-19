@@ -129,7 +129,20 @@ export function DoseCheckin({
     applyState({ ...state, [dose]: next })
 
     startTransition(async () => {
-      const result = await logDose({ date: today, dose, status: next })
+      let result: Awaited<ReturnType<typeof logDose>>
+      try {
+        result = await logDose({ date: today, dose, status: next })
+      } catch {
+        // Server akcija je fetch — bez mreže BACA, ne vraća `{ ok: false }`. Bez
+        // ovoga je dugme ostajalo optimistično „Uzeto" iako ništa nije upisano.
+        applyState({ ...state, [dose]: prev })
+        toast.error(
+          navigator.onLine
+            ? 'Upis nije uspeo — pokušaj ponovo.'
+            : 'Nema internet veze — označi dozu kad budeš online.',
+        )
+        return
+      }
       if (result.ok) {
         const { streak, newBadges } = result.data
         if (completesDay && streak.todayComplete) {

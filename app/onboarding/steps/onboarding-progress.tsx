@@ -15,8 +15,8 @@ export function OnboardingProgress({ value, label }: { value: number; label: str
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-[11px] font-medium tracking-wide text-slate-soft uppercase">{label}</span>
-        <span className="text-[11px] font-medium text-slate-soft tabular-nums">{pct}%</span>
+        <span className="text-xs font-medium tracking-wide text-slate-soft uppercase">{label}</span>
+        <span className="text-xs font-medium text-slate-soft tabular-nums">{pct}%</span>
       </div>
       <div
         role="progressbar"
