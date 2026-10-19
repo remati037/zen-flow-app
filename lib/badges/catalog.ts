@@ -20,19 +20,10 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
-export const BADGE_KEYS = [
-  'protokol-zapocet',
-  'prva-doza',
-  'niz-3',
-  'niz-7',
-  'niz-14',
-  'niz-30',
-  'prvi-fokus',
-  'fokus-10',
-  'puna-nedelja',
-] as const
+import { type BadgeKey } from './keys'
 
-export type BadgeKey = (typeof BADGE_KEYS)[number]
+// Ključevi i redosled žive u `keys.ts` (bez ikona) — re-eksport za postojeće pozivaoce.
+export { BADGE_KEYS, isBadgeKey, sortBadgeKeys, type BadgeKey } from './keys'
 
 export interface BadgeDefinition {
   key: BadgeKey
@@ -103,23 +94,10 @@ export const BADGE_CATALOG: readonly BadgeDefinition[] = [
 export const BADGE_COUNT = BADGE_CATALOG.length
 
 const BY_KEY = new Map<string, BadgeDefinition>(BADGE_CATALOG.map((b) => [b.key, b]))
-const ORDER = new Map<string, number>(BADGE_CATALOG.map((b, i) => [b.key, i]))
 
-export function isBadgeKey(key: string): key is BadgeKey {
-  return BY_KEY.has(key)
-}
 
 /** Definicija po ključu; `undefined` za nepoznat ključ (npr. stari red u bazi). */
 export function getBadge(key: string): BadgeDefinition | undefined {
   return BY_KEY.get(key)
 }
 
-/**
- * Sortira ključeve po redosledu iz kataloga i odbacuje nepoznate.
- * Koristi se i za award rezultat i za prikaz — redosled je uvek isti.
- */
-export function sortBadgeKeys(keys: readonly string[]): BadgeKey[] {
-  return keys
-    .filter(isBadgeKey)
-    .sort((a, b) => ORDER.get(a)! - ORDER.get(b)!)
-}

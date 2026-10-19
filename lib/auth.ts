@@ -2,6 +2,7 @@ import 'server-only'
 
 import { auth } from '@clerk/nextjs/server'
 import { eq } from 'drizzle-orm'
+import { cache } from 'react'
 
 import { db, profiles } from '@/lib/db'
 
@@ -10,8 +11,11 @@ export type Profile = typeof profiles.$inferSelect
 /**
  * Učita `profiles` red za trenutno ulogovanog korisnika.
  * Vraća `null` ako nema sesije ili red još ne postoji (npr. webhook kasni).
+ *
+ * `cache()`: layout, stranica i gejt pristupa ga zovu u istom renderu — jedan upit
+ * po zahtevu umesto tri.
  */
-export async function getCurrentProfile(): Promise<Profile | null> {
+export const getCurrentProfile = cache(async function getCurrentProfile(): Promise<Profile | null> {
   const { userId } = await auth()
   if (!userId) return null
 
@@ -22,7 +26,7 @@ export async function getCurrentProfile(): Promise<Profile | null> {
     .limit(1)
 
   return profile ?? null
-}
+})
 
 /**
  * Da li je trenutni korisnik admin (iz Clerk session claim-a).

@@ -36,7 +36,8 @@ export default async function AdminPorudzbinePage() {
           <p className="text-sm text-slate-mid">
             Uvozi istorijske porudžbine (<span className="font-medium">processing</span> i{' '}
             <span className="font-medium">completed</span>) preko REST API-ja i osvežava VIP status
-            kupaca. Istorijske porudžbine ne naduvavaju zalihe — top-up važi samo za žive webhook-e.
+            kupaca. Zalihe dopunjuju samo porudžbine od dana posle onboardinga kupca — starije je kupac
+            već uračunao kroz broj pakovanja na onboardingu.
           </p>
           <BackfillButton />
         </CardContent>

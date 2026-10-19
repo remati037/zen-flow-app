@@ -44,6 +44,7 @@ check('/api/cron/notifications', true, false, 'scheduler — Bearer CRON_SECRET'
 check('/api/cron/low-stock', true, false, 'Vercel Cron — Bearer CRON_SECRET')
 check('/api/cron/refresh-access', true, false, 'Vercel Cron — Bearer CRON_SECRET')
 check('/api/push/rotate', true, false, 'service worker — bez Clerk sesije, auth = posedovanje endpoint-a')
+check('/api/push/checkin', true, false, 'dugme „Uzeto" u notifikaciji — auth je HMAC token')
 check('/api/email/unsubscribe', true, false, 'List-Unsubscribe one-click — auth je HMAC token')
 check('/odjava-mejlova', true, false, 'potvrda odjave — uređaj bez logina')
 check('/api/webhooks/clerk', true, false, 'svix potpis')

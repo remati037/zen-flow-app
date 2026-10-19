@@ -123,8 +123,8 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
 - Build ide kroz **webpack** (`next build --webpack`), ne Turbopack — Serwist injector mod.
 - QA harness ima TRI sloja i sva tri moraju ostati zelena (`npm run qa` vozi sve):
   `qa-dates` (čiste funkcije: datumi/streak/prozori/Woo/access override/cap alerta/odjavni
-  token, Sprint 2–3 pravila, 257 provera), `qa-routes` (klasifikacija ruta, 50 provera) i **`qa-sql`**
-  (89 provera — SQL koji se STVARNO izvršava nad pravim Postgres-om). Lokalno bez Docker-a:
+  token, Sprint 2–4 pravila, 266 provera), `qa-routes` (klasifikacija ruta, 50 provera) i **`qa-sql`**
+  (100 provera — SQL koji se STVARNO izvršava nad pravim Postgres-om). Lokalno bez Docker-a:
   privremeni klaster sa Homebrew `postgresql@16` (`initdb --locale=C`, `pg_ctl -o "-p 5433"`).
 - **`qa-sql` postoji zato što prva dva sloja ne izvršavaju nijedan upit.** Dva produkciona
   otkaza su prošla kroz lint, build i obe stare provere netaknuta: `GROUP BY` sa bind
@@ -255,6 +255,20 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
   apsolutne vrednosti — paralelan check-in bi bio pregažen. Backfill dopunjuje SAMO porudžbine
   od dana POSLE onboardinga (`topUpSupply: 'after-onboarding'`; dan onboardinga = prvi
   `focus_quiz_results` red); ranije je uračunao korisnik kroz broj pakovanja.
+- **Check-in iz notifikacije** (`/api/push/checkin`, javna, HMAC token iz
+  `lib/push/checkin-token.ts` vezan za korisnika + dan + dozu; prihvata samo danas i juče).
+  Upis ide kroz `recordDose` (`lib/protocol/record-dose.ts`) — ISTU funkciju koju zove
+  `logDose`; nikad drugi put upisa doze. Service worker prikazuje dugme „✓ Uzeto" samo uz
+  potpisan payload; neuspeh otvara `/protokol`.
+- **Award engine uvozi ključeve iz `lib/badges/keys.ts`, nikad iz `catalog.ts`** — katalog
+  vuče `lucide-react`, koji van Next runtime-a puca, pa server moduli koji dodeljuju bedževe
+  ne bi mogli u `qa-sql` (zato `logDose` ranije nije bio pokriven).
+- **Profil i porudžbine po zahtevu: jedan upit.** `getCurrentProfile` je u React `cache()`,
+  a gejt (`getLatestOrderDate`) i streak (`getProtocolState`) čitaju porudžbine kroz isti
+  keširan `getValidOrderDates` (`lib/access/orders.ts`).
+- **Admin `/admin/retencija`** (`lib/admin/retention.ts`): funnel kupci → registrovani →
+  onboardovani → aktivni, ponovna kupovina sa/bez app-a, konverzija low-stock alerta i tri
+  liste za akciju. Sve agregacije su u SQL-u; liste su ograničene na 50 redova.
 - **Win-back za istekle kupce** (`lib/access/winback.ts`, pravila u čistom `winback-rules.ts`):
   tri mejla po isteku pristupa, faze [1,7) / [7,14) / [21,28) dana. Gornja granica je
   obavezna — bez nje bi prvo puštanje poslalo mejl SVIM bivšim kupcima. Kandidati se biraju
