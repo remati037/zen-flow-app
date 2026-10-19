@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { belgradeToday, formatIsoDateSr } from '@/lib/dates'
@@ -183,6 +183,9 @@ export function OnboardingWizard({ defaultPackages }: { defaultPackages: number 
       )}
 
       <CardContent className="min-h-[26rem]">
+        {/* `reducedMotion="user"`: uz sistemsko „Smanji pokrete" motion gasi
+            transform animacije (klizanje koraka), a zadržava prelaz providnosti. */}
+        <MotionConfig reducedMotion="user">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={phase}
@@ -272,6 +275,7 @@ export function OnboardingWizard({ defaultPackages }: { defaultPackages: number 
             )}
           </motion.div>
         </AnimatePresence>
+        </MotionConfig>
       </CardContent>
     </Card>
   )

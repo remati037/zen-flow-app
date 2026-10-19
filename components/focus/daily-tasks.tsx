@@ -104,7 +104,8 @@ export function DailyTasks({ tasks }: { tasks: FocusTask[] }) {
               onClick={() => toggle(task)}
               disabled={isPending}
               className={cn(
-                'flex size-6 shrink-0 items-center justify-center rounded-full ring-1 transition-all',
+                // Krug je 24px, ali `after` proširuje površinu za dodir na 44px.
+                'relative flex size-6 shrink-0 items-center justify-center rounded-full ring-1 transition-all after:absolute after:-inset-2.5',
                 'disabled:opacity-60',
                 task.done
                   ? 'bg-lime text-ink ring-lime'
@@ -128,7 +129,7 @@ export function DailyTasks({ tasks }: { tasks: FocusTask[] }) {
               onClick={() => remove(task)}
               disabled={isPending}
               aria-label={`Obriši zadatak: ${task.title}`}
-              className="shrink-0 rounded-md p-1.5 text-slate-soft transition-colors hover:bg-white hover:text-ink disabled:opacity-60"
+              className="flex size-11 shrink-0 items-center justify-center rounded-md text-slate-soft transition-colors hover:bg-white hover:text-ink disabled:opacity-60"
             >
               <Trash2 className="size-4" />
             </button>
@@ -152,6 +153,7 @@ export function DailyTasks({ tasks }: { tasks: FocusTask[] }) {
             value={title}
             maxLength={120}
             placeholder="Dodaj zadatak…"
+            aria-label="Novi zadatak za danas"
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') submit()

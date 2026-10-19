@@ -28,7 +28,7 @@ export function BottomNav() {
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors',
+                  'flex flex-col items-center gap-1 py-2.5 text-xs font-medium transition-colors',
                   active ? 'text-ink' : 'text-slate-soft hover:text-slate-mid',
                 )}
               >

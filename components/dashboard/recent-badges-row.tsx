@@ -30,7 +30,7 @@ export function RecentBadgesRow({ earned }: { earned: EarnedBadge[] }) {
         </div>
         <Link
           href="/bedzevi"
-          className="rounded-full px-2 py-1 text-xs font-medium text-slate-mid transition-colors hover:bg-paper hover:text-ink"
+          className="inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium text-slate-mid transition-colors hover:bg-paper hover:text-ink"
         >
           {known.length}/{BADGE_COUNT} →
         </Link>
@@ -50,10 +50,10 @@ export function RecentBadgesRow({ earned }: { earned: EarnedBadge[] }) {
                 <span className="flex size-11 items-center justify-center rounded-full bg-lime text-ink">
                   <Icon className="size-5" />
                 </span>
-                <span className="text-[11px] leading-tight font-medium text-ink">
+                <span className="text-xs leading-tight font-medium text-ink">
                   {badge.title}
                 </span>
-                <span className="text-[10px] leading-tight text-slate-soft">
+                <span className="text-xs leading-tight text-slate-soft">
                   {formatIsoDateSr(toBelgradeIso(row.earnedAt), {
                     day: 'numeric',
                     month: 'short',

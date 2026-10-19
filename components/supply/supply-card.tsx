@@ -140,13 +140,13 @@ export function SupplyCard({
           'mt-6 h-2',
           '[&_[data-slot=progress-indicator]]:transition-all',
           isLow
-            ? '[&_[data-slot=progress-indicator]]:bg-amber-500'
+            ? '[&_[data-slot=progress-indicator]]:bg-caution'
             : '[&_[data-slot=progress-indicator]]:bg-lime',
         )}
       />
 
       {isLow && (
-        <div className="mt-4 flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
+        <div className="mt-4 flex items-start gap-2 rounded-lg bg-caution-soft p-3 text-sm text-caution ring-1 ring-caution-line">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" />
           <span>Zalihe su pri kraju — naruči dopunu da ne prekineš protokol.</span>
         </div>

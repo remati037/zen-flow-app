@@ -331,11 +331,20 @@ export function PomodoroTimer({ tasks }: { tasks: FocusTask[] }) {
           </svg>
 
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
-            <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-mid">
-              {isBreak ? <Coffee className="size-4" /> : <Target className="size-4" />}
+            {/* `aria-live` javlja SAMO promenu faze (fokus ↔ pauza) — sat koji otkucava
+                svake sekunde bi čitač ekrana pretvorio u buku, pa je on `aria-hidden`
+                uz statičan opis preostalog vremena u minutima. */}
+            <span
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-mid"
+              aria-live="polite"
+            >
+              {isBreak ? <Coffee aria-hidden className="size-4" /> : <Target aria-hidden className="size-4" />}
               {isBreak ? 'Pauza' : 'Fokus'}
             </span>
-            <span className="font-heading text-5xl font-semibold tabular-nums text-ink">
+            <span className="sr-only">
+              Preostalo oko {Math.max(1, Math.ceil(displayMs / 60_000))} min
+            </span>
+            <span aria-hidden className="font-heading text-5xl font-semibold tabular-nums text-ink">
               {formatClock(displayMs)}
             </span>
             {taskLabel && !isBreak && (

@@ -1,5 +1,6 @@
 'use client'
 
+import { formatIsoDateSr } from '@/lib/dates'
 import {
   Bar,
   BarChart,
@@ -93,7 +94,15 @@ export function AdherenceChart({ days }: { days: WeekStripDay[] }) {
       </div>
 
       {hasData ? (
-        <div className="mt-4 h-36 w-full">
+        <>
+        {/* Grafikon je čisto vizuelan (podaci su samo u hover tooltip-u, koji čitač
+            ekrana i dodir ne dosežu) — tekstualni sažetak nosi isti sadržaj. */}
+        <p className="sr-only">
+          {data
+            .map((d) => `${formatIsoDateSr(d.date, { day: 'numeric', month: 'long' })}: ${d.frozen ? 'pauzirano' : `${d.taken} od ${DOSES_PER_DAY} doze`}`)
+            .join('; ')}
+        </p>
+        <div className="mt-4 h-36 w-full" aria-hidden>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 4, right: 0, bottom: 0, left: 0 }} barCategoryGap="18%">
               <XAxis
@@ -101,7 +110,7 @@ export function AdherenceChart({ days }: { days: WeekStripDay[] }) {
                 tickLine={false}
                 axisLine={false}
                 interval={0}
-                tick={{ fill: 'var(--color-slate-soft)', fontSize: 10 }}
+                tick={{ fill: 'var(--color-slate-soft)', fontSize: 12 }}
                 minTickGap={0}
               />
               <YAxis hide domain={[0, DOSES_PER_DAY]} />
@@ -128,6 +137,7 @@ export function AdherenceChart({ days }: { days: WeekStripDay[] }) {
             </BarChart>
           </ResponsiveContainer>
         </div>
+        </>
       ) : (
         <>
           <div className="mt-4 flex h-20 items-end gap-1.5" aria-hidden>

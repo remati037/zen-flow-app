@@ -66,7 +66,7 @@ export function CelebrationStep({
                   <Icon className="size-6" />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-[11px] font-medium tracking-wide text-slate-soft uppercase">
+                  <p className="text-xs font-medium tracking-wide text-slate-soft uppercase">
                     Novi bedž
                   </p>
                   <p className="font-heading text-base font-medium text-ink">{badge.title}</p>

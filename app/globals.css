@@ -19,6 +19,11 @@
   --color-lime-deep: #dcf39e;
   --color-lime-soft: #f0ffd0;
   --color-mint: #d3fbd8;
+  /* Upozorenje (niske zalihe): topla, ali prigušena — ne crvena „greška".
+     `caution` na `caution-soft` ≈ 5.6:1 (AA za mali tekst). */
+  --color-caution: #8a5a12;
+  --color-caution-soft: #fdf3e3;
+  --color-caution-line: #e9c98f;
 
   /* Linije (rgba — ostaju kao custom props) */
   --line: rgba(32, 56, 73, 0.12);
@@ -98,7 +103,9 @@
 
     --border: var(--line);
     --input: var(--line-strong);
-    --ring: var(--color-lime-deep);
+    /* Fokus mora biti VIDLJIV (WCAG 2.4.7/2.4.11): lime-deep je na beloj/paper
+       pozadini ~1.2:1 — praktično nevidljiv. Ink je ~11:1. */
+    --ring: var(--color-ink);
 
     --chart-1: var(--color-lime-deep);
     --chart-2: var(--color-slate);
@@ -113,12 +120,27 @@
     --sidebar-accent: var(--color-lime-soft);
     --sidebar-accent-foreground: var(--color-ink);
     --sidebar-border: var(--line);
-    --sidebar-ring: var(--color-lime-deep);
+    --sidebar-ring: var(--color-ink);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring;
+  }
+  /* Ručno pravljena dugmad i linkovi (bez shadcn fokus klasa) dobijaju jasan prsten
+     samo pri navigaciji tastaturom — klik mišem/prstom ga ne prikazuje. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  /* Animacije poštuju sistemsko podešavanje „Smanji pokrete". */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
   body {
     @apply bg-background text-foreground antialiased;

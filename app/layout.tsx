@@ -28,7 +28,12 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#203849",
+  // Paper, ne ink: header je svetao, pa bi tamna traka iznad njega (Android
+  // adresna traka / iOS status bar) izgledala kao greška.
+  themeColor: "#ECF0F3",
+  // App je namerno samo svetla — bez ovoga Android Chrome „auto-dark" invertuje
+  // brand boje (lime postaje blatnjav, ink beo) i kontrast puca.
+  colorScheme: "light",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -60,7 +65,7 @@ export default function RootLayout({
         },
       }}
     >
-      <html lang="sr" className={hankenGrotesk.variable}>
+      <html lang="sr-Latn" className={hankenGrotesk.variable}>
         <body>
           {children}
           <Toaster richColors position="top-center" />

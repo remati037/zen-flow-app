@@ -36,8 +36,15 @@ Sprint 4 je završen na grani `sprint-4-admin-push-perf` (stoji na Sprintu 3):
 - manje DB poziva po stranici i check-in-u (keširan profil i porudžbine)
 - QA: 266 / 52 / 100 (check-in iz app-a sada se izvršava nad Postgres-om)
 
+Sprint 5 je završen na grani `sprint-5-a11y-states` (stoji na Sprintu 4):
+- loading skeleton i srpski ekrani za greške, 404 i pad celog layout-a
+- check-in bez mreže: vraća dugme i jasno kaže „Nema internet veze"
+- pristupačnost: vidljiv fokus, veća dugmad i polja (≥ 44px), tekst ≥ 12px, aria opisi, poštuje „Smanji pokrete"
+- iPhone notch (safe area) u headeru, `colorScheme: light`, svetla theme boja, PWA otvara pravo dashboard
+- uklonjen Clerk meni iz headera (dupliran sa Podešavanjima)
+
 ## Sledeći korak
-- Vladimir spoji PR-ove redom: Sprint 1 → 2 → 3 → 4
+- Vladimir spoji PR-ove redom: Sprint 1 → 2 → 3 → 4 → 5
 - Proveriti region: Vercel funkcije vs Neon (ako je Neon u EU, `"regions": ["fra1"]` u vercel.json)
 - Sledeće (po želji): Woo zaštita od redosleda webhook-a (migracija 0005), loading/error ekrani, pristupačnost (fokus, veličina dugmadi), Stripe/Faza 2
 

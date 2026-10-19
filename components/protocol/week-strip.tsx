@@ -81,7 +81,19 @@ export function WeekStrip({ weekStrip }: { weekStrip: WeekStripDay[] }) {
     setLocalDoses((s) => ({ ...s, [dose]: next })) // optimistično
 
     startTransition(async () => {
-      const result = await logDose({ date: openDate, dose, status: next })
+      let result: Awaited<ReturnType<typeof logDose>>
+      try {
+        result = await logDose({ date: openDate, dose, status: next })
+      } catch {
+        // Bez mreže server akcija baca — vrati optimistično stanje (vidi DoseCheckin).
+        setLocalDoses((s) => ({ ...s, [dose]: prev }))
+        toast.error(
+          navigator.onLine
+            ? 'Upis nije uspeo — pokušaj ponovo.'
+            : 'Nema internet veze — označi dozu kad budeš online.',
+        )
+        return
+      }
       if (result.ok) {
         toast.success(next === 'taken' ? 'Doza zabeležena 🌿' : 'Doza poništena.')
         celebrateNewBadges(result.data.newBadges)
@@ -113,7 +125,7 @@ export function WeekStrip({ weekStrip }: { weekStrip: WeekStripDay[] }) {
             />
             <span
               className={cn(
-                'text-[10px] text-slate-soft',
+                'text-xs text-slate-soft',
                 day.isToday && 'font-semibold text-ink',
               )}
             >

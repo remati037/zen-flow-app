@@ -6,10 +6,12 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "ZenFlow",
     description:
       "Tvoj dnevni ZenFlow protokol, fokus alati i streak na dohvat ruke.",
-    start_url: "/",
+    // Pravo na dashboard: `/` za ulogovanog korisnika samo preusmerava — jedan
+    // round-trip manje pri svakom otvaranju instalirane aplikacije.
+    start_url: "/dashboard",
     display: "standalone",
     background_color: "#ecf0f3", // paper
-    theme_color: "#203849", // ink
+    theme_color: "#ECF0F3", // paper — isto kao `viewport.themeColor`
     orientation: "portrait",
     icons: [
       {
