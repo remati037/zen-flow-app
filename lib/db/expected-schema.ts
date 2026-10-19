@@ -40,6 +40,11 @@ export const EXPECTED_SCHEMA: SchemaObject[] = [
   { tag: '0004', kind: 'column', table: 'profiles', column: 'access_override_by' },
   { tag: '0004', kind: 'column', table: 'profiles', column: 'email_alerts' },
   { tag: '0004', kind: 'column', table: 'supply', column: 'low_stock_alerts_sent' },
+  { tag: '0005', kind: 'table', table: 'user_supplements' },
+  { tag: '0005', kind: 'index', index: 'user_supplements_user_catalog_uq' },
+  { tag: '0005', kind: 'index', index: 'user_supplements_user_custom_uq' },
+  { tag: '0005', kind: 'index', index: 'user_supplements_user_idx' },
+  { tag: '0005', kind: 'index', index: 'user_supplements_catalog_active_idx' },
 ]
 
 /** Čitljiv opis jednog objekta — isti tekst u skripti i u ruti. */
