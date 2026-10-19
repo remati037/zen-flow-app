@@ -62,8 +62,8 @@ export default function StyleGuidePage() {
         </p>
       </header>
 
-      {/* Bočica zaliha (mockup do prave bočice) */}
-      <Section eyebrow="Zalihe" title="Bočica zaliha">
+      {/* Tegla zaliha (prema fotografiji proizvoda) */}
+      <Section eyebrow="Zalihe" title="Tegla zaliha">
         <div className="flex flex-wrap items-end gap-10 rounded-xl bg-white p-8 shadow-soft">
           <div className="flex flex-col items-center gap-2">
             <SupplyBottle capsulesRemaining={128} />

@@ -7,21 +7,24 @@ import { pluralSr } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 /**
- * Bočica ZenFlow-a koja se puni kapsulama srazmerno preostalim zalihama.
+ * ZenFlow tegla koja pokazuje koliko je kapsula ostalo.
  *
- * MOCKUP crtež dok ne stigne prava bočica: geometrija je u konstantama ispod,
- * pa se zamena svodi na novi obris (`BODY`, čep, etiketa) — logika punjenja ostaje.
+ * Crtež prati pravu ambalažu: niska mat crna tegla, čep iste širine, svetao
+ * tanak natpis (NuroLab · ZENFLOW · FOKUS • ENERGIJA • KONCENTRACIJA ·
+ * 60 kapsula | 100% veganski). Tegla je u stvarnosti neprovidna, pa se nivo
+ * prikazuje kao „pogled kroz staklo": kapsule su blago vidljive do nivoa, a vrh
+ * gomile označava tanka lime linija. Natpis ostaje čitljiv preko toga.
  *
- * Jedna bočica = jedno pakovanje (`CAPSULES_PER_PACKAGE`). Kad korisnik ima više
- * od jednog pakovanja, bočica pokazuje tekuću (načetu) a pune stoje kao oznaka
- * „+N pune”. Tako 70 kapsula ne izgleda isto kao 60.
+ * Jedna tegla = jedno pakovanje (`CAPSULES_PER_PACKAGE`). Kad korisnik ima više
+ * od jednog pakovanja, tegla pokazuje tekuću (načetu), a pune stoje kao oznaka
+ * „+N pune". Tako 70 kapsula ne izgleda isto kao 60.
  *
  * Nivo se animira od dna pri prvom prikazu i pri svakoj korekciji; globalno
  * `prefers-reduced-motion` pravilo u `globals.css` gasi tranziciju.
  */
 
-/** Unutrašnjost bočice u kojoj stoje kapsule (koordinate viewBox-a 140×220). */
-const INNER = { x: 20, y: 64, w: 100, h: 142, r: 20 }
+/** Unutrašnji prozor tegle u kom „stoje" kapsule (viewBox 160×236). */
+const INNER = { x: 20, y: 80, w: 120, h: 140, r: 12 }
 
 export function SupplyBottle({
   capsulesRemaining,
@@ -40,7 +43,7 @@ export function SupplyBottle({
 
   // Kreće od 0 i odmah posle prvog prikaza skoči na cilj, da se punjenje vidi.
   // `setTimeout`, ne `requestAnimationFrame`: rAF se ne izvršava u skrivenom tabu
-  // (npr. app otvoren u pozadini), pa bi bočica ostala prazna do prvog fokusa.
+  // (npr. app otvoren u pozadini), pa bi tegla ostala prazna do prvog fokusa.
   const [level, setLevel] = useState(0)
   useEffect(() => {
     const id = window.setTimeout(() => setLevel(target), 60)
@@ -52,102 +55,97 @@ export function SupplyBottle({
   return (
     <div className={cn('relative inline-flex flex-col items-center', className)}>
       <svg
-        viewBox="0 0 140 230"
-        className="h-56 w-auto drop-shadow-[0_18px_30px_rgba(32,56,73,0.14)]"
+        viewBox="0 0 160 236"
+        className="h-60 w-auto drop-shadow-[0_22px_32px_rgba(20,24,26,0.28)]"
         role="img"
-        aria-label={`Tekuća bočica: ${inCurrent} od ${CAPSULES_PER_PACKAGE} kapsula`}
+        aria-label={`Tekuća tegla: ${inCurrent} od ${CAPSULES_PER_PACKAGE} kapsula`}
       >
         <defs>
           <clipPath id={`inner-${uid}`}>
             <rect x={INNER.x} y={INNER.y} width={INNER.w} height={INNER.h} rx={INNER.r} />
           </clipPath>
-          {/* Kapsule kao uzorak: dve po redu, svaki drugi red pomeren. */}
-          <pattern id={`caps-${uid}`} width="40" height="26" patternUnits="userSpaceOnUse">
-            <Capsule x={2} y={3} low={low} />
-            <Capsule x={22} y={15} low={low} rotate />
+          <pattern id={`caps-${uid}`} width="36" height="24" patternUnits="userSpaceOnUse">
+            <Capsule x={4} y={4} low={low} />
+            <Capsule x={21} y={16} low={low} tilt />
           </pattern>
-          <linearGradient id={`glass-${uid}`} x1="0" x2="1" y1="0" y2="0">
-            <stop offset="0" stopColor="white" stopOpacity="0.55" />
-            <stop offset="0.35" stopColor="white" stopOpacity="0.08" />
-            <stop offset="1" stopColor="white" stopOpacity="0" />
+          {/* Mat sjaj: blago svetlija leva ivica, kao na fotografiji. */}
+          <linearGradient id={`sheen-${uid}`} x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0" stopColor="white" stopOpacity="0.10" />
+            <stop offset="0.18" stopColor="white" stopOpacity="0.03" />
+            <stop offset="0.75" stopColor="white" stopOpacity="0" />
+            <stop offset="1" stopColor="white" stopOpacity="0.05" />
           </linearGradient>
         </defs>
 
         {/* Senka ispod */}
-        <ellipse cx="70" cy="222" rx="46" ry="5" className="fill-ink/10" />
+        <ellipse cx="80" cy="230" rx="62" ry="5" className="fill-ink/15" />
 
-        {/* Telo bočice */}
-        <rect x="14" y="56" width="112" height="158" rx="26" className="fill-white stroke-ink/15" strokeWidth="1.5" />
+        {/* Telo tegle */}
+        <rect x="10" y="68" width="140" height="160" rx="16" className="fill-jar" />
 
-        {/* Kapsule — grupa se pomera nagore koliko je bočica puna */}
+        {/* „Pogled kroz staklo": kapsule do nivoa */}
         <g clipPath={`url(#inner-${uid})`}>
           <g
             style={{ transform: `translateY(${offset}px)` }}
             className="transition-transform duration-[1400ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
           >
-            <rect
-              x={INNER.x}
-              y={INNER.y}
-              width={INNER.w}
-              height={INNER.h}
-              className={low ? 'fill-caution-soft' : 'fill-lime-soft'}
-            />
+            <rect x={INNER.x} y={INNER.y} width={INNER.w} height={INNER.h} className="fill-white/[0.04]" />
             <rect x={INNER.x} y={INNER.y} width={INNER.w} height={INNER.h} fill={`url(#caps-${uid})`} />
             <rect
               x={INNER.x}
               y={INNER.y}
               width={INNER.w}
-              height="2"
-              className={low ? 'fill-caution/40' : 'fill-ink/15'}
+              height="1.5"
+              className={low ? 'fill-caution-line' : 'fill-lime'}
             />
           </g>
         </g>
 
-        {/* Etiketa — providna, da se nivo kapsula vidi i iza nje */}
-        <rect x="14" y="118" width="112" height="48" className="fill-white/75" />
-        <text
-          x="70"
-          y="141"
-          textAnchor="middle"
-          className="fill-ink font-heading text-[15px] font-semibold tracking-[-0.02em]"
-        >
-          ZenFlow
+        {/* Natpis kao na tegli */}
+        <text x="80" y="128" textAnchor="middle" className="fill-paper/80 text-[9px] font-semibold tracking-[-0.01em]">
+          NuroLab
         </text>
         <text
-          x="70"
-          y="156"
+          x="81"
+          y="152"
           textAnchor="middle"
-          className="fill-slate-soft text-[7.5px] font-medium tracking-[0.18em] uppercase"
+          className="fill-paper/90 text-[17px] font-light tracking-[0.16em]"
         >
-          NuroLab · 60 kaps.
+          ZENFLOW
+        </text>
+        <rect x="27" y="192" width="106" height="11" rx="5.5" fill="none" className="stroke-paper/55" strokeWidth="0.6" />
+        <text x="80" y="199.6" textAnchor="middle" className="fill-paper/75 text-[5px] font-semibold tracking-[0.04em]">
+          FOKUS • ENERGIJA • KONCENTRACIJA
+        </text>
+        <text x="80" y="212" textAnchor="middle" className="fill-paper/60 text-[5px]">
+          60 kapsula | 100% veganski
         </text>
 
-        {/* Odsjaj stakla */}
-        <rect x="14" y="56" width="112" height="158" rx="26" fill={`url(#glass-${uid})`} />
+        {/* Mat sjaj preko tela */}
+        <rect x="10" y="68" width="140" height="160" rx="16" fill={`url(#sheen-${uid})`} />
 
-        {/* Grlo i čep */}
-        <rect x="44" y="40" width="52" height="18" rx="4" className="fill-white stroke-ink/15" strokeWidth="1.5" />
-        <rect x="38" y="8" width="64" height="36" rx="9" className="fill-ink" />
-        {[50, 58, 66, 74, 82, 90].map((x) => (
-          <rect key={x} x={x - 0.75} y="13" width="1.5" height="26" rx="0.75" className="fill-white/15" />
-        ))}
+        {/* Čep: iste širine, zaobljen gornji obod, spoj sa teglom */}
+        <rect x="9" y="8" width="142" height="62" rx="14" className="fill-jar-cap" />
+        <rect x="9" y="8" width="142" height="62" rx="14" fill={`url(#sheen-${uid})`} />
+        <rect x="9" y="64" width="142" height="4" className="fill-black/30" />
+        <rect x="12" y="10" width="136" height="3" rx="1.5" className="fill-white/[0.06]" />
       </svg>
 
       {extraFull > 0 && (
-        <span className="mt-2 rounded-full bg-ink px-3 py-1 text-xs font-medium text-paper">
-          + {extraFull} {pluralSr(extraFull, 'puna bočica', 'pune bočice', 'punih bočica')}
+        <span className="mt-3 rounded-full bg-ink px-3 py-1 text-xs font-medium text-paper">
+          + {extraFull} {pluralSr(extraFull, 'puna tegla', 'pune tegle', 'punih tegli')}
         </span>
       )}
     </div>
   )
 }
 
-/** Jedna kapsula iz uzorka: dvobojna, zaobljena. */
-function Capsule({ x, y, low, rotate = false }: { x: number; y: number; low: boolean; rotate?: boolean }) {
+/** Jedna kapsula iz uzorka: dvobojna, blago vidljiva kroz teglu. */
+function Capsule({ x, y, low, tilt = false }: { x: number; y: number; low: boolean; tilt?: boolean }) {
   return (
-    <g transform={rotate ? `rotate(-18 ${x + 8} ${y + 4})` : undefined}>
-      <rect x={x} y={y} width="17" height="8" rx="4" className="fill-white stroke-ink/20" strokeWidth="0.6" />
-      <rect x={x} y={y} width="8.5" height="8" rx="4" className={low ? 'fill-caution/80' : 'fill-ink/80'} />
+    <g transform={tilt ? `rotate(-16 ${x + 6} ${y + 3})` : undefined} opacity="0.22">
+      <rect x={x} y={y} width="13" height="6" rx="3" className="fill-paper" />
+      <rect x={x} y={y} width="6.5" height="6" rx="3" className={low ? 'fill-caution-line' : 'fill-lime'} />
     </g>
   )
 }
