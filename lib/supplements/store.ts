@@ -10,7 +10,8 @@ import type { TimeOfDay } from './time-of-day'
 /**
  * Sav SQL „Mog stack-a" na jednom mestu — akcije su tanke, a `qa-sql` izvršava OVE funkcije.
  *
- * Ograničenje broja redova nije invarijanta (check-then-act): paralelan unos sme da
+ * Granica broji samo AKTIVNE unose (uklonjen unos oslobađa mesto; ponovno aktiviranje
+ * računa se kao dodavanje). Nije invarijanta (check-then-act): paralelan unos sme da
  * prekorači granicu za koji red, što je prihvatljivo — granica brani od zloupotrebe,
  * ne od greške u računu.
  */
@@ -46,7 +47,7 @@ export async function addSupplement(
   const [count] = await db
     .select({ n: sql<number>`count(*)::int` })
     .from(userSupplements)
-    .where(eq(userSupplements.userId, userId))
+    .where(and(eq(userSupplements.userId, userId), eq(userSupplements.active, true)))
   if ((count?.n ?? 0) >= MAX_SUPPLEMENTS_PER_USER) {
     throw new ActionError(`Stack je pun (najviše ${MAX_SUPPLEMENTS_PER_USER} unosa).`)
   }

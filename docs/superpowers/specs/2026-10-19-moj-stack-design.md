@@ -162,7 +162,7 @@ datumskim stringovima kroz helpere iz `lib/dates.ts`, nikad ms-aritmetikom. „D
   („Lion's mane" → „lions mane").
 - „Drugo" sa nazivom koji tačno odgovara nazivu ili aliasu iz kataloga (posle normalizacije)
   čuva se pod `catalog_key` (`matchCatalogExact`) — manje ručnog spajanja u adminu.
-- Gornja granica: najviše 60 redova po korisniku (računaju se i neaktivni), proverava store
+- Gornja granica: najviše 60 AKTIVNIH unosa po korisniku (uklonjeni ne računaju), proverava store
   (check-then-act; nije invarijanta, pa trka sme da prekorači za koji red).
 - `EXPECTED_SCHEMA` podržava samo tabele, kolone i indekse: ulaze tabela + 5 indeksa; CHECK
   ograničenja proverava `qa-sql` namernim prekršajima.

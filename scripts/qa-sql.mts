@@ -704,6 +704,8 @@ async function runDatabaseChecks() {
 
     check('prazan update vraća false', await stack.updateSupplementRow('qa_stk_a', mine.id, {}, today), false)
     check('doseNote se briše sa null', (await stack.updateSupplementRow('qa_stk_a', mine.id, { doseNote: null }, today)), true)
+    const [noNote] = await db.select().from(schema.userSupplements).where(eq(schema.userSupplements.id, mine.id))
+    check('doseNote je stvarno null u bazi', noNote?.doseNote, null)
     check('prazan stack: summary.activeCount 0', (await stack.getStackSummary('qa_stk_c_nema')).activeCount, 0)
     check('prazan stack: oldestConfirmedOn null', (await stack.getStackSummary('qa_stk_c_nema')).oldestConfirmedOn, null)
 
@@ -711,7 +713,14 @@ async function runDatabaseChecks() {
     check('confirmStack vraća broj aktivnih', await stack.confirmStack('qa_stk_a', today), 1)
     check('confirmStack postavlja današnji dan', (await stack.getStackSummary('qa_stk_a')).oldestConfirmedOn, today)
 
-    check('clearStack briše samo svoje', await stack.clearStack('qa_stk_a'), 1)
+    const inactiveRow = await stack.addSupplement('qa_stk_a', { customName: 'Neaktivan unos' }, { timeOfDay: 'evening' }, old)
+    await stack.updateSupplementRow('qa_stk_a', inactiveRow.id, { active: false }, old)
+    await db.update(schema.userSupplements).set({ lastConfirmedOn: old }).where(eq(schema.userSupplements.id, inactiveRow.id))
+    await stack.confirmStack('qa_stk_a', today)
+    const [inactiveAfter] = await db.select().from(schema.userSupplements).where(eq(schema.userSupplements.id, inactiveRow.id))
+    check('confirmStack ne dira neaktivan red', inactiveAfter?.lastConfirmedOn, old)
+
+    check('clearStack briše samo svoje (i neaktivne)', await stack.clearStack('qa_stk_a'), 2)
     check('moj stack prazan', (await stack.listActiveSupplements('qa_stk_a')).length, 0)
     check('tuđ stack ostaje', (await stack.listActiveSupplements('qa_stk_b')).length, 1)
   })
@@ -727,11 +736,19 @@ async function runDatabaseChecks() {
   await inRollback('Moj stack: gornja granica unosa', async () => {
     await seedProfile('qa_stk_cap')
     const today = stkToday()
+    let firstId = 0
     for (let i = 0; i < stack.MAX_SUPPLEMENTS_PER_USER; i++) {
-      await stack.addSupplement('qa_stk_cap', { customName: `Unos broj ${i}` }, { timeOfDay: 'morning' }, today)
+      const r = await stack.addSupplement('qa_stk_cap', { customName: `Unos broj ${i}` }, { timeOfDay: 'morning' }, today)
+      if (i === 0) firstId = r.id
     }
     await mustFail('unos preko granice se odbija', 'Stack je pun', () =>
       stack.addSupplement('qa_stk_cap', { customName: 'Jedan previše' }, { timeOfDay: 'morning' }, today),
+    )
+    ok('uklanjanje unosa (active=false) uspeva', await stack.updateSupplementRow('qa_stk_cap', firstId, { active: false }, today))
+    const freed = await stack.addSupplement('qa_stk_cap', { customName: 'Oslobođeno mesto' }, { timeOfDay: 'morning' }, today)
+    ok('uklonjen unos oslobađa mesto (granica broji samo aktivne)', freed.id > 0)
+    await mustFail('ponovno aktiviranje uklonjenog unosa na punom stack-u se odbija', 'Stack je pun', () =>
+      stack.addSupplement('qa_stk_cap', { customName: 'Unos broj 0' }, { timeOfDay: 'morning' }, today),
     )
   })
 
