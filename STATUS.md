@@ -23,9 +23,16 @@ Sprint 2 je završen na grani `sprint-2-supply-alerts` (stoji na Sprintu 1):
 - logovi više ne nose mejlove ni parametre upita
 - QA: 238 / 50 / 84 provere (novi SQL se izvršava nad pravim Postgres-om)
 
+Sprint 3 je završen na grani `sprint-3-winback-streak` (stoji na Sprintu 2):
+- dashboard: brojač niza se pomera odmah na tap, kompletan dan ima slavlje, „još X dana do bedža", „niz u opasnosti" posle večernjeg termina
+- win-back: 3 mejla posle isteka pristupa (1., 7. i 21. dan), uz opt-out
+- `/nemas-pristup` za povratnog kupca: „protokol je pauziran", niz i dugme za dopunu
+- rodno neutralni tekstovi u app-u i mejlovima; ispravljena dupla tačka u datumu low-stock mejla
+- QA: 257 / 50 / 89
+
 ## Sledeći korak
-- Vladimir spoji Sprint 1, pa Sprint 2 (redom)
-- Sprint 3: win-back tok za istekle kupce, feedback niza (slavlje, „još X do bedža", niz u opasnosti)
+- Vladimir spoji PR-ove redom: Sprint 1 → 2 → 3
+- Sprint 4: admin funnel i liste za akciju, „Uzeo sam" dugme u push notifikaciji, performanse (manje DB poziva po check-in-u)
 
 ## Šta fali od Vladimira
 - dev Neon `DATABASE_URL` i pravi Clerk dev ključevi u `.env.local` (sada su tu privremeni Clerk keyless ključevi)
@@ -35,5 +42,4 @@ Sprint 2 je završen na grani `sprint-2-supply-alerts` (stoji na Sprintu 1):
 
 ## Otvorena pitanja / rizici
 - Webshop još nije aktivan: dok `NEXT_PUBLIC_SHOP_REFILL_URL` nije postavljen, refill CTA u app-u se ne prikazuje, a mejl vodi na `/zalihe`
-- Kupci kojima pristup istekne ne dobijaju nikakvu poruku (nema win-back toka)
 - Woo webhook nema zaštitu od redosleda isporuke (refund pa zakasneli `processing` vraća VIP)

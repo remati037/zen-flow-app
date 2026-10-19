@@ -24,10 +24,11 @@ type LowStockEmailProps = {
 
 function formatDate(value?: string | null) {
   if (!value) return null
-  // value je `YYYY-MM-DD` (Drizzle `date`). Prikaži kao DD.MM.YYYY.
+  // value je `YYYY-MM-DD` (Drizzle `date`). Prikaži kao DD.MM.YYYY — bez završne
+  // tačke: datum stoji na kraju rečenice, pa bi tačka bila dupla („22.10.2026..").
   const [y, m, d] = value.split('-')
   if (!y || !m || !d) return value
-  return `${d}.${m}.${y}.`
+  return `${d}.${m}.${y}`
 }
 
 /** Low-stock alert — šalje cron kad kapsule padnu ispod praga. */

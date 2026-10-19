@@ -33,7 +33,7 @@ export default async function Home() {
       </div>
 
       <p className="max-w-sm text-sm text-slate-mid">
-        Pristup imaju ZenFlow kupci — registruj se mejlom koji si koristio pri
+        Pristup imaju ZenFlow kupci — registruj se istim mejlom kao pri
         kupovini na nurolab.rs.
       </p>
     </main>

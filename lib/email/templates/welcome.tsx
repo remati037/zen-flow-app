@@ -12,9 +12,9 @@ export function WelcomeEmail({ name }: WelcomeEmailProps) {
   const greeting = name ? `Zdravo ${name},` : 'Zdravo,'
 
   return (
-    <EmailLayout preview="Dobrodošao u NuroLab — tvoj ZenFlow protokol počinje danas.">
+    <EmailLayout preview="Dobrodošlica u NuroLab — tvoj ZenFlow protokol počinje danas.">
       <Heading style={{ color: brand.ink, fontSize: 24, fontWeight: 800, margin: '0 0 16px', letterSpacing: '-0.02em' }}>
-        Dobrodošao u NuroLab 🌿
+        Dobrodošlica u NuroLab 🌿
       </Heading>
 
       <Text style={{ color: brand.ink, fontSize: 15, lineHeight: '24px', margin: '0 0 16px' }}>

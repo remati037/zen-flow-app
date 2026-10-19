@@ -69,7 +69,7 @@ export function AccountCard({
           <div className="space-y-3 rounded-lg bg-muted/50 px-4 py-3">
             <p className="text-sm text-slate-mid">
               Nemamo aktivnu porudžbinu za ovaj mejl, pa je pristup pauziran. Naruči dopunu da
-              nastaviš protokol tamo gde si stao.
+              nastaviš protokol tamo gde je stao.
             </p>
             {refillUrl && (
               <Button variant="lime" size="lg" className="w-full sm:w-auto" asChild>

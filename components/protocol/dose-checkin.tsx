@@ -7,7 +7,9 @@ import { toast } from 'sonner'
 
 import { logDose } from '@/app/(app)/protokol/actions'
 import { celebrateNewBadges } from '@/components/badges/badge-toast'
+import { fireConfetti } from '@/lib/confetti'
 import { belgradeToday } from '@/lib/dates'
+import { danaLabel } from '@/lib/protocol/milestones'
 import type { TodayDoses } from '@/lib/protocol/queries'
 import { cn } from '@/lib/utils'
 
@@ -41,12 +43,18 @@ export function DoseCheckin({
   morningTime,
   eveningTime,
   variant = 'default',
+  onDosesChange,
 }: {
   today: string
   doses: TodayDoses
   morningTime: string | null
   eveningTime: string | null
   variant?: 'default' | 'compact'
+  /**
+   * Javlja lokalno (optimistično) stanje doza — dashboard karta po njemu pomera
+   * brojač niza odmah na tap, ne posle server round-trip-a.
+   */
+  onDosesChange?: (doses: TodayDoses) => void
 }) {
   const compact = variant === 'compact'
   const router = useRouter()
@@ -68,6 +76,11 @@ export function DoseCheckin({
   ) {
     setSyncedFrom({ today, morning: doses.morning, evening: doses.evening })
     setState({ morning: doses.morning, evening: doses.evening })
+  }
+
+  function applyState(next: Record<Dose, DoseStatus>) {
+    setState(next)
+    onDosesChange?.(next)
   }
 
   const config: DoseConfig[] = [
@@ -108,23 +121,33 @@ export function DoseCheckin({
 
     const prev = state[dose]
     const next: 'taken' | 'skipped' = prev === 'taken' ? 'skipped' : 'taken'
+    const other: Dose = dose === 'morning' ? 'evening' : 'morning'
+    // Ovaj tap zatvara dan (druga doza je već uzeta) → posebno slavlje.
+    const completesDay = next === 'taken' && state[other] === 'taken'
 
     // Optimistično
-    setState((s) => ({ ...s, [dose]: next }))
+    applyState({ ...state, [dose]: next })
 
     startTransition(async () => {
       const result = await logDose({ date: today, dose, status: next })
       if (result.ok) {
-        if (next === 'taken') {
+        const { streak, newBadges } = result.data
+        if (completesDay && streak.todayComplete) {
+          // Kompletan dan je jedinica napretka u protokolu — zaslužuje više od
+          // običnog toast-a. Nov bedž već ispaljuje konfete; ne dupliramo ih.
+          toast.success(`Dan je kompletan! Niz: ${streak.current} ${danaLabel(streak.current)} 🔥`)
+          if (newBadges.length === 0) void fireConfetti()
+          if ('vibrate' in navigator) navigator.vibrate(15)
+        } else if (next === 'taken') {
           const cfg = config.find((c) => c.dose === dose)!
           toast.success(cfg.successMsg)
         } else {
           toast('Doza poništena.')
         }
-        celebrateNewBadges(result.data.newBadges)
+        celebrateNewBadges(newBadges)
         router.refresh()
       } else {
-        setState((s) => ({ ...s, [dose]: prev })) // revert
+        applyState({ ...state, [dose]: prev }) // revert
         toast.error(result.error)
       }
     })
