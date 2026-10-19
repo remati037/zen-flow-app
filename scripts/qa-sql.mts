@@ -766,6 +766,51 @@ async function runDatabaseChecks() {
     check('nepostojeći naziv → 0 redova', await stack.mergeCustomSupplement('nema takvog', 'zinc'), 0)
   })
 
+  const stackAdmin = await import('../lib/admin/stack')
+  await inRollback('Admin stack: agregat po ključu, spajanje, zastareli, prag malih grupa', async () => {
+    const today = stkToday()
+    const stale = stkAdd(today, -60)
+    for (const id of ['qa_sa1', 'qa_sa2', 'qa_sa3', 'qa_sa4', 'qa_sa5', 'qa_sa6']) {
+      await db
+        .insert(schema.profiles)
+        .values({ id, email: `${id}@qa.local`, role: 'user', accessStatus: 'vip', onboardingCompleted: true })
+        .onConflictDoNothing()
+    }
+    // magnesium: 3 svežih (jedan preko slobodnog unosa koji admin spaja) + 1 zastareo
+    await stack.addSupplement('qa_sa1', { catalogKey: 'magnesium' }, { timeOfDay: 'evening' }, today)
+    await stack.addSupplement('qa_sa2', { catalogKey: 'magnesium' }, { timeOfDay: 'evening' }, today)
+    await stack.addSupplement('qa_sa3', { customName: 'Mg tablete' }, { timeOfDay: 'evening' }, today)
+    await stack.addSupplement('qa_sa4', { catalogKey: 'magnesium' }, { timeOfDay: 'evening' }, stale)
+    // zinc: samo 2 sveža → maskirano
+    await stack.addSupplement('qa_sa1', { catalogKey: 'zinc' }, { timeOfDay: 'morning' }, today)
+    await stack.addSupplement('qa_sa2', { catalogKey: 'zinc' }, { timeOfDay: 'morning' }, today)
+    // neaktivan unos ne ulazi nigde
+    const gone = await stack.addSupplement('qa_sa5', { catalogKey: 'iron' }, { timeOfDay: 'morning' }, today)
+    await stack.updateSupplementRow('qa_sa5', gone.id, { active: false }, today)
+    // nespojen slobodan unos
+    await stack.addSupplement('qa_sa6', { customName: 'Ekstrakt X' }, { timeOfDay: 'morning' }, today)
+
+    let report = await stackAdmin.getStackReport(today)
+    const mag = report.rows.find((r) => r.key === 'magnesium')
+    check('pre spajanja: magnezijum sveži = 2 (maskirano)', mag?.freshUsers, null)
+    check('pre spajanja: sirov broj svežih = 2', mag?.rawFreshUsers, 2)
+    check('zastareo se broji zasebno (1 → maskirano)', mag?.staleUsers, null)
+    check('lista slobodnih sadrži „mg tablete" sa 1', report.custom.find((c) => c.name === 'mg tablete')?.users, 1)
+    ok('slobodni unosi NISU u tabeli po suplementu', !report.rows.some((r) => r.key.startsWith('custom:')))
+
+    await stack.mergeCustomSupplement('mg tablete', 'magnesium')
+    report = await stackAdmin.getStackReport(today)
+    const mag2 = report.rows.find((r) => r.key === 'magnesium')
+    check('posle spajanja: magnezijum sveži = 3 (vidljivo)', mag2?.freshUsers, 3)
+    check('posle spajanja: nestaje iz liste slobodnih', report.custom.some((c) => c.name === 'mg tablete'), false)
+    check('label dolazi iz kataloga', mag2?.label, 'Magnezijum')
+    check('zinc sa 2 korisnika je maskiran', report.rows.find((r) => r.key === 'zinc')?.freshUsers, null)
+    check('neaktivan gvožđe ne ulazi', report.rows.some((r) => r.key === 'iron'), false)
+    check('nespojen unos ostaje u listi', report.custom.find((c) => c.name === 'ekstrakt x')?.users, 1)
+    ok('onboardovani ≥ 6', report.onboarded >= 6, `${report.onboarded}`)
+    ok('korisnika sa svežim stack-om ≥ 4 (sa1, sa2, sa3, sa6)', report.usersWithStack >= 4, `${report.usersWithStack}`)
+  })
+
   ok('adapter je stvarno korišćen', adapter.queryCount() > 0, `${adapter.queryCount()} upita kroz pg`)
 
   // ── pomoćne ───────────────────────────────────────────────────────────────
