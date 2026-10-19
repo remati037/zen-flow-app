@@ -1,14 +1,12 @@
-import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
 
 import { BadgeCard } from '@/components/badges/badge-card'
 import { BADGE_CATALOG, BADGE_COUNT } from '@/lib/badges/catalog'
-import { getCurrentProfile } from '@/lib/auth'
+import { requireAppAccess } from '@/lib/access/app-gate'
 import { badges, db } from '@/lib/db'
 
 export default async function BedzeviPage() {
-  const profile = await getCurrentProfile()
-  if (!profile) redirect('/sign-in')
+  const { profile } = await requireAppAccess()
 
   const rows = await db
     .select({ badgeKey: badges.badgeKey, earnedAt: badges.earnedAt })

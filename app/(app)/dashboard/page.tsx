@@ -1,4 +1,3 @@
-import { redirect } from 'next/navigation'
 import { and, count, desc, eq, gte, sql } from 'drizzle-orm'
 
 import { AdherenceChart } from '@/components/dashboard/adherence-chart'
@@ -7,10 +6,11 @@ import { GreetingHeader } from '@/components/dashboard/greeting-header'
 import { ProtocolCtaCard } from '@/components/dashboard/protocol-cta-card'
 import { RecentBadgesRow } from '@/components/dashboard/recent-badges-row'
 import { SupplyMiniCard } from '@/components/dashboard/supply-mini-card'
-import { getCurrentProfile } from '@/lib/auth'
+import { requireAppAccess } from '@/lib/access/app-gate'
 import { badges, db, focusSessions, supply } from '@/lib/db'
 import { belgradeDayStart, belgradeToday } from '@/lib/dates'
 import { getProtocolState } from '@/lib/protocol/queries'
+import { refillUrl as refillLink } from '@/lib/refill'
 
 /** Dužina prozora na grafikonu doslednosti = dužina stripa koji traži od upita. */
 const ADHERENCE_DAYS = 14
@@ -23,8 +23,7 @@ const ADHERENCE_DAYS = 14
  * streak, zalihe i bedževe bez navigacije.
  */
 export default async function DashboardPage() {
-  const profile = await getCurrentProfile()
-  if (!profile) redirect('/sign-in')
+  const { profile } = await requireAppAccess()
 
   const today = belgradeToday()
   const dayStart = belgradeDayStart()
@@ -58,7 +57,7 @@ export default async function DashboardPage() {
   const { streak, todayDoses, weekStrip: adherenceDays } = protocol
   const supplyRow = supplyRows[0]
   const focusStats = focusRows[0]
-  const refillUrl = process.env.NEXT_PUBLIC_SHOP_REFILL_URL ?? null
+  const refillUrl = refillLink('dashboard')
 
   return (
     <div className="space-y-4">

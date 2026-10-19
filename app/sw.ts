@@ -1,6 +1,6 @@
 import { defaultCache } from "@serwist/next/worker";
-import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { Serwist } from "serwist";
+import type { PrecacheEntry, RuntimeCaching, SerwistGlobalConfig } from "serwist";
+import { NetworkOnly, Serwist } from "serwist";
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -11,12 +11,64 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope;
 
+// ────────────────────────────────────────────────────────────
+// Runtime keš — SAMO javni statički fajlovi
+// ────────────────────────────────────────────────────────────
+//
+// `defaultCache` iz @serwist/next je NetworkFirst-om keširao i HTML/RSC
+// stranice, i svaki same-origin GET `/api/*` (24h), i cross-origin odgovore
+// (Clerk FAPI `/v1/client` nosi session JWT). Na deljenom telefonu je posle
+// odjave sledeća osoba — offline ili na sporoj mreži (10 s timeout) — videla
+// tuđi dashboard, pa i admin listu mejlova. Ovde zadržavamo samo pravila čiji
+// keš sadrži javne, verzionisane fajlove; sve ostalo ide isključivo na mrežu,
+// a offline navigacija pada na precache-ovan `/~offline`.
+
+/** Keševi iz `defaultCache` koji sadrže samo javne statičke fajlove. */
+const STATIC_CACHE_NAMES = new Set([
+  "google-fonts-webfonts",
+  "google-fonts-stylesheets",
+  "static-font-assets",
+  "static-image-assets",
+  "next-static-js-assets",
+  "next-image",
+  "static-audio-assets",
+  "static-video-assets",
+  "static-js-assets",
+  "static-style-assets",
+]);
+
+/**
+ * Keševi koje je PRETHODNA verzija SW-a punila privatnim sadržajem. Brišu se na
+ * `activate`, inače bi već upisane stranice ostale na uređaju do isteka.
+ */
+const LEGACY_PRIVATE_CACHES = [
+  "pages",
+  "pages-rsc",
+  "pages-rsc-prefetch",
+  "others",
+  "apis",
+  "cross-origin",
+  "next-data",
+  "static-data-assets",
+];
+
+const runtimeCaching: RuntimeCaching[] = [
+  ...defaultCache.filter((entry) => {
+    const cacheName = (entry.handler as { cacheName?: string }).cacheName;
+    return cacheName !== undefined && STATIC_CACHE_NAMES.has(cacheName);
+  }),
+  // Sve ostalo (navigacije, RSC, /api, cross-origin) — mreža, bez keša.
+  // Catch-all mora postojati: `fallbacks` kači `/~offline` na strategije iz
+  // ove liste, pa navigacija bez pravila ne bi dobila offline stranicu.
+  { matcher: () => true, handler: new NetworkOnly() },
+];
+
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
-  runtimeCaching: defaultCache,
+  runtimeCaching,
   fallbacks: {
     entries: [
       {
@@ -30,6 +82,12 @@ const serwist = new Serwist({
 });
 
 serwist.addEventListeners();
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    Promise.all(LEGACY_PRIVATE_CACHES.map((name) => caches.delete(name))).catch(() => undefined),
+  );
+});
 
 // ────────────────────────────────────────────────────────────
 // Web Push (Korak 1.8)

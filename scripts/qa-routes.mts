@@ -12,6 +12,7 @@
 
 import { readdirSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { createRouteMatcher } from '@clerk/nextjs/server'
 
@@ -145,7 +146,8 @@ function discoverApiRoutes(root: string): string[] {
 }
 
 console.log('\n=== Svaka /api ruta na disku je klasifikovana ===')
-const apiRoot = new URL('../app/api', import.meta.url).pathname
+// fileURLToPath, ne `.pathname` — pathname ostavlja `%20` za razmak u putanji checkout-a.
+const apiRoot = fileURLToPath(new URL('../app/api', import.meta.url))
 for (const path of discoverApiRoutes(apiRoot)) {
   const isPublic = isPublicRoute(req(path))
   const isAdmin = isAdminRoute(req(path))

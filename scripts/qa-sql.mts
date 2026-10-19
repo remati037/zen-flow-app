@@ -34,6 +34,7 @@
 
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 let pass = 0
 let fail = 0
@@ -116,7 +117,8 @@ async function mustFail(label: string, expectFragment: string, run: () => Promis
   }
 }
 
-const MIGRATIONS_DIR = new URL('../drizzle', import.meta.url).pathname
+// fileURLToPath, ne `.pathname` — pathname ostavlja `%20` za razmak u putanji checkout-a.
+const MIGRATIONS_DIR = fileURLToPath(new URL('../drizzle', import.meta.url))
 
 // ════════════════════════════════════════════════════════════════════════════
 // DEO 1 — offline: migracije i dijagnostički spisak (ne treba baza)

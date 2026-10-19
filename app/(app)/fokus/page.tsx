@@ -1,15 +1,13 @@
-import { redirect } from 'next/navigation'
 import { and, asc, count, eq, gte, sql } from 'drizzle-orm'
 
 import { DailyTasks } from '@/components/focus/daily-tasks'
 import { PomodoroTimer } from '@/components/focus/pomodoro-timer'
-import { getCurrentProfile } from '@/lib/auth'
+import { requireAppAccess } from '@/lib/access/app-gate'
 import { dailyTasks, db, focusSessions } from '@/lib/db'
 import { belgradeDayStart, belgradeToday } from '@/lib/dates'
 
 export default async function FokusPage() {
-  const profile = await getCurrentProfile()
-  if (!profile) redirect('/sign-in')
+  const { profile } = await requireAppAccess()
 
   const today = belgradeToday()
   const dayStart = belgradeDayStart()

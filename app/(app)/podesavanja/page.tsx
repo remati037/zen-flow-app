@@ -7,14 +7,15 @@ import { PushToggle } from '@/components/push/push-toggle'
 import { EmailAlertsToggle } from '@/components/settings/email-alerts-toggle'
 import { SettingsForm } from '@/components/settings/settings-form'
 import type { AccessStatus } from '@/lib/access/status'
+import { requireAppAccess } from '@/lib/access/app-gate'
 import { asOverride, getLatestOrderDate, resolveAccessStatus } from '@/lib/access/status'
 import { accessWindowEnd } from '@/lib/access/window'
-import { getCurrentProfile, isAdmin } from '@/lib/auth'
 import { formatIsoDateSr, toBelgradeIso } from '@/lib/dates'
 import { db, pushSubscriptions } from '@/lib/db'
+import { refillUrl as refillLink } from '@/lib/refill'
 
 export default async function PodesavanjaPage() {
-  const profile = await getCurrentProfile()
+  const { profile, admin } = await requireAppAccess()
 
   // Da li korisnik već ima bar jednu push pretplatu (server-side hint za toggle).
   let hasPush = false
@@ -33,7 +34,7 @@ export default async function PodesavanjaPage() {
   let status: AccessStatus | null = null
   let vipUntilLabel: string | null = null
   if (profile) {
-    const authoritativeRole = (await isAdmin()) ? 'admin' : 'user'
+    const authoritativeRole = admin ? 'admin' : 'user'
     const latestOrderDate = await getLatestOrderDate(profile.email)
     status = resolveAccessStatus({
       role: authoritativeRole,
@@ -50,7 +51,7 @@ export default async function PodesavanjaPage() {
     }
   }
 
-  const refillUrl = process.env.NEXT_PUBLIC_SHOP_REFILL_URL ?? null
+  const refillUrl = refillLink('podesavanja')
 
   return (
     <div className="space-y-6">

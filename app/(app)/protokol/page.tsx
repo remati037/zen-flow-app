@@ -1,14 +1,11 @@
-import { redirect } from 'next/navigation'
-
 import { DoseCheckin } from '@/components/protocol/dose-checkin'
 import { StreakHeader } from '@/components/protocol/streak-header'
-import { getCurrentProfile } from '@/lib/auth'
+import { requireAppAccess } from '@/lib/access/app-gate'
 import { belgradeToday } from '@/lib/dates'
 import { getProtocolState } from '@/lib/protocol/queries'
 
 export default async function ProtokolPage() {
-  const profile = await getCurrentProfile()
-  if (!profile) redirect('/sign-in')
+  const { profile } = await requireAppAccess()
 
   const { streak, todayDoses, weekStrip } = await getProtocolState(profile)
   const today = belgradeToday()

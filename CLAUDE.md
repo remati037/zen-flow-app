@@ -91,6 +91,26 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
   (`refreshAccessStatusForProfile` + Clerk rola), ne zastareli `profile.accessStatus`.
   Opt-out je EKSPLICITAN po akciji (`allowInactive: true`) — trenutno ga nijedna ne koristi;
   `admin: true` akcije su izuzete (rola je izvor istine, admin je uvek `vip`).
+- **Gejt za ČITANJE stoji u SVAKOJ `(app)` stranici, ne samo u layout-u.** Svaka stranica počinje
+  sa `const { profile } = await requireAppAccess()` (`lib/access/app-gate.ts`, umotan u React
+  `cache()`). Pri RSC navigaciji App Router renderuje samo segment koji se menja — namešten
+  `Next-Router-State-Tree` header traži render same stranice, layout se ne izvršava i njegov
+  redirect ne štiti ništa. `cache()` deli profil i refresh između layout-a i stranice, pa
+  provera po stranici ne dodaje DB poziv. Nova `(app)` stranica bez ovog poziva je curenje.
+- **Service worker kešira SAMO javne statičke fajlove** (`app/sw.ts`, `STATIC_CACHE_NAMES`).
+  `defaultCache` iz `@serwist/next` je keširao HTML/RSC stranice, `/api/*` i Clerk FAPI odgovore
+  — na deljenom telefonu se posle odjave video tuđi (i adminov) sadržaj. Navigacije, RSC,
+  `/api` i cross-origin idu `NetworkOnly`; offline navigacija pada na `/~offline`. Keševi
+  stare verzije se brišu na `activate` (`LEGACY_PRIVATE_CACHES`). Nikad ne vraćati
+  `defaultCache` u celini.
+- **Svaki refill CTA ide kroz `refillUrl(source)`** (`lib/refill.ts`) — dodaje UTM tagove
+  (`utm_campaign=refill`, `utm_content=<izvor>`) da shop analitika meri koji kanal vraća
+  kupca. Bez `NEXT_PUBLIC_SHOP_REFILL_URL` vraća `null` (CTA se sakriva; mejl pada na
+  `/zalihe`). Nikad direktno `process.env.NEXT_PUBLIC_SHOP_REFILL_URL`.
+- **„Danas" na klijentu može biti zastareo.** Instalirani PWA stoji otvoren preko ponoći;
+  `DayRolloverRefresh` (u `(app)/layout.tsx`) osvežava render na promenu dana, a
+  `DoseCheckin` pre slanja proverava `belgradeToday()` — inače bi tap upisao jučerašnju dozu
+  (u backfill prozoru je, pa je server prihvata).
 - Šema je kompletna za Fazu 1. Odobrene naknadne migracije: `0001` (indeksi), `0002`
   (`cron_runs` heartbeat, Faza 2 blok 1), `0003` (`notifications_log.dedup_day` +
   `notifications_log_dedup_uq`, `push_subscriptions.last_seen_at` + indeks po korisniku;

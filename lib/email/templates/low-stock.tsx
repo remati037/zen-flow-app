@@ -1,6 +1,7 @@
 import { Button, Heading, Link, Section, Text } from '@react-email/components'
 
 import { APP_URL } from '../client'
+import { refillUrl } from '../../refill'
 import { brand, brandButtonStyle, EmailLayout } from './layout'
 
 type LowStockEmailProps = {
@@ -33,6 +34,9 @@ export function LowStockEmail({
 }: LowStockEmailProps) {
   const greeting = name ? `Zdravo ${name},` : 'Zdravo,'
   const runout = formatDate(runoutDate)
+  // Pravo u shop (sa UTM-om) — svaki dodatni korak između mejla i korpe gubi
+  // kupovinu. Dok shop link nije postavljen, vodi na zalihe u app-u.
+  const ctaHref = refillUrl('email_low_stock') ?? `${APP_URL}/zalihe`
 
   return (
     <EmailLayout preview={`Ostalo ti je još ${capsulesRemaining} kapsula — vreme za refill.`}>
@@ -55,12 +59,12 @@ export function LowStockEmail({
       </Text>
 
       <Text style={{ color: brand.ink, fontSize: 15, lineHeight: '24px', margin: '0 0 24px' }}>
-        Setimo se kako ZenFlow radi: <strong>pauza u protokolu poništava napredak koji si do sada
-        izgradio.</strong> Naruči refill na vreme da ne prekineš streak i ne izgubiš efekte.
+        Setimo se kako ZenFlow radi: <strong>pauza u protokolu poništava napredak koji je do sada
+        izgrađen.</strong> Naruči refill na vreme da ne prekineš niz i ne izgubiš efekte.
       </Text>
 
       <Section style={{ textAlign: 'center', margin: '8px 0 8px' }}>
-        <Button href={`${APP_URL}/dashboard`} style={brandButtonStyle()}>
+        <Button href={ctaHref} style={brandButtonStyle()}>
           Naruči refill
         </Button>
       </Section>

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Hanken_Grotesk } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "@/components/ui/sonner";
+import { clerkLocalization } from "@/lib/clerk-localization";
 import "./globals.css";
 
 const hankenGrotesk = Hanken_Grotesk({
@@ -40,6 +41,7 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider
+      localization={clerkLocalization}
       appearance={{
         variables: {
           colorPrimary: "#203849",

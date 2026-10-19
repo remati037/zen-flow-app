@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, Moon, Sun, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { logDose } from '@/app/(app)/protokol/actions'
 import { celebrateNewBadges } from '@/components/badges/badge-toast'
+import { belgradeToday } from '@/lib/dates'
 import type { TodayDoses } from '@/lib/protocol/queries'
 import { cn } from '@/lib/utils'
 
@@ -50,10 +51,24 @@ export function DoseCheckin({
   const compact = variant === 'compact'
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const staleRefreshFor = useRef<string | null>(null)
   const [state, setState] = useState<Record<Dose, DoseStatus>>({
     morning: doses.morning,
     evening: doses.evening,
   })
+
+  // Resync sa server props-ima (posle `router.refresh()`, backfill-a iz WeekStrip-a
+  // ili prelaska dana). `useState` inicijalizator važi samo na mount-u, pa bi
+  // lokalno stanje inače zauvek pokazivalo prvi render.
+  const [syncedFrom, setSyncedFrom] = useState({ today, morning: doses.morning, evening: doses.evening })
+  if (
+    syncedFrom.today !== today ||
+    syncedFrom.morning !== doses.morning ||
+    syncedFrom.evening !== doses.evening
+  ) {
+    setSyncedFrom({ today, morning: doses.morning, evening: doses.evening })
+    setState({ morning: doses.morning, evening: doses.evening })
+  }
 
   const config: DoseConfig[] = [
     {
@@ -76,6 +91,21 @@ export function DoseCheckin({
 
   function toggle(dose: Dose) {
     if (isPending) return
+
+    // Ekran otvoren preko ponoći: `today` je jučerašnji. `logDose` bi ga prihvatio
+    // (u backfill prozoru je), pa bi tap upisao — ili poništio — jučerašnju dozu i
+    // oborio niz. Ne šaljemo ništa; osvežavamo na pravi dan.
+    // Samo JEDNOM po klijentskom danu: ako sat telefona odstupa od serverskog,
+    // server posle refresh-a vrati isti `today` — tada je server izvor istine i
+    // check-in mora da prođe, inače bi korisnik sa pogrešnim satom bio blokiran.
+    const clientToday = belgradeToday()
+    if (clientToday > today && staleRefreshFor.current !== clientToday) {
+      staleRefreshFor.current = clientToday
+      toast('Počeo je novi dan — osvežavam prikaz.')
+      router.refresh()
+      return
+    }
+
     const prev = state[dose]
     const next: 'taken' | 'skipped' = prev === 'taken' ? 'skipped' : 'taken'
 
