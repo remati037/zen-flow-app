@@ -24,7 +24,7 @@ export default async function AdminPorudzbinePage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-medium text-ink">Porudžbine</h1>
+        <h1 className="font-heading text-3xl font-medium tracking-[-0.03em] text-ink">Porudžbine</h1>
         <p className="text-slate-mid">WooCommerce sync i verifikacija pristupa.</p>
       </header>
 

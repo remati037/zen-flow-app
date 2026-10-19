@@ -49,7 +49,7 @@ export function CheckinsChart({ data }: { data: DailyCheckins[] }) {
   const hasData = data.some((d) => d.doses > 0)
 
   return (
-    <section className="rounded-xl bg-white p-5 shadow-soft ring-1 ring-foreground/10">
+    <section className="rounded-[24px] bg-white p-5 ring-1 ring-ink/[0.06]">
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-sm font-medium text-slate-mid">
           Check-inovi · poslednjih {data.length} dana

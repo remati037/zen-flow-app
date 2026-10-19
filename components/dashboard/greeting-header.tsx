@@ -36,9 +36,12 @@ export function GreetingHeader({
     subline = `Dan ${dayNumber} protokola`
   }
 
+  const dateLabel = formatIsoDateSr(today, { weekday: 'long', day: 'numeric', month: 'long' })
+
   return (
-    <header>
-      <h1 className="font-heading text-2xl font-medium text-ink">
+    <header className="pt-1">
+      <p className="text-xs font-medium tracking-[0.14em] text-slate-soft uppercase">{dateLabel}</p>
+      <h1 className="mt-2 font-heading text-3xl leading-tight font-medium tracking-[-0.03em] text-ink">
         {greeting(hour)}
         {firstName ? `, ${firstName}` : ''}
       </h1>

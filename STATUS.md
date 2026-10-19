@@ -43,8 +43,18 @@ Sprint 5 je završen na grani `sprint-5-a11y-states` (stoji na Sprintu 4):
 - iPhone notch (safe area) u headeru, `colorScheme: light`, svetla theme boja, PWA otvara pravo dashboard
 - uklonjen Clerk meni iz headera (dupliran sa Podešavanjima)
 
+Sprint 6 je na grani `sprint-6-copy-design` (stoji na Sprintu 5):
+- druga doza je „popodnevna" (preporuka oko 14h)
+- ceo copy bez „—", prirodniji, bez emotikona u tekstu
+- Focus Score kviz bez smajlija (skala 1–5)
+- Zalihe: animirana bočica (mockup crtež do prave bočice)
+- premium dizajn: tamna glavna kartica sa brojačem niza, doze kao redovi, pregled kao grupisana lista, bedževi u mreži, ujednačeni naslovi i kartice bez teških senki
+- lokalni razvoj: `npm run dev:seed` + lokalni Postgres (testiranje bez produkcije)
+
 ## Sledeći korak
-- Vladimir spoji PR-ove redom: Sprint 1 → 2 → 3 → 4 → 5
+- Vladimir spoji PR-ove redom: Sprint 1 → 2 → 3 → 4 → 5 → 6
+- Prava bočica (SVG/PNG) → zamena mockup crteža u `components/supply/supply-bottle.tsx`
+- Na Vercelu dodati Preview env varijable (dev Neon + Clerk dev ključevi) da preview deploy-evi rade
 - Proveriti region: Vercel funkcije vs Neon (ako je Neon u EU, `"regions": ["fra1"]` u vercel.json)
 - Sledeće (po želji): Woo zaštita od redosleda webhook-a (migracija 0005), loading/error ekrani, pristupačnost (fokus, veličina dugmadi), Stripe/Faza 2
 

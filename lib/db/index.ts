@@ -39,8 +39,18 @@ function getDb(): NeonHttpDatabase<typeof schema> {
     )
   }
 
+  // Lokalni razvoj bez Neon-a (vidi README „Lokalni razvoj"): običan Postgres preko
+  // `pg` drajvera. `require` je NAMERNO unutar ove grane: webpack `NODE_ENV`
+  // zamenjuje konstantom i mrtvu granu ne parsira, pa `pg` ne ulazi u prod bundle.
   if (process.env.NODE_ENV !== 'production' && isLocalPostgres(url)) {
-    instance = createLocalDb(url)
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { Pool } = require('pg') as typeof import('pg')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { drizzle: drizzlePg } = require('drizzle-orm/node-postgres') as typeof import('drizzle-orm/node-postgres')
+    // node-postgres ima isti API za sve što app koristi (`select`/`insert`/`execute` → `{ rows }`).
+    instance = drizzlePg(new Pool({ connectionString: url, max: 5 }), { schema }) as unknown as NeonHttpDatabase<
+      typeof schema
+    >
     return instance
   }
 
@@ -58,24 +68,6 @@ function isLocalPostgres(url: string): boolean {
   }
 }
 
-/**
- * Lokalni razvoj bez Neon-a: običan Postgres preko `pg` drajvera.
- *
- * neon-http govori HTTP protokolom koji samo Neon razume, pa lokalni Postgres
- * (Homebrew/Docker) sa njim ne radi. Drizzle `node-postgres` ima isti API za sve
- * što app koristi (`select`/`insert`/`update`/`execute` → `{ rows }`), pa ostatak
- * koda ne zna razliku. Grana postoji SAMO van produkcije: `NODE_ENV` se u build-u
- * zamenjuje konstantom, pa webpack izbacuje i ovaj poziv i `pg` iz produkcionog
- * bundle-a. Vidi README „Lokalni razvoj".
- */
-function createLocalDb(url: string): NeonHttpDatabase<typeof schema> {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { Pool } = require('pg') as typeof import('pg')
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { drizzle: drizzlePg } = require('drizzle-orm/node-postgres') as typeof import('drizzle-orm/node-postgres')
-  const db = drizzlePg(new Pool({ connectionString: url, max: 5 }), { schema })
-  return db as unknown as NeonHttpDatabase<typeof schema>
-}
 
 /**
  * Proxy nad drizzle instancom, ne nad neon klijentom — namerno.

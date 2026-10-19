@@ -39,7 +39,7 @@ export default async function AdminKorisniciPage({
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-medium text-ink">Korisnici</h1>
+        <h1 className="font-heading text-3xl font-medium tracking-[-0.03em] text-ink">Korisnici</h1>
         <p className="text-slate-mid">Lista naloga, role i status pristupa.</p>
       </header>
 

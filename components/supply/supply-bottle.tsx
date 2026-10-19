@@ -38,11 +38,13 @@ export function SupplyBottle({
   const inCurrent = capsules - extraFull * CAPSULES_PER_PACKAGE
   const target = inCurrent / CAPSULES_PER_PACKAGE
 
-  // Kreće od 0 i u sledećem frejmu skoči na cilj, da se punjenje vidi.
+  // Kreće od 0 i odmah posle prvog prikaza skoči na cilj, da se punjenje vidi.
+  // `setTimeout`, ne `requestAnimationFrame`: rAF se ne izvršava u skrivenom tabu
+  // (npr. app otvoren u pozadini), pa bi bočica ostala prazna do prvog fokusa.
   const [level, setLevel] = useState(0)
   useEffect(() => {
-    const id = requestAnimationFrame(() => setLevel(target))
-    return () => cancelAnimationFrame(id)
+    const id = window.setTimeout(() => setLevel(target), 60)
+    return () => window.clearTimeout(id)
   }, [target])
 
   const offset = (1 - level) * INNER.h

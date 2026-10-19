@@ -79,7 +79,7 @@ export function DailyTasks({ tasks }: { tasks: FocusTask[] }) {
   }
 
   return (
-    <div className="rounded-xl bg-white p-6 shadow-soft ring-1 ring-foreground/10">
+    <div className="rounded-[24px] bg-white p-6 ring-1 ring-ink/[0.06]">
       <div className="flex items-baseline justify-between gap-4">
         <h2 className="font-heading text-lg font-medium text-ink">Tri zadatka za danas</h2>
         <span className="text-sm tabular-nums text-slate-soft">

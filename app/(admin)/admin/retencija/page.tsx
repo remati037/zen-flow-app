@@ -41,7 +41,7 @@ export default async function AdminRetencijaPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-medium text-ink">Retencija</h1>
+        <h1 className="font-heading text-3xl font-medium tracking-[-0.03em] text-ink">Retencija</h1>
         <p className="text-slate-mid">Da li app vraća kupce i kome se sada treba javiti.</p>
       </header>
 
@@ -77,7 +77,7 @@ export default async function AdminRetencijaPage() {
       </Card>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-xl bg-white p-4 shadow-soft ring-1 ring-foreground/10">
+        <div className="rounded-[20px] bg-white p-4 ring-1 ring-ink/[0.06]">
           <p className="text-xs font-medium text-slate-mid">Ponovna kupovina</p>
           <p className="mt-1 font-heading text-2xl font-semibold text-ink tabular-nums">
             {percent(funnel.repeatRegistered.repeat, funnel.repeatRegistered.of)}
@@ -91,7 +91,7 @@ export default async function AdminRetencijaPage() {
             jer app koriste i posvećeniji kupci.
           </p>
         </div>
-        <div className="rounded-xl bg-white p-4 shadow-soft ring-1 ring-foreground/10">
+        <div className="rounded-[20px] bg-white p-4 ring-1 ring-ink/[0.06]">
           <p className="text-xs font-medium text-slate-mid">Low-stock alert → porudžbina</p>
           <p className="mt-1 font-heading text-2xl font-semibold text-ink tabular-nums">
             {percent(refill.converted, refill.alerted)}

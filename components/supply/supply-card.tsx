@@ -62,7 +62,7 @@ export function SupplyCard({
   }
 
   return (
-    <div className="rounded-xl bg-white p-6 shadow-soft ring-1 ring-foreground/10">
+    <div className="rounded-[24px] bg-white p-6 ring-1 ring-ink/[0.06]">
       <div className="grid items-center gap-6 sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-10">
         <SupplyBottle capsulesRemaining={capsulesRemaining} low={isLow} className="justify-self-center" />
 

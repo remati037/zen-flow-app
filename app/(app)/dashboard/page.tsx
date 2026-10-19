@@ -1,11 +1,9 @@
 import { and, count, desc, eq, gte, sql } from 'drizzle-orm'
 
 import { AdherenceChart } from '@/components/dashboard/adherence-chart'
-import { FocusMiniCard } from '@/components/dashboard/focus-mini-card'
 import { GreetingHeader } from '@/components/dashboard/greeting-header'
+import { OverviewList } from '@/components/dashboard/overview-list'
 import { ProtocolCtaCard } from '@/components/dashboard/protocol-cta-card'
-import { RecentBadgesRow } from '@/components/dashboard/recent-badges-row'
-import { SupplyMiniCard } from '@/components/dashboard/supply-mini-card'
 import { requireAppAccess } from '@/lib/access/app-gate'
 import { badges, db, focusSessions, supply } from '@/lib/db'
 import { belgradeDayStart, belgradeToday } from '@/lib/dates'
@@ -60,7 +58,7 @@ export default async function DashboardPage() {
   const refillUrl = refillLink('dashboard')
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <GreetingHeader
         name={profile.name}
         protocolStartDate={profile.protocolStartDate}
@@ -75,21 +73,16 @@ export default async function DashboardPage() {
         eveningTime={profile.doseEveningTime}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <SupplyMiniCard
-          capsulesRemaining={supplyRow?.capsulesRemaining ?? 0}
-          estimatedRunoutDate={supplyRow?.estimatedRunoutDate ?? null}
-          refillUrl={refillUrl}
-        />
-        <FocusMiniCard
-          sessions={focusStats?.sessions ?? 0}
-          minutes={focusStats?.minutes ?? 0}
-        />
-      </div>
+      <OverviewList
+        capsulesRemaining={supplyRow?.capsulesRemaining ?? 0}
+        estimatedRunoutDate={supplyRow?.estimatedRunoutDate ?? null}
+        refillUrl={refillUrl}
+        focusSessions={focusStats?.sessions ?? 0}
+        focusMinutes={focusStats?.minutes ?? 0}
+        earnedBadgeKeys={badgeRows.map((b) => b.badgeKey)}
+      />
 
       <AdherenceChart days={adherenceDays} />
-
-      <RecentBadgesRow earned={badgeRows} />
     </div>
   )
 }
