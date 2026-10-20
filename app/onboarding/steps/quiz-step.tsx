@@ -18,7 +18,7 @@ import { StepHeading } from './step-heading'
 const AUTO_ADVANCE_MS = 350
 
 /**
- * Korak 3 — Focus Score kviz, jedno pitanje po ekranu.
+ * Korak 4 — Focus Score kviz, jedno pitanje po ekranu.
  *
  * Indeks pitanja drži wizard (da "Nazad" sa rezultata vrati na poslednje
  * pitanje), a smer horizontalnog slajda je lokalan jer ga okidaju dugmad ovde.
@@ -78,7 +78,7 @@ export function QuizStep({
   return (
     <div className="flex flex-col gap-5">
       <StepHeading
-        eyebrow={`Korak 3 od 5 · Pitanje ${index + 1}/${FOCUS_QUIZ_LENGTH}`}
+        eyebrow={`Korak 4 od 5 · Pitanje ${index + 1}/${FOCUS_QUIZ_LENGTH}`}
         title="Focus Score: tvoja polazna tačka"
         description="Pet kratkih pitanja o tome kako se danas osećaš. Ovo nije medicinska procena."
       />

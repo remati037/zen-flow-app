@@ -14,7 +14,7 @@ import { StepHeading } from './step-heading'
 const ARC_PATH = 'M 12 104 A 92 92 0 0 1 196 104'
 
 /**
- * Korak 3b — rezultat kviza.
+ * Korak 4b — rezultat kviza.
  *
  * Gauge je jedan `motionValue` (0 → score) iz kog se izvode i ispis broja i
  * `pathLength` luka, pa se nikad ne raziđu; spring je bez odskoka da bi luk
@@ -37,7 +37,7 @@ export function ResultStep({
   return (
     <div className="flex flex-col gap-5">
       <StepHeading
-        eyebrow="Korak 3 od 5 · Rezultat"
+        eyebrow="Korak 4 od 5 · Rezultat"
         title="Tvoj startni Focus Score"
         description="Ovo je tvoja polazna tačka. Za 30 dana radimo novo merenje, pa vidiš razliku."
       />

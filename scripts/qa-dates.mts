@@ -994,5 +994,25 @@ console.log('\n=== 18. Focus Score kroz vreme (procena iz ponašanja) ===')
   check('update: bez ijedne promene se odbija', updateSupplementSchema.safeParse({ id: 1 }).success, false)
 }
 
+console.log('\n=== 20. Pristanak za podatke o zdravlju ===')
+{
+  const { completeOnboardingSchema } = await import('../lib/validations/onboarding')
+  const { belgradeToday: today } = await import('../lib/dates')
+  const { FOCUS_QUIZ_LENGTH: FOCUS_QUIZ_LENGTH_QA } = await import('../lib/quiz/focus-quiz')
+  const base = {
+    packages: 1, startDate: today(), doseMorningTime: '08:00', doseEveningTime: '14:00',
+    quizAnswers: Array(FOCUS_QUIZ_LENGTH_QA).fill(3),
+  }
+  check('onboarding bez pristanka se odbija', completeOnboardingSchema.safeParse(base).success, false)
+  check('onboarding sa healthConsent:false se odbija',
+    completeOnboardingSchema.safeParse({ ...base, healthConsent: false }).success, false)
+  check('onboarding sa pristankom prolazi',
+    completeOnboardingSchema.safeParse({ ...base, healthConsent: true }).success, true)
+  const legal = await import('../lib/legal')
+  check('izjava pominje kviz i suplemente',
+    legal.HEALTH_CONSENT_STATEMENT.includes('kviz') && legal.HEALTH_CONSENT_STATEMENT.includes('suplement'), true)
+  check('detalji kažu kako se pristanak povlači', legal.HEALTH_CONSENT_DETAILS.some((l) => l.includes('povučeš')), true)
+}
+
 console.log(`\n──────────────\nRezultat: ${pass} prošlo, ${fail} palo\n`)
 process.exit(fail > 0 ? 1 : 0)

@@ -49,5 +49,12 @@ export const requireAppAccess = cache(async (): Promise<AppAccess> => {
     redirect('/onboarding')
   }
 
+  // Pristanak za podatke o zdravlju (`lib/legal.ts`). Novi korisnici ga daju u
+  // onboardingu; ovo hvata naloge onboardovane pre nego što je pristanak uveden.
+  // `/saglasnost` je van (app) grupe pa nema petlje.
+  if (!profile.healthConsentAt) {
+    redirect('/saglasnost')
+  }
+
   return { profile: { ...profile, accessStatus: status }, admin, status }
 })

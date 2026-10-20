@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { IosInstallHint } from '@/components/push/ios-install-hint'
 import { PushToggle } from '@/components/push/push-toggle'
 import { EmailAlertsToggle } from '@/components/settings/email-alerts-toggle'
+import { PrivacyCard } from '@/components/settings/privacy-card'
 import { SettingsForm } from '@/components/settings/settings-form'
 import type { AccessStatus } from '@/lib/access/status'
 import { requireAppAccess } from '@/lib/access/app-gate'
@@ -57,7 +58,7 @@ export default async function PodesavanjaPage() {
     <div className="space-y-6">
       <header>
         <h1 className="font-heading text-3xl font-medium tracking-[-0.03em] text-ink">Podešavanja</h1>
-        <p className="text-slate-mid">Profil, termini doza i notifikacije.</p>
+        <p className="text-slate-mid">Profil, termini doza, notifikacije i privatnost.</p>
       </header>
 
       <Card>
@@ -100,6 +101,8 @@ export default async function PodesavanjaPage() {
           refillUrl={refillUrl}
         />
       )}
+
+      <PrivacyCard consentAt={profile.healthConsentAt} />
     </div>
   )
 }

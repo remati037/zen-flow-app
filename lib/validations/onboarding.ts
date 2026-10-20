@@ -32,6 +32,9 @@ export const completeOnboardingSchema = z.object({
   quizAnswers: z
     .array(z.number().int().min(FOCUS_QUIZ_MIN).max(FOCUS_QUIZ_MAX))
     .length(FOCUS_QUIZ_LENGTH),
+  // Izričit pristanak za podatke o zdravlju (`lib/legal.ts`). `literal(true)`: bez
+  // štikliranja nema onboardinga — i kad neko zove akciju mimo UI-a.
+  healthConsent: z.literal(true, { error: 'Potrebna je saglasnost za obradu podataka.' }),
 })
 
 export type CompleteOnboardingInput = z.infer<typeof completeOnboardingSchema>

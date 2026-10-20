@@ -10,7 +10,7 @@ import { StepHeading } from './step-heading'
 import type { SupplyEstimate } from './types'
 
 /**
- * Korak 4 — podsetnici + rekapitulacija, i jedina tačka sa kojom se šalje
+ * Korak 5 — podsetnici + rekapitulacija, i jedina tačka sa kojom se šalje
  * `completeOnboarding`.
  *
  * Push ide kroz `PushToggle` iz 1.8 (pravi subscribe + perzistencija u DB), ne

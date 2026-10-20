@@ -12,6 +12,9 @@ import { ActionError, type ActionResult, actionError, actionOk } from './types'
  */
 type ActionContext = { profile: Profile }
 
+/** Poruka akcije koju je pozvao korisnik bez pristanka (vidi `allowWithoutConsent`). */
+export const CONSENT_REQUIRED_MESSAGE = 'Pre nastavka potvrdi saglasnost za obradu podataka.'
+
 type Handler<TInput, TOutput> = (input: TInput, ctx: ActionContext) => Promise<TOutput>
 
 type ActionOptions = {
@@ -26,17 +29,26 @@ type ActionOptions = {
    * `inactive`. Default je `false`: svaka akcija je gejtovana dok se ovde ne kaže drugačije,
    * pa nova akcija ne može da procuri kroz paywall zato što je neko zaboravio da doda proveru.
    *
-   * Trenutno NIJEDNA akcija ovo ne koristi — vidi komentar uz `completeOnboarding`.
-   * Kandidati za Fazu 2: Stripe checkout / reaktivacija, tj. akcije koje neaktivan
-   * korisnik mora da pozove da BI ponovo dobio pristup.
+   * Koristi ga samo `deleteAccount`: pravo na brisanje ne zavisi od kupovine. Kandidati
+   * za Fazu 2: Stripe checkout / reaktivacija, tj. akcije koje neaktivan korisnik mora da
+   * pozove da BI ponovo dobio pristup. Vidi i komentar uz `completeOnboarding`.
    */
   allowInactive?: boolean
+  /**
+   * EKSPLICITAN opt-out iz gejta pristanka za podatke o zdravlju. Default je `false`:
+   * onboardovan korisnik bez `health_consent_at` ne upisuje ništa dok ne potvrdi na
+   * `/saglasnost`. Izuzete su samo akcije koje služe davanju ili povlačenju pristanka
+   * (`giveHealthConsent`, `deleteAccount`). Neonboardovan korisnik daje pristanak kroz
+   * `completeOnboarding`, pa ga gejt ne dira.
+   */
+  allowWithoutConsent?: boolean
 }
 
 /**
  * Fabrika za type-safe server akcije. Svaka akcija:
  *   1. proveri da je korisnik ulogovan (i admin, ako `admin: true`),
- *   2. proveri da mu je pristup i dalje aktivan (osim uz `allowInactive: true` ili `admin: true`),
+ *   2. proveri da mu je pristup i dalje aktivan (osim uz `allowInactive: true` ili `admin: true`)
+ *      i da je dao pristanak za podatke o zdravlju (osim uz `allowWithoutConsent: true`),
  *   3. validira ulaz kroz zod šemu,
  *   4. izvrši handler sa parsiranim ulazom + kontekstom,
  *   5. uvek vrati tipiziran `ActionResult` (greške se hvataju, ne bacaju ka UI-u).
@@ -74,6 +86,16 @@ export function createAction<TSchema extends z.ZodType, TOutput>(
       if (!allowed) {
         return actionError(ACCESS_INACTIVE_MESSAGE)
       }
+    }
+    // 1c. Gejt pristanka — isti razlog kao 1b: stranice preusmeravaju na `/saglasnost`,
+    // ali server akcija je zaseban endpoint.
+    if (
+      !options.admin &&
+      !options.allowWithoutConsent &&
+      profile.onboardingCompleted &&
+      !profile.healthConsentAt
+    ) {
+      return actionError(CONSENT_REQUIRED_MESSAGE)
     }
 
     // 2. Validacija ulaza

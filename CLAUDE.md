@@ -115,8 +115,9 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
   (`cron_runs` heartbeat, Faza 2 blok 1), `0003` (`notifications_log.dedup_day` +
   `notifications_log_dedup_uq`, `push_subscriptions.last_seen_at` + indeks po korisniku;
   Faza 2 blok 2) i `0004` (`profiles.access_override` + `_at` + `_by` + CHECK,
-  `profiles.email_alerts`, `supply.low_stock_alerts_sent`; Faza 2 blok 3) i `0005`
-  (`user_supplements` + enum `supplement_time`; Faza 2 „Moj stack") — nema novih bez
+  `profiles.email_alerts`, `supply.low_stock_alerts_sent`; Faza 2 blok 3), `0005`
+  (`user_supplements` + enum `supplement_time`; Faza 2 „Moj stack") i `0006`
+  (`orders.woo_modified_at`, `profiles.health_consent_at`; pred lansiranje) — nema novih bez
   eksplicitne potrebe. `orders_email_lower_date_idx` je funkcionalni
   (`lower(email)`, `order_date DESC`) jer svaki upit za pristup poredi mejl case-insensitive;
   `protocol_logs_date_taken_idx` je parcijalni (`WHERE status = 'taken'`).
@@ -135,15 +136,15 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
   među aktivnim); svaka izmena liste osvežava potvrdu. Admin agregat izuzima unose nepotvrđene
   > 30 dana, `usersWithStack` broji samo onboardovane `role='user'` korisnike sa svežim aktivnim unosom,
   i maskira grupe od 1–2 korisnika kao „< 3"; nikad ne nosi `user_id` ni mejl.
-  Namerno NEMA: saglasnosti u appu (politika privatnosti na nurolab.rs mora da pokrije prikupljanje),
-  push/mejl podsetnika za potvrdu, dnevnog štikliranja, preporuka ni upozorenja o interakcijama
+  Namerno NEMA: zasebne saglasnosti za stack (pokriva je opšti pristanak za podatke o zdravlju, vidi
+  ispod; politika privatnosti na nurolab.rs mora da pokrije prikupljanje), push/mejl podsetnika za potvrdu, dnevnog štikliranja, preporuka ni upozorenja o interakcijama
   (zdravstvene tvrdnje).
 - Boje samo kroz Tailwind brand tokene (`@theme` u `app/globals.css`). Hardkodovani hex je dozvoljen **samo** u: `app/manifest.ts`, Clerk `appearance` u `app/layout.tsx`, `app/style-guide/page.tsx`, `lib/email/templates/*` (email klijenti nemaju Tailwind), `lib/confetti.ts`.
 - Build ide kroz **webpack** (`next build --webpack`), ne Turbopack — Serwist injector mod.
 - QA harness ima TRI sloja i sva tri moraju ostati zelena (`npm run qa` vozi sve):
   `qa-dates` (čiste funkcije: datumi/streak/prozori/Woo/access override/cap alerta/odjavni
-  token, Sprint 2–6 pravila i „Moj stack“, 341 provera), `qa-routes` (klasifikacija ruta, 54 provere) i **`qa-sql`**
-  (171 provera — SQL koji se STVARNO izvršava nad pravim Postgres-om). Lokalno bez Docker-a:
+  token, Sprint 2–6 pravila, „Moj stack“, redosled Woo stanja i pristanak, 357 provera), `qa-routes`
+  (klasifikacija ruta, 54 provere) i **`qa-sql`** (208 provera — SQL koji se STVARNO izvršava nad pravim Postgres-om). Lokalno bez Docker-a:
   privremeni klaster sa Homebrew `postgresql@16` (`initdb --locale=C`, `pg_ctl -o "-p 5433"`).
 - **`qa-sql` postoji zato što prva dva sloja ne izvršavaju nijedan upit.** Dva produkciona
   otkaza su prošla kroz lint, build i obe stare provere netaknuta: `GROUP BY` sa bind
@@ -165,6 +166,11 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
   = opozivaju (ažuriraju status postojećeg reda), ostalo se ignoriše. **Svaki novi upit koji iz
   `orders` izvodi PRISTUP mora da filtrira po `SYNCED_STATUSES`** — inače refund i dalje drži VIP.
   Admin prikaz namerno ne filtrira.
+- **Woo stanje se primenjuje SAMO ako nije starije od sačuvanog** (`orders.woo_modified_at` =
+  `date_modified_gmt`, pravilo `isNotStale` u `order-rules.ts`, isto u SQL-u kao `setWhere` uz
+  `on conflict`). Woo ne garantuje redosled isporuke: refund pa zakasneo `processing` je vraćao VIP.
+  Opoziv nepoznate porudžbine se UPISUJE kao opozvan red (bez dopune), da zakasneo `processing`
+  naiđe na noviji red. `coalesce(excluded, postojeći)` — payload bez polja ne briše trenutak.
 - **Datum Woo porudžbine ide isključivo kroz `resolveOrderDate`** (`*_gmt` polja + eksplicitni `Z`).
   Woo GMT polja nemaju oznaku zone, pa ih `new Date()` parsira kao lokalno vreme procesa.
 - **Prozor pristupa ima JEDAN izvor istine:** `lib/access/window.ts` (client-safe, bez
@@ -315,6 +321,15 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
   `current − (server: danas kompletan) + (lokalno: danas kompletan)`. Kompletan dan ima svoje
   slavlje u `DoseCheckin` (konfete samo kad nema novog bedža — bedž ih već ispaljuje).
   „Niz u opasnosti" se računa tek posle mount-a (vreme na serveru i klijentu bi se razišlo).
+- **Pristanak za podatke o zdravlju je uslov korišćenja** (`profiles.health_consent_at`, tekst u
+  `lib/legal.ts`). Gejt stoji na DVA mesta, kao paywall: `requireAppAccess` preusmerava
+  onboardovan nalog bez pristanka na `/saglasnost`, a `createAction` mu odbija upis
+  (`CONSENT_REQUIRED_MESSAGE`). Opt-out je eksplicitan (`allowWithoutConsent`) i imaju ga samo
+  `giveHealthConsent` i `deleteAccount`. Nov korisnik pristaje u onboardingu (`healthConsent:
+  z.literal(true)`, upis u `finalizeOnboarding`). Povlačenje = `deleteAccount` (Clerk pa baza;
+  `user.deleted` webhook dočisti), koji sme i `inactive` nalogu. **Svaka nova tabela sa `user_id`
+  mora imati `on delete cascade`** — `qa-sql` pada ako nema, jer bi brisanje naloga ostavilo podatke.
+  Suštinska promena teksta pristanka = obrisati `health_consent_at` svima (nova potvrda).
 - **Tekstovi su rodno neutralni** („istim mejlom kao pri kupovini", ne „si koristio"). Ista
   pravila važe za mejlove.
 - **Onboarding upisuje profil, zalihe i kviz JEDNOM izjavom** (`lib/onboarding/finalize.ts`),

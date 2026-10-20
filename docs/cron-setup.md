@@ -23,7 +23,13 @@ Ne zahtevaju ručno podešavanje — dovoljno je da je `CRON_SECRET` postavljen 
 
 Dva načina; oba rade. **GitHub Actions je već podešen u repou** — treba samo secret.
 
-### A) GitHub Actions (preporučeno — nema trećeg naloga)
+> **Za lansiranje: uključi OBA.** cron-job.org kao glavni (tačan i ne gasi se sam), GitHub Actions
+> kao rezervu. Dupli pozivi su bezbedni: dedup je rezervacija po korisniku, tipu i beogradskom
+> DANU (`notifications_log_dedup_uq`), pa dva run-a u istom prozoru daju jedan podsetnik. Kad jedan
+> scheduler zakaže (GitHub preskoči run ili ugasi workflow posle 60 dana mirovanja repoa), drugi
+> pokriva rupu, a „Dijagnostika push-a" i dalje meri stvarne razmake između poziva.
+
+### A) GitHub Actions (rezerva — već je u repou)
 
 Workflow je u [`.github/workflows/notifications-dispatcher.yml`](../.github/workflows/notifications-dispatcher.yml).
 Repo je public, pa su Actions minuti besplatni i neograničeni.
@@ -60,7 +66,7 @@ pa neuspeh ne prođe tiho.
 3. **GitHub gasi zakazane workflow-e posle 60 dana neaktivnosti repoa.** Za projekat u razvoju nije
    problem; ako repo miruje, proveri da je workflow i dalje uključen.
 
-### B) cron-job.org podešavanje
+### B) cron-job.org podešavanje (glavni za produkciju)
 
 1. Napravi (besplatan) nalog na https://cron-job.org.
 2. **Create cronjob:**
@@ -109,7 +115,7 @@ Za cron-ove i notifikacije:
 | `RESEND_API_KEY`, `EMAIL_FROM` | Email (low-stock, welcome) |
 | `EMAIL_UNSUBSCRIBE_SECRET` | *Opciono.* Potpis odjavnih linkova; bez njega se koristi `CRON_SECRET` |
 
-Kompletnu launch listu (svih 23 varijable) vidi u [README → Env varijable](../README.md#env-varijable-vercel-launch-lista).
+Kompletnu launch listu (svih 24 varijable) vidi u [README → Env varijable](../README.md#env-varijable-vercel-launch-lista).
 
 Posle izmene env varijabli → **Redeploy**.
 

@@ -482,6 +482,59 @@ async function runDatabaseChecks() {
     check('tačno jedan red kviza', quiz.length, 1)
     const [prof] = await db.select().from(schema.profiles).where(eq(schema.profiles.id, 'qa_onb'))
     check('onboarding označen', prof?.onboardingCompleted, true)
+    ok('onboarding upisuje pristanak', prof?.healthConsentAt instanceof Date, String(prof?.healthConsentAt))
+  })
+
+  const account = await import('../lib/account/store')
+  await inRollback('Pristanak: upis bez pomeranja prvog trenutka', async () => {
+    await seedProfile('qa_consent')
+    check('upis pristanka', await account.recordHealthConsent('qa_consent'), true)
+    const first = (await db.select().from(schema.profiles).where(eq(schema.profiles.id, 'qa_consent')))[0]?.healthConsentAt
+    await account.recordHealthConsent('qa_consent')
+    const second = (await db.select().from(schema.profiles).where(eq(schema.profiles.id, 'qa_consent')))[0]?.healthConsentAt
+    check('ponovljen pristanak ne pomera trenutak', second?.toISOString(), first?.toISOString())
+    check('nepostojeći profil → false', await account.recordHealthConsent('qa_nema'), false)
+  })
+
+  await inRollback('Brisanje naloga: ne ostaje nijedan red korisnika ni u jednoj tabeli', async () => {
+    await seedProfile('qa_del')
+    await db.insert(schema.supply).values({ userId: 'qa_del', capsulesRemaining: 10 })
+    await db.insert(schema.focusQuizResults).values({ userId: 'qa_del', date: '2026-10-01', score: 40 })
+    await db.insert(schema.protocolLogs).values({ userId: 'qa_del', date: '2026-10-01', dose: 'morning', status: 'taken' })
+    await db.insert(schema.userSupplements).values({ userId: 'qa_del', catalogKey: 'magnesium', timeOfDay: 'morning', lastConfirmedOn: '2026-10-01' })
+    await db.insert(schema.orders).values({
+      wooOrderId: 'qa-del-1', email: 'qa_del@qa.local', productType: 'full',
+      quantityPackages: 1, capsulesTotal: 60, orderDate: new Date('2026-10-01T10:00:00Z'), status: 'completed',
+    })
+    check('brisanje vraća true', await account.deleteProfileData('qa_del'), true)
+    check('ponovljeno brisanje → false (idempotentno)', await account.deleteProfileData('qa_del'), false)
+
+    const tables = await adapter.client.query(
+      `select table_name from information_schema.columns
+       where table_schema = 'public' and column_name = 'user_id'`,
+    )
+    const leftovers: string[] = []
+    for (const { table_name } of tables.rows as { table_name: string }[]) {
+      const res = await adapter.client.query(`select count(*)::int as n from "${table_name}" where user_id = $1`, ['qa_del'])
+      if (res.rows[0].n > 0) leftovers.push(table_name)
+    }
+    ok('nijedna tabela sa user_id nema red obrisanog korisnika', leftovers.length === 0,
+      leftovers.length ? leftovers.join(', ') : `${tables.rowCount} tabela provereno`)
+    // Nova tabela sa `user_id` bez `on delete cascade` bi posle brisanja naloga ostavila
+    // podatke (ili oborila brisanje FK greškom) — zato provera nad šemom, ne nad seed-om.
+    const noCascade = await adapter.client.query(
+      `select c.table_name from information_schema.columns c
+       where c.table_schema = 'public' and c.column_name = 'user_id'
+         and not exists (
+           select 1 from information_schema.key_column_usage k
+           join information_schema.referential_constraints rc on rc.constraint_name = k.constraint_name
+           where k.table_name = c.table_name and k.column_name = 'user_id' and rc.delete_rule = 'CASCADE'
+         )`,
+    )
+    ok('svaki user_id ima on delete cascade', noCascade.rowCount === 0,
+      noCascade.rowCount ? (noCascade.rows as { table_name: string }[]).map((r) => r.table_name).join(', ') : '')
+    const orderLeft = await adapter.client.query(`select count(*)::int as n from orders where woo_order_id = 'qa-del-1'`)
+    check('porudžbina ostaje (evidencija prodavnice)', orderLeft.rows[0].n, 1)
   })
 
   const wooOrder = (id: number, email: string, createdGmt: string) => ({

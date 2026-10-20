@@ -116,7 +116,7 @@ Rute: javne (`/`, `/sign-in`, `/sign-up`, `/style-guide`, `/api/webhooks/*`, `/m
 
 ## Env varijable (Vercel launch lista)
 
-Svih 23 varijable koje kod čita. **Obavezno** = bez nje feature pada ili se tiho gasi.
+Svih 24 varijable koje kod čita. **Obavezno** = bez nje feature pada ili se tiho gasi.
 
 | Varijabla | Obavezno | Bez nje | Odakle |
 |---|---|---|---|
@@ -135,6 +135,7 @@ Svih 23 varijable koje kod čita. **Obavezno** = bez nje feature pada ili se tih
 | `NOTIFICATION_WINDOW_MIN` | ⚠️ | fallback `45` — rezerva za jitter GitHub Actions-a (kadenca 15 min); uži prozor gubi podsetnike kad run kasni ili se preskoči | vidi [`docs/cron-setup.md`](./docs/cron-setup.md#preciznost-podsetnika) |
 | `NEXT_PUBLIC_APP_URL` | ✅ | linkovi u mejlovima gađaju `localhost` | `https://app.nurolab.rs` |
 | `NEXT_PUBLIC_SUPPORT_EMAIL` | ⚠️ | fallback `podrska@nurolab.rs` | — |
+| `NEXT_PUBLIC_PRIVACY_POLICY_URL` | ✅ | pristanak i Podešavanja pominju politiku privatnosti bez linka | pun URL politike privatnosti na nurolab.rs (mora da pokrije podatke o zdravlju i Moj stack) |
 | `NEXT_PUBLIC_SHOP_REFILL_URL` | ✅ | **refill CTA se tiho ne prikazuje** na `/zalihe`, `/dashboard`, `/podesavanja` | link ka ZenFlow proizvodu |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | ✅ | nema push pretplate | `npx web-push generate-vapid-keys` |
 | `VAPID_PRIVATE_KEY` | ✅ | push slanje puca (logovano kao `failed`) | isto |
@@ -158,9 +159,9 @@ Uz env varijable, za pun launch treba i **scheduler** za `/api/cron/notification
 | `npm run build` | Production build |
 | `npm run start` | Pokreni production build |
 | `npm run lint` | ESLint |
-| `npx tsx scripts/qa-dates.mts` | QA harness: timezone/DST, streak, prozori dispatchera, Woo integritet, access override, cap alerta, odjavni token, Moj stack (341 provera) |
+| `npx tsx scripts/qa-dates.mts` | QA harness: timezone/DST, streak, prozori dispatchera, Woo integritet, access override, cap alerta, odjavni token, Moj stack, redosled Woo stanja, pristanak (357 provera) |
 | `npx tsx scripts/qa-routes.mts` | QA harness: koje rute traže Clerk sesiju, koje rolu, koje su javne (54 provere) |
-| `npm run qa:sql` | **QA harness: SQL koji se stvarno izvršava** (171 provera). Bez `TEST_DATABASE_URL` preskače DB deo. Sa bazom: `TEST_DATABASE_URL="postgres://postgres:qa@localhost:5433/postgres" npm run qa:sql` |
+| `npm run qa:sql` | **QA harness: SQL koji se stvarno izvršava** (208 provera). Bez `TEST_DATABASE_URL` preskače DB deo. Sa bazom: `TEST_DATABASE_URL="postgres://postgres:qa@localhost:5433/postgres" npm run qa:sql` |
 | `npm run qa` | Sve odjednom: lint + tri harness-a |
 | `npx tsx scripts/db-status.mts` | **Read-only:** koje su migracije primenjene na datoj bazi. Bez prefiksa gleda `.env.local` (dev); za produkciju: `DATABASE_URL="<prod url>" npx tsx scripts/db-status.mts` |
 | `npm run db:generate` | Generiši SQL migraciju iz promena u `lib/db/schema.ts` |
@@ -349,8 +350,9 @@ CLAUDE.md             # Brand kontekst + radne konvencije
 Zabeleženo pri zatvaranju Faze 1 (nije blocker za launch, ali treba znati):
 
 - **Streak „pauza" retko opali.** Niz se zamrzava samo dok korisnik nije „pokriven" porudžbinom, a pokrivenost traje **60 dana** od porudžbine dok jedno pakovanje (60 kapsula, 4/dan) traje **15 dana**. Dani 16–60 su „pokriven + nekompletan" → niz se resetuje mnogo pre nego što `frozen` zona počne. Pauza pomogne samo ako je korisnik čekirao poslednji pokriveni dan pre rupe i prvi dan nove porudžbine. Popravka bi tražila da se zamrzavanje veže za **iscrpljene zalihe**, a ne za porudžbinu — promena semantike, odložena za odluku.
-- **Otkazana / refundirana porudžbina ne vraća kapsule.** `cancelled`, `refunded` i `failed` **obaraju pristup** — `upsertOrder` ažurira status postojećeg reda u `orders`, a pristupna logika (`getLatestOrderDate`, `maintainAccessStatuses`, coverage za streak, prefil pakovanja) broji samo `processing`/`completed`, pa korisnik na sledećem refresh-u pada na `inactive`. Kapsule se pri tome **svesno ne oduzimaju** — korisnik je fizički dobio proizvod, a oduzimanje bi umelo da odvede zalihe u minus i pokvari `estimatedRunoutDate`. Ako refund webhook promaši, admin backfill povlači i opozvane statuse i sredi red.
-- **Ručno postavljen `vip` bez porudžbine** noćni cron (`maintainAccessStatuses`) vraća na `inactive`. Dokumentovano u admin dijalogu; bez izmene šeme u MVP-u.
+- **Otkazana / refundirana porudžbina ne vraća kapsule.** `cancelled`, `refunded` i `failed` **obaraju pristup** — `upsertOrder` ažurira status postojećeg reda u `orders` (nepoznatu porudžbinu upisuje odmah kao opozvanu), a pristupna logika (`getLatestOrderDate`, `maintainAccessStatuses`, coverage za streak, prefil pakovanja) broji samo `processing`/`completed`, pa korisnik na sledećem refresh-u pada na `inactive`. Kapsule se pri tome **svesno ne oduzimaju** — korisnik je fizički dobio proizvod, a oduzimanje bi umelo da odvede zalihe u minus i pokvari `estimatedRunoutDate`. Ako refund webhook promaši, admin backfill povlači i opozvane statuse i sredi red.
+- **Redosled Woo webhook-ova** se poredi po `date_modified_gmt` (`orders.woo_modified_at`): stanje starije od sačuvanog se odbacuje (`skipped: stale`). Payload bez tog polja se primenjuje kao ranije, ali ne briše sačuvan trenutak.
+- **Pristanak za podatke o zdravlju je uslov korišćenja.** Doze, zalihe, kviz i Moj stack su posebne vrste podataka (ZZPL čl. 17, GDPR čl. 9). Nov korisnik daje pristanak u onboardingu (korak 3), postojeći na `/saglasnost`. Povlačenje = brisanje naloga (Podešavanja → Privatnost), koje briše sve iz app-a; porudžbine ostaju kao evidencija prodavnice. Tekst je u `lib/legal.ts`; pravnik treba da ga potvrdi zajedno sa politikom privatnosti.
 - **iOS push traži instaliran PWA.** Van instalirane aplikacije `Notification` ne postoji; `components/push/ios-install-hint.tsx` prikazuje uputstvo za „Dodaj na početni ekran".
 - **Javni VAPID ključ se ugrađuje u bundle na build-u.** Promena `NEXT_PUBLIC_VAPID_PUBLIC_KEY` bez redeploy-a ostavlja stari ključ u klijentu → sve pretplate dobijaju 403. Kad push ne stiže: `/admin` → „Dijagnostika push-a", pa [`docs/push-troubleshooting.md`](./docs/push-troubleshooting.md).
 

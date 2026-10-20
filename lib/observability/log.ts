@@ -49,6 +49,9 @@ export const EVENTS = {
   cronHeartbeatFailed: 'cron.heartbeat_failed',
   dailyReport: 'observability.daily_report',
   actionFailed: 'action.unhandled_error',
+  accountDeleted: 'account.deleted',
+  accountDeleteFailed: 'account.delete_failed',
+  healthConsentGiven: 'consent.health_given',
 } as const
 
 export type LogEvent = (typeof EVENTS)[keyof typeof EVENTS]

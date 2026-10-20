@@ -39,7 +39,9 @@ export async function finalizeOnboarding(input: FinalizeOnboardingInput): Promis
           "dose_morning_time" = ${input.doseMorningTime}::time,
           "dose_evening_time" = ${input.doseEveningTime}::time,
           "focus_score_baseline" = ${input.score}::int,
-          "onboarding_completed" = true
+          "onboarding_completed" = true,
+          -- Pristanak je obavezan u šemi akcije; prvi trenutak pristanka se ne pomera.
+          "health_consent_at" = coalesce(${profiles.healthConsentAt}, now())
       where ${profiles.id} = ${input.userId} and ${profiles.onboardingCompleted} = false
       returning ${profiles.id} as id
     ),

@@ -1,6 +1,7 @@
 import { SignOutButton } from '@clerk/nextjs'
 import { redirect } from 'next/navigation'
 
+import { DeleteAccountButton } from '@/components/settings/delete-account-button'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { getLatestOrderDate, refreshAccessStatusForProfile } from '@/lib/access/status'
@@ -98,6 +99,9 @@ export default async function NemasPristupPage() {
                 Odjavi se / promeni nalog
               </Button>
             </SignOutButton>
+
+            {/* Pravo na brisanje ne zavisi od kupovine (`deleteAccount` ima `allowInactive`). */}
+            <DeleteAccountButton variant="ghost" />
           </div>
         </CardContent>
       </Card>
@@ -165,6 +169,9 @@ function LapsedScreen({
                 Odjavi se / promeni nalog
               </Button>
             </SignOutButton>
+
+            {/* Pravo na brisanje ne zavisi od kupovine (`deleteAccount` ima `allowInactive`). */}
+            <DeleteAccountButton variant="ghost" />
           </div>
         </CardContent>
       </Card>

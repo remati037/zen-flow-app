@@ -11,6 +11,7 @@ import { FOCUS_QUIZ_LENGTH, scoreFocusQuiz } from '@/lib/quiz/focus-quiz'
 
 import { completeOnboarding } from './actions'
 import { CelebrationStep } from './steps/celebration-step'
+import { ConsentStep } from './steps/consent-step'
 import { DosesStep } from './steps/doses-step'
 import { INTRO_SLIDE_COUNT, IntroSlides } from './steps/intro-slides'
 import { STEP_TRANSITION, stepVariants } from './steps/motion'
@@ -21,7 +22,15 @@ import { QuizStep } from './steps/quiz-step'
 import { ResultStep } from './steps/result-step'
 import type { SupplyEstimate } from './steps/types'
 
-type Phase = 'intro' | 'protocol' | 'doses' | 'quiz' | 'result' | 'notifications' | 'done'
+type Phase =
+  | 'intro'
+  | 'protocol'
+  | 'doses'
+  | 'consent'
+  | 'quiz'
+  | 'result'
+  | 'notifications'
+  | 'done'
 
 /** Faze koje ulaze u progress bar (intro i celebracija su van brojanja). */
 type TrackedPhase = Exclude<Phase, 'intro' | 'done'>
@@ -31,9 +40,10 @@ type TrackedPhase = Exclude<Phase, 'intro' | 'done'>
  * interpolira po broju odgovorenih pitanja, pa traka raste i tokom kviza.
  */
 const PHASE_RANGE: Record<TrackedPhase, [number, number]> = {
-  protocol: [0.08, 0.22],
-  doses: [0.22, 0.36],
-  quiz: [0.36, 0.72],
+  protocol: [0.08, 0.2],
+  doses: [0.2, 0.3],
+  consent: [0.3, 0.4],
+  quiz: [0.4, 0.72],
   result: [0.72, 0.88],
   notifications: [0.88, 1],
 }
@@ -41,6 +51,7 @@ const PHASE_RANGE: Record<TrackedPhase, [number, number]> = {
 const PHASE_LABEL: Record<TrackedPhase, string> = {
   protocol: 'Protokol',
   doses: 'Vreme doza',
+  consent: 'Tvoji podaci',
   quiz: 'Focus Score kviz',
   result: 'Rezultat',
   notifications: 'Podsetnici',
@@ -60,7 +71,7 @@ function isTracked(phase: Phase): phase is TrackedPhase {
 /**
  * Onboarding wizard (Korak 1.13).
  *
- * Tok: intro (3 slajda) → protokol → doze → kviz (pitanje po ekranu) →
+ * Tok: intro (3 slajda) → protokol → doze → pristanak → kviz (pitanje po ekranu) →
  * rezultat → podsetnici → celebracija.
  *
  * Sav state je client-side; jedini upis je `completeOnboarding` na kraju
@@ -79,6 +90,8 @@ export function OnboardingWizard({ defaultPackages }: { defaultPackages: number 
   const [doseMorningTime, setDoseMorningTime] = useState('08:00')
   // Druga doza je popodnevna; preporučeni termin je oko 14h.
   const [doseEveningTime, setDoseEveningTime] = useState('14:00')
+  // Pristanak za podatke o zdravlju — bez njega se kviz ne otvara (vidi ConsentStep).
+  const [consent, setConsent] = useState(false)
   const [quizAnswers, setQuizAnswers] = useState<(number | null)[]>(
     Array(FOCUS_QUIZ_LENGTH).fill(null),
   )
@@ -142,12 +155,16 @@ export function OnboardingWizard({ defaultPackages }: { defaultPackages: number 
     if (quizIndex > 0) {
       setQuizIndex((i) => i - 1)
     } else {
-      goTo('doses')
+      goTo('consent')
     }
   }
 
   function submit() {
     setError(null)
+    if (!consent) {
+      goTo('consent')
+      return
+    }
     const answers = quizAnswers.filter((a): a is number => a !== null)
     if (answers.length !== FOCUS_QUIZ_LENGTH) {
       setQuizIndex(quizAnswers.findIndex((a) => a === null))
@@ -162,6 +179,7 @@ export function OnboardingWizard({ defaultPackages }: { defaultPackages: number 
         doseMorningTime,
         doseEveningTime,
         quizAnswers: answers,
+        healthConsent: true,
       })
       if (result.ok) {
         setNewBadges(result.data.newBadges)
@@ -229,8 +247,17 @@ export function OnboardingWizard({ defaultPackages }: { defaultPackages: number 
                 doseEveningTime={doseEveningTime}
                 onMorningChange={setDoseMorningTime}
                 onEveningChange={setDoseEveningTime}
-                onNext={() => goTo('quiz')}
+                onNext={() => goTo('consent')}
                 onBack={() => goTo('protocol')}
+              />
+            )}
+
+            {phase === 'consent' && (
+              <ConsentStep
+                consent={consent}
+                onConsentChange={setConsent}
+                onNext={() => goTo('quiz')}
+                onBack={() => goTo('doses')}
               />
             )}
 
