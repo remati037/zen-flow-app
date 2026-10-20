@@ -18,7 +18,8 @@ export function PrivacyCard({ consentAt }: { consentAt: Date | null }) {
       <CardContent className="space-y-4">
         <p className="text-sm text-slate-mid">
           {consentAt
-            ? `Saglasnost za obradu podataka o zdravlju je data ${formatIsoDateSr(toBelgradeIso(consentAt))}.`
+            ? // `formatIsoDateSr` već završava tačkom ('20. oktobar 2026.').
+              `Saglasnost za obradu podataka o zdravlju je data ${formatIsoDateSr(toBelgradeIso(consentAt))}`
             : 'Saglasnost za obradu podataka o zdravlju još nije data.'}{' '}
           Povlači se brisanjem naloga.
         </p>
