@@ -266,7 +266,7 @@ Korisnik se registruje preko Clerk-a, sistem mu proverom WooCommerce porudžbine
 - **Moj stack** (`/stack`) — evidencija dodatnih suplemenata (katalog od 100 + „Drugo"), grupisano po dobu dana, nedeljna potvrda liste. Admin zbirni pregled na `/admin/stack` (bez korisničkih podataka, grupe od 1–2 korisnika maskirane).
 - **Fokus** (`/fokus`) — Pomodoro 25/5 i 50/10 sa timestamp-based odbrojavanjem (preživljava throttling taba i refresh), do 3 dnevna zadatka.
 - **Bedževi** (`/bedzevi`) — 9 bedževa; dodela na check-in / fokus sesiju / onboarding, sa toast + confetti.
-- **Početna** (`/dashboard`) — agregat svega + Recharts grafikon doslednosti za 14 dana, inline check-in.
+- **Početna** (`/dashboard`) — agregat svega + Focus Score kroz vreme (procena iz doslednosti uzimanja i fokus blokova), inline check-in.
 - **Notifikacije** — Web Push (podsetnici za doze po individualnom vremenu, streak-at-risk, low stock) + Resend mejlovi (welcome, low stock). Dedup po beogradskom danu, ništa ne ide `inactive` korisnicima.
 - **Podešavanja** (`/podesavanja`) — ime, vremena doza, push toggle, status naloga sa „VIP do <datum>".
 - **Admin** (`/admin`) — metrike, lista korisnika sa streak-ovima, access override, porudžbine, backfill.

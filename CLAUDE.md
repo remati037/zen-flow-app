@@ -73,7 +73,7 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
 - **Protocol tracker sa streak mehanikom** — `/protokol`, check-in obe doze, 7-dnevni strip, backfill do 7 dana. Streak se pauzira dok je korisnik `inactive` (vidi „Poznata ograničenja" u README).
 - **Supply tracking** — `/zalihe`, check-in troši kapsule, Woo porudžbina top-upuje tačno jednom, low-stock alert na push + email.
 - **Pomodoro timer + 3 dnevna zadatka** — `/fokus`, timestamp-based countdown, limit zadataka enforce-ovan server-side.
-- **Dashboard sa bedževima** — `/dashboard` (agregat + Recharts doslednost 14d), `/bedzevi` (9 bedževa, award engine).
+- **Dashboard sa bedževima** — `/dashboard` (agregat + Focus Score kroz vreme: procena iz doslednosti i fokus blokova, `lib/focus/score.ts`), `/bedzevi` (9 bedževa, award engine).
 - **Web Push** — VAPID, SW `push`/`notificationclick` handleri, dispatcher na 15 min (eksterni scheduler), dedup po beogradskom danu.
 - **Admin panel** — `/admin` metrike, korisnici sa streak-ovima + access override, porudžbine + backfill.
 - **WooCommerce order sync** — webhook + backfill, isti `upsertOrder` za oba puta.
