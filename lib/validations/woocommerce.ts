@@ -25,6 +25,8 @@ export const wooOrderSchema = z
     date_paid_gmt: z.string().nullish(),
     date_created: z.string().nullish(),
     date_paid: z.string().nullish(),
+    // Poslednja izmena porudžbine — redosled stanja (vidi `resolveOrderModified`).
+    date_modified_gmt: z.string().nullish(),
     billing: z
       .object({
         email: z.email().nullish(),

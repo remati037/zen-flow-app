@@ -1,12 +1,17 @@
 import 'server-only'
 
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 
 import { db, focusQuizResults, orders, profiles, supply } from '@/lib/db'
 import { EVENTS, logError, logInfo, logWarn } from '@/lib/observability/log'
 import { BELGRADE_TZ, belgradeToday } from '@/lib/dates'
 import { CAPSULES_PER_DAY, LOW_STOCK_THRESHOLD } from '@/lib/protocol/dosing'
-import { classifyOrderStatus, resolveOrderDate, wasInserted } from '@/lib/woocommerce/order-rules'
+import {
+  classifyOrderStatus,
+  resolveOrderDate,
+  resolveOrderModified,
+  wasInserted,
+} from '@/lib/woocommerce/order-rules'
 import { resolveProductFromLineItems } from '@/lib/woocommerce/products'
 import { wooOrderSchema, type WooOrderPayload } from '@/lib/validations/woocommerce'
 
@@ -119,7 +124,22 @@ async function topUpSupplyForEmail(
 
 export type SyncOutcome =
   | { result: 'created' | 'updated' | 'revoked'; wooOrderId: string; email: string }
-  | { result: 'skipped'; reason: 'status' | 'no-email' | 'no-product' | 'invalid'; wooOrderId?: string }
+  | {
+      result: 'skipped'
+      reason: 'status' | 'no-email' | 'no-product' | 'invalid' | 'stale'
+      wooOrderId?: string
+    }
+
+/**
+ * Uslov pod kojim dolazno stanje sme da pregazi postojeći red (`on conflict ... where`).
+ * Isto pravilo kao `isNotStale` u `order-rules.ts`: noviji ili isti `date_modified`
+ * prolazi, `null` sa bilo koje strane prolazi (nema po čemu da se poredi).
+ */
+const notStale = sql`(
+  ${orders.wooModifiedAt} is null
+  or excluded."woo_modified_at" is null
+  or excluded."woo_modified_at" >= ${orders.wooModifiedAt}
+)`
 
 /**
  * Upsertuje jednu WooCommerce porudžbinu u `orders`.
@@ -129,11 +149,16 @@ export type SyncOutcome =
  *
  * Pravila:
  * - Validira payload (zod). Nevalidan → `skipped: invalid`.
- * - `processing`/`completed` → upsert po `woo_order_id` (unique).
- * - `cancelled`/`refunded`/`failed` → ako red već postoji, samo mu se **ažurira status**
- *   (`revoked`), pa ga pristupna logika prestaje da broji. Ako red ne postoji → `skipped: status`.
+ * - `processing`/`completed` → upsert po `woo_order_id` (unique), uz dopunu zaliha na insert.
+ * - `cancelled`/`refunded`/`failed` → upsert sa opozvanim statusom (`revoked`), BEZ dopune.
+ *   Postojećem redu se obara status, pa ga pristupna logika prestaje da broji; nepoznata
+ *   porudžbina se upisuje odmah kao opozvana. Ako payload nema mejl ili poznat proizvod,
+ *   samo se obara status postojećeg reda (ako ga nema → `skipped: status`).
  * - Ostali statusi (`pending`, `on-hold`, …) → `skipped: status`, red se ne dira.
  * - Bez email-a ili bez poznatog ZenFlow proizvoda → preskače (nije relevantna kupovina).
+ * - REDOSLED: stanje starije od sačuvanog (`date_modified_gmt` < `woo_modified_at`) se
+ *   odbacuje → `skipped: stale`. Woo ne garantuje redosled isporuke, a bez ovoga je
+ *   refund pa zakasneo `processing` vraćao VIP.
  *
  * Pozivalac je dužan da posle `created`/`updated`/`revoked` pozove
  * `refreshAccessStatusForEmail(outcome.email)` — status porudžbine menja pristup.
@@ -153,34 +178,50 @@ export async function upsertOrder(
   // Normalizujemo status pri upisu — pristupni upiti porede sa lowercase listom.
   const status = order.status.trim().toLowerCase()
   const statusClass = classifyOrderStatus(status)
+  const modifiedAt = resolveOrderModified(order)
 
   if (statusClass === 'ignored') {
     return { result: 'skipped', reason: 'status', wooOrderId }
   }
 
-  if (statusClass === 'revoked') {
-    // Opoziv: ne pravimo red za porudžbinu koju nikad nismo sinhronizovali — samo
-    // obaramo status postojećeg. Kapsule se NE oduzimaju (korisnik je fizički dobio
-    // proizvod) — svesna odluka, vidi README „Poznata ograničenja".
+  const email = order.billing?.email?.trim().toLowerCase()
+  const product = resolveProductFromLineItems(order.line_items)
+
+  if (statusClass === 'revoked' && (!email || !product)) {
+    // Opoziv bez dovoljno podataka za nov red: samo obaramo status postojećeg.
+    // Kapsule se NE oduzimaju (korisnik je fizički dobio proizvod) — svesna odluka,
+    // vidi README „Poznata ograničenja".
     const [revoked] = await db
       .update(orders)
-      .set({ status, syncedAt: new Date() })
-      .where(eq(orders.wooOrderId, wooOrderId))
+      .set({
+        status,
+        wooModifiedAt: sql`coalesce(${modifiedAt}::timestamptz, ${orders.wooModifiedAt})`,
+        syncedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(orders.wooOrderId, wooOrderId),
+          sql`(${orders.wooModifiedAt} is null or ${modifiedAt}::timestamptz is null
+               or ${modifiedAt}::timestamptz >= ${orders.wooModifiedAt})`,
+        ),
+      )
       .returning({ email: orders.email })
 
     if (!revoked) {
-      return { result: 'skipped', reason: 'status', wooOrderId }
+      const [existing] = await db
+        .select({ id: orders.id })
+        .from(orders)
+        .where(eq(orders.wooOrderId, wooOrderId))
+      return { result: 'skipped', reason: existing ? 'stale' : 'status', wooOrderId }
     }
     logInfo(EVENTS.wooOrderRevoked, { wooOrderId, status })
     return { result: 'revoked', wooOrderId, email: revoked.email }
   }
 
-  const email = order.billing?.email?.trim().toLowerCase()
   if (!email) {
     return { result: 'skipped', reason: 'no-email', wooOrderId }
   }
 
-  const product = resolveProductFromLineItems(order.line_items)
   if (!product) {
     const seenSkus = order.line_items
       .map((item) => item.sku?.trim())
@@ -202,11 +243,13 @@ export async function upsertOrder(
     // GMT polja + eksplicitni 'Z' — inače večernja porudžbina padne u pogrešan beogradski dan.
     orderDate: resolveOrderDate(order),
     status,
+    wooModifiedAt: modifiedAt,
   }
 
   // Jedna izjava odlučuje i insert/update i top-up: `xmax = 0` je true SAMO za red koji je
   // ova izjava stvarno insertovala. Ranije je ovde bio select-pa-insert (TOCTOU) — dva
   // paralelna webhook-a za istu porudžbinu su oba videla „ne postoji" i oba naduvala zalihe.
+  // `setWhere` je zaštita redosleda: zastarelo stanje ne ažurira red, pa `returning` je prazan.
   const [row] = await db
     .insert(orders)
     .values(values)
@@ -219,12 +262,26 @@ export async function upsertOrder(
         capsulesTotal: values.capsulesTotal,
         orderDate: values.orderDate,
         status: values.status,
+        // Payload bez `date_modified_gmt` ne briše poznat trenutak — zaštita ostaje.
+        wooModifiedAt: sql`coalesce(excluded."woo_modified_at", ${orders.wooModifiedAt})`,
         syncedAt: new Date(),
       },
+      setWhere: notStale,
     })
     .returning({ inserted: sql<boolean>`(xmax = 0)` })
 
-  const created = wasInserted(row?.inserted)
+  if (!row) {
+    logInfo(EVENTS.wooOrderSkipped, { wooOrderId, reason: 'stale', status })
+    return { result: 'skipped', reason: 'stale', wooOrderId }
+  }
+
+  const created = wasInserted(row.inserted)
+
+  if (statusClass === 'revoked') {
+    // Nova porudžbina koja stiže već opozvana se upisuje radi redosleda, bez dopune.
+    logInfo(EVENTS.wooOrderRevoked, { wooOrderId, status })
+    return { result: 'revoked', wooOrderId, email }
+  }
 
   if (created && topUpSupply) {
     await topUpSupplyForEmail(

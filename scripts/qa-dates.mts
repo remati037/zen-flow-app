@@ -35,7 +35,8 @@ const {
   CRON_JOBS, DISPATCHER_STALE_HOURS, describeDispatcherHealth, isGapMissed, minutesBetween, formatMinutes,
 } = await import('../lib/cron/health')
 const {
-  classifyOrderStatus, isAccessGrantingStatus, parseWooGmtDate, resolveOrderDate, wasInserted,
+  classifyOrderStatus, isAccessGrantingStatus, isNotStale, parseWooGmtDate, resolveOrderDate,
+  resolveOrderModified, wasInserted,
 } = await import('../lib/woocommerce/order-rules')
 const { asOverride, resolveAccessStatus } = await import('../lib/access/resolve')
 const { SUPPLEMENT_CATALOG, SUPPLEMENT_CATEGORIES, getCatalogItem, isCatalogKey, supplementDisplayName } =
@@ -351,7 +352,8 @@ console.log('\n=== 14. WooCommerce: upsert simulacija (dupli webhook, refund) ==
 // Verna simulacija SQL semantike iz upsertOrder:
 //  - `insert ... on conflict do update ... returning (xmax = 0)` je JEDNA atomična izjava;
 //    `inserted` je true samo za red koji je ta izjava stvarno insertovala.
-//  - opoziv je `update ... where woo_order_id = ...` — ne pravi red ako ga nema.
+//  - opoziv postojećeg reda menja status; nepoznata porudžbina se upisuje kao opozvana
+//    (bez dopune), da zakasneo `processing` naiđe na noviji red.
 type FakeOrderRow = { wooOrderId: string; email: string; status: string; orderDate: Date; capsulesTotal: number }
 function makeFakeOrders() {
   const rows = new Map<string, FakeOrderRow>()
@@ -364,10 +366,10 @@ function makeFakeOrders() {
       return { inserted: isNew ? 't' : 'f' }
     },
     /** `update orders set status = … where woo_order_id = … returning email`. */
-    revoke(wooOrderId: string, status: string): { email: string } | undefined {
-      const row = rows.get(wooOrderId)
-      if (!row) return undefined
-      row.status = status
+    revoke(row: FakeOrderRow): { email: string } {
+      const existing = rows.get(row.wooOrderId)
+      if (existing) existing.status = row.status
+      else rows.set(row.wooOrderId, { ...row })
       return { email: row.email }
     },
   }
@@ -384,8 +386,14 @@ function handleWooEvent(payload: {
   if (statusClass === 'ignored') return 'skipped'
 
   if (statusClass === 'revoked') {
-    const revoked = fakeOrders.revoke(payload.id, payload.status.toLowerCase())
-    return revoked ? 'revoked' : 'skipped'
+    fakeOrders.revoke({
+      wooOrderId: payload.id,
+      email: payload.email,
+      status: payload.status.toLowerCase(),
+      orderDate: resolveOrderDate(payload),
+      capsulesTotal: payload.capsulesTotal,
+    })
+    return 'revoked'
   }
 
   const { inserted } = fakeOrders.upsert({
@@ -428,14 +436,29 @@ check('posle refund-a: nema porudžbine koja daje pristup', latestGrantingOrderD
 // ODLUKA (README „Poznata ograničenja"): kapsule se pri refund-u NE oduzimaju.
 check('refund NE oduzima kapsule (svesna odluka)', capsulesToppedUp, 60)
 
-// Refund porudžbine koju nikad nismo sinhronizovali ne sme ništa da napravi.
-check('refund nepoznate porudžbine → skipped', handleWooEvent({ ...order, id: '9999', status: 'cancelled' }), 'skipped')
-check('refund nepoznate porudžbine → i dalje jedan red', fakeOrders.rows.size, 1)
+// Refund porudžbine koju nikad nismo sinhronizovali: upisuje se kao opozvana (redosled),
+// ali ne dopunjuje zalihe i ne daje pristup.
+check('refund nepoznate porudžbine → revoked', handleWooEvent({ ...order, id: '9999', status: 'cancelled' }), 'revoked')
+check('refund nepoznate porudžbine → red postoji kao opozvan', fakeOrders.rows.get('9999')?.status, 'cancelled')
+check('refund nepoznate porudžbine → bez dopune', capsulesToppedUp, 60)
+check('refund nepoznate porudžbine → i dalje bez pristupa', latestGrantingOrderDate('kupac@primer.rs'), null)
+fakeOrders.rows.delete('9999')
 
 // Nova porudžbina posle refund-a vraća pristup i naduvava zalihe (nov woo_order_id).
 check('nova porudžbina → created', handleWooEvent({ ...order, id: '1002', date_paid_gmt: '2026-09-01T09:00:00' }), 'created')
 check('nova porudžbina → +60 kapsula', capsulesToppedUp, 120)
 check('nova porudžbina vraća pristup', toBelgradeIso(latestGrantingOrderDate('kupac@primer.rs')!), '2026-09-01')
+
+console.log('\n=== 14b. WooCommerce: redosled stanja (date_modified_gmt) ===')
+const t1 = resolveOrderModified({ date_modified_gmt: '2026-10-01T10:00:00' })
+const t2 = resolveOrderModified({ date_modified_gmt: '2026-10-01T10:05:00' })
+check('date_modified_gmt se čita kao UTC', t1?.toISOString(), '2026-10-01T10:00:00.000Z')
+check('bez polja → null', resolveOrderModified({}), null)
+check('novije stanje prolazi', isNotStale(t2, t1), true)
+check('starije stanje se odbacuje (zakasneo processing posle refund-a)', isNotStale(t1, t2), false)
+check('isti trenutak prolazi (ponovljen webhook)', isNotStale(t1, t1), true)
+check('bez dolaznog trenutka → prolazi', isNotStale(null, t1), true)
+check('red bez sačuvanog trenutka → prolazi', isNotStale(t1, null), true)
 
 console.log('\n=== 15. wasInserted: koercija xmax flag-a po drajverima ===')
 check('boolean true', wasInserted(true), true)

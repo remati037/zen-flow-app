@@ -72,6 +72,16 @@ export const profiles = pgTable(
      * ne raspored. Vidi `lib/email/send.ts` (`EMAIL_ALERT_TYPES`).
      */
     emailAlerts: boolean('email_alerts').notNull().default(true),
+    /**
+     * Kad je korisnik dao IZRIČIT pristanak na obradu podataka o zdravlju (doze,
+     * zalihe, Focus Score kviz, Moj stack). `null` = pristanak nije dat.
+     *
+     * To su posebne vrste podataka (ZZPL čl. 17, GDPR čl. 9): politika privatnosti
+     * nije dovoljna, treba izričit pristanak. Pristanak je uslov korišćenja app-a jer
+     * je praćenje protokola cela usluga; povlačenje = brisanje naloga (Podešavanja).
+     * Upisuje ga `finalizeOnboarding` (nov korisnik) ili `/saglasnost` (postojeći).
+     */
+    healthConsentAt: timestamp('health_consent_at', { withTimezone: true }),
     protocolStartDate: date('protocol_start_date'),
     doseMorningTime: time('dose_morning_time'),
     doseEveningTime: time('dose_evening_time'),
@@ -107,6 +117,13 @@ export const orders = pgTable(
     capsulesTotal: integer('capsules_total').notNull(),
     orderDate: timestamp('order_date', { withTimezone: true }).notNull(),
     status: text('status').notNull(),
+    /**
+     * Woo `date_modified_gmt` poslednjeg primenjenog stanja porudžbine. Webhook-ovi ne
+     * stižu garantovanim redom: refund pa zakasneli `processing` je vraćao VIP. Upis
+     * prolazi samo ako dolazno stanje nije starije od ovog (`upsertOrder`). `null` =
+     * red iz vremena pre kolone ili payload bez polja — tada nema poređenja.
+     */
+    wooModifiedAt: timestamp('woo_modified_at', { withTimezone: true }),
     syncedAt: timestamp('synced_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

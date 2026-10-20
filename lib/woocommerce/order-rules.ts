@@ -18,9 +18,10 @@
 export const SYNCED_STATUSES = ['processing', 'completed'] as const
 
 /**
- * Statusi koji **opozivaju** ranije sinhronizovanu porudžbinu.
- * Za njih ne pravimo novi red — samo ažuriramo status postojećeg, pa pristupna
- * logika prestaje da ih broji.
+ * Statusi koji **opozivaju** porudžbinu. Postojećem redu se ažurira status, pa ga
+ * pristupna logika prestaje da broji; nepoznata porudžbina se upisuje odmah sa
+ * opozvanim statusom (bez dopune zaliha), da zakasneo `processing` iste porudžbine
+ * naiđe na noviji red i bude odbačen.
  *
  * `failed` je ovde jer je to plaćanje koje nije prošlo (isti efekat kao otkazivanje).
  * `pending`/`on-hold` NISU ovde — to su pred-plaćanja stanja, ne opoziv; ona padaju
@@ -109,6 +110,29 @@ export function resolveOrderDate(order: WooOrderDateFields, fallback: Date = new
     parseWooLocalDate(order.date_created) ??
     fallback
   )
+}
+
+/**
+ * Trenutak poslednje izmene porudžbine (`date_modified_gmt`), ili `null` ako ga
+ * payload nema. Služi za redosled: Woo webhook-ovi ne stižu garantovanim redom, pa
+ * zakasneo `processing` posle `refunded` ne sme da vrati pristup. Bez lokalnog
+ * fallback-a — pogrešna zona bi pomerila poređenje za sat-dva, a `null` samo gasi
+ * poređenje (ponašanje pre ove kolone).
+ */
+export function resolveOrderModified(order: { date_modified_gmt?: string | null }): Date | null {
+  return parseWooGmtDate(order.date_modified_gmt)
+}
+
+/**
+ * Da li dolazno stanje porudžbine sme da pregazi sačuvano. Isto pravilo je u SQL-u
+ * `upsertOrder`-a (`where` uz `on conflict`); ovde je radi QA provere.
+ *
+ * Isti trenutak prolazi (ponovljen webhook je idempotentan), a `null` sa bilo koje
+ * strane prolazi jer tada nema po čemu da se poredi.
+ */
+export function isNotStale(incoming: Date | null, stored: Date | null): boolean {
+  if (!incoming || !stored) return true
+  return incoming.getTime() >= stored.getTime()
 }
 
 /**

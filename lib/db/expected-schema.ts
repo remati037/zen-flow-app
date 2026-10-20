@@ -45,6 +45,8 @@ export const EXPECTED_SCHEMA: SchemaObject[] = [
   { tag: '0005', kind: 'index', index: 'user_supplements_user_custom_uq' },
   { tag: '0005', kind: 'index', index: 'user_supplements_user_idx' },
   { tag: '0005', kind: 'index', index: 'user_supplements_catalog_active_idx' },
+  { tag: '0006', kind: 'column', table: 'orders', column: 'woo_modified_at' },
+  { tag: '0006', kind: 'column', table: 'profiles', column: 'health_consent_at' },
 ]
 
 /** Čitljiv opis jednog objekta — isti tekst u skripti i u ruti. */

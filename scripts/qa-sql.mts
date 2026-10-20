@@ -525,6 +525,46 @@ async function runDatabaseChecks() {
     check('topUpSupply=false ne dopunjuje', (await capsulesOf('qa_bf'))?.capsulesRemaining, 65)
   })
 
+  await inRollback('Woo redosled: zakasneo processing posle refund-a ne vraća pristup', async () => {
+    const at = (modified: string, status: string, id = 990010) => ({
+      ...wooOrder(id, 'qa_ord@qa.local', '2026-10-01T09:00:00'),
+      status,
+      date_modified_gmt: modified,
+    })
+    const statusOf = async (id: string) =>
+      (await db.select().from(schema.orders).where(eq(schema.orders.wooOrderId, id)))[0]
+
+    check('processing (10:00) → created', (await woo.upsertOrder(at('2026-10-01T10:00:00', 'processing'))).result, 'created')
+    check('refund (12:00) → revoked', (await woo.upsertOrder(at('2026-10-01T12:00:00', 'refunded'))).result, 'revoked')
+    const late = await woo.upsertOrder(at('2026-10-01T10:00:00', 'processing'))
+    check('zakasneo processing (10:00) → skipped', late.result, 'skipped')
+    check('razlog je stale', late.result === 'skipped' ? late.reason : null, 'stale')
+    check('status ostaje refunded', (await statusOf('990010'))?.status, 'refunded')
+    check('sačuvan trenutak poslednje izmene',
+      (await statusOf('990010'))?.wooModifiedAt?.toISOString(), '2026-10-01T12:00:00.000Z')
+    check('ponovljen refund (isti trenutak) → revoked', (await woo.upsertOrder(at('2026-10-01T12:00:00', 'refunded'))).result, 'revoked')
+    check('payload bez date_modified ne briše trenutak',
+      (await woo.upsertOrder({ ...wooOrder(990010, 'qa_ord@qa.local', '2026-10-01T09:00:00'), status: 'refunded' })).result, 'revoked')
+    check('trenutak i dalje 12:00',
+      (await statusOf('990010'))?.wooModifiedAt?.toISOString(), '2026-10-01T12:00:00.000Z')
+
+    // Refund stigne PRE nego što smo ikad videli processing (webhook za processing je pao).
+    check('refund nepoznate porudžbine → revoked (upisan red)', (await woo.upsertOrder(at('2026-10-02T12:00:00', 'cancelled', 990011))).result, 'revoked')
+    check('red postoji kao opozvan', (await statusOf('990011'))?.status, 'cancelled')
+    check('zakasneo processing nepoznate → skipped',
+      (await woo.upsertOrder(at('2026-10-02T10:00:00', 'processing', 990011))).result, 'skipped')
+    check('i dalje cancelled', (await statusOf('990011'))?.status, 'cancelled')
+
+    // Opoziv bez poznatog proizvoda: samo obara status postojećeg reda, uz isti guard.
+    const noSku = (modified: string, id: number) => ({
+      ...at(modified, 'refunded', id), line_items: [{ sku: 'NEPOZNAT', quantity: 1 }],
+    })
+    check('processing 990012 → created', (await woo.upsertOrder(at('2026-10-03T10:00:00', 'processing', 990012))).result, 'created')
+    check('stari refund bez SKU-a → stale', (await woo.upsertOrder(noSku('2026-10-03T09:00:00', 990012))).result === 'skipped', true)
+    check('novi refund bez SKU-a → revoked', (await woo.upsertOrder(noSku('2026-10-03T11:00:00', 990012))).result, 'revoked')
+    check('refund bez SKU-a nepoznate porudžbine → skipped', (await woo.upsertOrder(noSku('2026-10-03T11:00:00', 990013))).result, 'skipped')
+  })
+
   const winback = await import('../lib/access/winback')
   await inRollback('Win-back kandidati: GROUP BY/HAVING nad pravim Postgres-om', async () => {
     const today = '2026-10-19'
