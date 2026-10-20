@@ -73,7 +73,7 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
 - **Protocol tracker sa streak mehanikom** — `/protokol`, check-in obe doze, 7-dnevni strip, backfill do 7 dana. Streak se pauzira dok je korisnik `inactive` (vidi „Poznata ograničenja" u README).
 - **Supply tracking** — `/zalihe`, check-in troši kapsule, Woo porudžbina top-upuje tačno jednom, low-stock alert na push + email.
 - **Pomodoro timer + 3 dnevna zadatka** — `/fokus`, timestamp-based countdown, limit zadataka enforce-ovan server-side.
-- **Dashboard sa bedževima** — `/dashboard` (agregat + Recharts doslednost 14d), `/bedzevi` (9 bedževa, award engine).
+- **Dashboard sa bedževima** — `/dashboard` (agregat + Focus Score kroz vreme: procena iz doslednosti i fokus blokova, `lib/focus/score.ts`), `/bedzevi` (9 bedževa, award engine).
 - **Web Push** — VAPID, SW `push`/`notificationclick` handleri, dispatcher na 15 min (eksterni scheduler), dedup po beogradskom danu.
 - **Admin panel** — `/admin` metrike, korisnici sa streak-ovima + access override, porudžbine + backfill.
 - **WooCommerce order sync** — webhook + backfill, isti `upsertOrder` za oba puta.
@@ -115,16 +115,35 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
   (`cron_runs` heartbeat, Faza 2 blok 1), `0003` (`notifications_log.dedup_day` +
   `notifications_log_dedup_uq`, `push_subscriptions.last_seen_at` + indeks po korisniku;
   Faza 2 blok 2) i `0004` (`profiles.access_override` + `_at` + `_by` + CHECK,
-  `profiles.email_alerts`, `supply.low_stock_alerts_sent`; Faza 2 blok 3) — nema novih bez
+  `profiles.email_alerts`, `supply.low_stock_alerts_sent`; Faza 2 blok 3) i `0005`
+  (`user_supplements` + enum `supplement_time`; Faza 2 „Moj stack") — nema novih bez
   eksplicitne potrebe. `orders_email_lower_date_idx` je funkcionalni
   (`lower(email)`, `order_date DESC`) jer svaki upit za pristup poredi mejl case-insensitive;
   `protocol_logs_date_taken_idx` je parcijalni (`WHERE status = 'taken'`).
+- **„Moj stack" (`/stack`, `/admin/stack`):** katalog od 100 suplemenata je konstanta u
+  `lib/supplements/catalog.ts` (ključevi su STABILNI, upisani su u `user_supplements.catalog_key`;
+  novi suplement = deploy, bez migracije). Sav SQL je u `lib/supplements/store.ts` — akcije su tanke,
+  a `qa-sql` izvršava te iste funkcije. Uklanjanje je soft (`active = false`); ponovno dodavanje
+  REAKTIVIRA red (jedinstveni indeksi: `(user_id, catalog_key)` i `(user_id, lower(custom_name))`).
+  Ograničenje je 60 AKTIVNIH unosa po korisniku (uklonjeni se ne broje). `updateSupplementSchema.active`
+  dozvoljava samo `false`: izmena može samo da UKLONI unos, a vraćanje ide kroz `addSupplement` (koji
+  sprovodi granicu); prekidač „Još pijem" u UI zato samo isključuje, a ponovo se dodaje kroz „Dodaj suplement".
+  „Drugo" koje tačno odgovara kataloškom nazivu/aliasu ide pod kataloški ključ (`matchCatalogExact`).
+  Admin spaja slobodan unos kroz `merged_into_key`, nikad ne dira korisnikov unos; `name` u spajanju
+  je tačno `lower(custom_name)` iz SQL-a (ne JS lowercase — `lower()` zavisi od locale-a baze).
+  Nedeljna potvrda: `needsConfirmation` (7 beogradskih kalendarskih dana, najstariji `last_confirmed_on`
+  među aktivnim); svaka izmena liste osvežava potvrdu. Admin agregat izuzima unose nepotvrđene
+  > 30 dana, `usersWithStack` broji samo onboardovane `role='user'` korisnike sa svežim aktivnim unosom,
+  i maskira grupe od 1–2 korisnika kao „< 3"; nikad ne nosi `user_id` ni mejl.
+  Namerno NEMA: saglasnosti u appu (politika privatnosti na nurolab.rs mora da pokrije prikupljanje),
+  push/mejl podsetnika za potvrdu, dnevnog štikliranja, preporuka ni upozorenja o interakcijama
+  (zdravstvene tvrdnje).
 - Boje samo kroz Tailwind brand tokene (`@theme` u `app/globals.css`). Hardkodovani hex je dozvoljen **samo** u: `app/manifest.ts`, Clerk `appearance` u `app/layout.tsx`, `app/style-guide/page.tsx`, `lib/email/templates/*` (email klijenti nemaju Tailwind), `lib/confetti.ts`.
 - Build ide kroz **webpack** (`next build --webpack`), ne Turbopack — Serwist injector mod.
 - QA harness ima TRI sloja i sva tri moraju ostati zelena (`npm run qa` vozi sve):
   `qa-dates` (čiste funkcije: datumi/streak/prozori/Woo/access override/cap alerta/odjavni
-  token, Sprint 2–6 pravila, 277 provera), `qa-routes` (klasifikacija ruta, 50 provera) i **`qa-sql`**
-  (103 provere — SQL koji se STVARNO izvršava nad pravim Postgres-om). Lokalno bez Docker-a:
+  token, Sprint 2–6 pravila i „Moj stack“, 341 provera), `qa-routes` (klasifikacija ruta, 54 provere) i **`qa-sql`**
+  (171 provera — SQL koji se STVARNO izvršava nad pravim Postgres-om). Lokalno bez Docker-a:
   privremeni klaster sa Homebrew `postgresql@16` (`initdb --locale=C`, `pg_ctl -o "-p 5433"`).
 - **`qa-sql` postoji zato što prva dva sloja ne izvršavaju nijedan upit.** Dva produkciona
   otkaza su prošla kroz lint, build i obe stare provere netaknuta: `GROUP BY` sa bind
@@ -363,6 +382,8 @@ alert mejlove sa `List-Unsubscribe` one-click rutom, cap od 3 alerta po epizodi 
 strukturni JSON logovi umesto `console.error`, agregat isporučenosti u adminu + dnevni cron
 izveštaj, i CI na PR-u (`.github/workflows/ci.yml`). Jedna migracija: `0004`.
 **Sentry NIJE uzet** — vidi „Ograničenja i ključne odluke".
+
+**Moj stack ✅** — evidencija dodatnih suplemenata (katalog 100 + „Drugo"), nedeljna potvrda, admin agregat. Migracija: `0005`.
 
 Ostatak:
 

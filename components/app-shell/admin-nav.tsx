@@ -1,6 +1,6 @@
 'use client'
 
-import { LayoutDashboard, Repeat, ShoppingBag, Users } from 'lucide-react'
+import { Layers, LayoutDashboard, Repeat, ShoppingBag, Users } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -11,6 +11,7 @@ const ADMIN_NAV_ITEMS = [
   { href: '/admin/korisnici', label: 'Korisnici', icon: Users, exact: false },
   { href: '/admin/porudzbine', label: 'Porudžbine', icon: ShoppingBag, exact: false },
   { href: '/admin/retencija', label: 'Retencija', icon: Repeat, exact: false },
+  { href: '/admin/stack', label: 'Stack', icon: Layers, exact: false },
 ] as const
 
 /**

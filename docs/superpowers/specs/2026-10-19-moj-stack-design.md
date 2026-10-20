@@ -55,11 +55,23 @@ indeksi ne dozvoljavaju drugi. Upis je jedna SQL izjava (neon-http nema transakc
 
 ## Katalog
 
-`lib/supplements/catalog.ts` — čist modul bez `server-only`, ~30 stavki:
-`{ key, label, aliases? }`. Ključevi su stabilni (`magnesium`, `omega3`, `vitamin_d`,
-`creatine`, `caffeine`, `ashwagandha`, `l_theanine`, ...). ZenFlow se NE nalazi u katalogu
-(prati se protokolom). Konačnu listu potvrđuje Vladimir u fazi implementacije; promena kataloga
-je deploy, bez migracije. Ključ koji je izbačen iz kataloga ostaje u bazi i prikazuje se kao
+`lib/supplements/catalog.ts` — čist modul bez `server-only`, ~100 stavki:
+`{ key, label, category, aliases }`. Ključevi su stabilni (`magnesium`, `omega3`, `vitamin_d3`,
+`creatine`, `collagen`, `whey_protein`, ...). ZenFlow se NE nalazi u katalogu (prati se
+protokolom). Predlog liste (100 stavki, po kategorijama, sa srpskim i engleskim aliasima; potvrđeno) je u
+`2026-10-19-moj-stack-katalog-predlog.md`; Promena kataloga
+je deploy, bez migracije.
+
+**Pretraga** (`searchCatalog(query)` u istom modulu, čista funkcija, testirana u `qa-dates`):
+- normalizacija: mala slova, uklanjanje dijakritika (`č ć š ž đ` → `c c s z dj`; `dj`/`d` oba
+  matchuju) i razmaka/crtica, na upitu i na label/aliasima;
+- poklapanje po prefiksu reči, pa po podstringu; prefiks rangira iznad podstringa, a poklapanje
+  naziva iznad poklapanja aliasa;
+- primeri koji moraju raditi: `kolagen`, `collagen`, `magnezijum`, `mg`, `kreatin`, `protein`,
+  `cink`/`zink`, `riblje ulje` → Omega-3, `ashvaganda`, `b12`;
+- pretraga radi na klijentu nad statičnom listom (bez upita ka bazi); kategorije su filter-čipovi
+  kad je upit prazan.
+- Kad upit nema rezultata, prvi red je „Dodaj kao Drugo: ‹upit›". Ključ koji je izbačen iz kataloga ostaje u bazi i prikazuje se kao
 sirov naziv — admin ga vidi u agregatu.
 
 ## Akcije (`app/(app)/stack/actions.ts`)
@@ -138,6 +150,22 @@ datumskim stringovima kroz helpere iz `lib/dates.ts`, nikad ms-aritmetikom. „D
 
 ## Otvorena pitanja
 
-- Konačna lista kataloga (~30 stavki) — potvrđuje Vladimir.
+- Katalog je potvrđen (100 stavki).
 - Tekst politike privatnosti na `nurolab.rs` — van repoa, odgovornost Vladimira.
 - Ako nedeljna potvrda ima nisku stopu odziva: razmotriti push kroz postojeći dispatcher (Faza 2+).
+
+## Dopune (pri pisanju plana implementacije, 2026-10-20)
+
+- `needsConfirmation(oldestConfirmedOn: string | null, today: string)` — prima najstariji
+  `last_confirmed_on` među aktivnim redovima (`null` = nema aktivnih), ne broj redova.
+- Normalizacija pretrage: `đ` → `dj` (bez tolerancije „d"/„dj"); apostrofi se brišu
+  („Lion's mane" → „lions mane").
+- „Drugo" sa nazivom koji tačno odgovara nazivu ili aliasu iz kataloga (posle normalizacije)
+  čuva se pod `catalog_key` (`matchCatalogExact`) — manje ručnog spajanja u adminu.
+- Gornja granica: najviše 60 AKTIVNIH unosa po korisniku (uklonjeni ne računaju), proverava store
+  (check-then-act; nije invarijanta, pa trka sme da prekorači za koji red).
+- `EXPECTED_SCHEMA` podržava samo tabele, kolone i indekse: ulaze tabela + 5 indeksa; CHECK
+  ograničenja proverava `qa-sql` namernim prekršajima.
+- Prag „< 3" važi za tabelu po suplementu (kataloški ključevi). Lista slobodnih unosa prikazuje
+  tačne brojeve (adminu trebaju da odluči šta da spoji) i nikad ne nosi `user_id` ni mejl.
+- Kartica potvrde je JEDNA komponenta (`StackConfirmCard`) koja se renderuje na `/stack` i na dashboardu.

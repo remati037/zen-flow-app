@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Award, ChevronRight, PackagePlus, Pill, Timer, type LucideIcon } from 'lucide-react'
+import { Award, ChevronRight, Layers, PackagePlus, Pill, Timer, type LucideIcon } from 'lucide-react'
 
 import { BADGE_COUNT, getBadge } from '@/lib/badges/catalog'
 import { belgradeToday, formatIsoDateSr } from '@/lib/dates'
@@ -19,6 +19,8 @@ export function OverviewList({
   focusSessions,
   focusMinutes,
   earnedBadgeKeys,
+  stackCount,
+  stackNeedsConfirm,
 }: {
   capsulesRemaining: number
   estimatedRunoutDate: string | null
@@ -27,6 +29,10 @@ export function OverviewList({
   focusMinutes: number
   /** Najnoviji prvi. */
   earnedBadgeKeys: string[]
+  /** Aktivnih suplemenata u „Mom stack-u". */
+  stackCount: number
+  /** Nedeljna potvrda je na redu. */
+  stackNeedsConfirm: boolean
 }) {
   const low = isLowStock(capsulesRemaining, estimatedRunoutDate, belgradeToday())
   const days = estimateDaysRemaining(capsulesRemaining)
@@ -65,6 +71,21 @@ export function OverviewList({
           }
           value={`${focusSessions}`}
           unit={pluralSr(focusSessions, 'blok', 'bloka', 'blokova')}
+        />
+        <Row
+          href="/stack"
+          icon={Layers}
+          title="Moj stack"
+          tone={stackNeedsConfirm ? 'caution' : 'default'}
+          meta={
+            stackCount === 0
+              ? 'Dodaj suplemente koje piješ'
+              : stackNeedsConfirm
+                ? 'Potvrdi da je stack isti'
+                : 'Svi na jednom mestu'
+          }
+          value={`${stackCount}`}
+          unit={pluralSr(stackCount, 'suplement', 'suplementa', 'suplemenata')}
         />
         <Row
           href="/bedzevi"

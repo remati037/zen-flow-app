@@ -628,6 +628,212 @@ async function runDatabaseChecks() {
     check('serija od početka protokola do danas', t.points.length, 6)
   })
 
+  // ── Moj stack ─────────────────────────────────────────────────────────────
+  const stack = await import('../lib/supplements/store')
+  const { belgradeToday: stkToday, addDaysIso: stkAdd } = await import('../lib/dates')
+
+  await inRollback('Moj stack: katalog + slobodan unos, reaktivacija, case-insensitive', async () => {
+    await seedProfile('qa_stk')
+    const today = stkToday()
+    const a = await stack.addSupplement('qa_stk', { catalogKey: 'magnesium' }, { timeOfDay: 'evening', doseNote: '400 mg' }, today)
+    ok('unos iz kataloga vraća id', typeof a.id === 'number')
+
+    const again = await stack.addSupplement('qa_stk', { catalogKey: 'magnesium' }, { timeOfDay: 'morning' }, today)
+    check('isti ključ ne pravi drugi red', again.id, a.id)
+    let rows = await stack.listActiveSupplements('qa_stk')
+    check('i dalje jedan red', rows.length, 1)
+    check('doba dana prepisano', rows[0]?.timeOfDay, 'morning')
+    check('napomena o dozi prepisana (nema → null)', rows[0]?.doseNote, null)
+
+    const c1 = await stack.addSupplement('qa_stk', { customName: 'Moj Miks' }, { timeOfDay: 'afternoon' }, today)
+    const c2 = await stack.addSupplement('qa_stk', { customName: 'moj miks' }, { timeOfDay: 'afternoon' }, today)
+    check('slobodan naziv je case-insensitive jedinstven', c2.id, c1.id)
+    check('dva reda ukupno', (await stack.listActiveSupplements('qa_stk')).length, 2)
+
+    // Soft delete pa ponovno dodavanje = reaktivacija ISTOG reda.
+    ok('update uklanjanja uspeva', await stack.updateSupplementRow('qa_stk', a.id, { active: false }, today))
+    check('uklonjen red nije u listi', (await stack.listActiveSupplements('qa_stk')).length, 1)
+    const back = await stack.addSupplement('qa_stk', { catalogKey: 'magnesium' }, { timeOfDay: 'evening' }, today)
+    check('reaktivacija koristi isti red', back.id, a.id)
+    rows = await stack.listActiveSupplements('qa_stk')
+    check('opet dva aktivna', rows.length, 2)
+    const total = await db.select().from(schema.userSupplements).where(eq(schema.userSupplements.userId, 'qa_stk'))
+    check('u bazi nema duplikata', total.length, 2)
+  })
+
+  await inRollback('Moj stack: dodavanje osvežava potvrdu', async () => {
+    await seedProfile('qa_stk_fresh')
+    const today = stkToday()
+    const old = stkAdd(today, -20)
+    await stack.addSupplement('qa_stk_fresh', { catalogKey: 'zinc' }, { timeOfDay: 'morning' }, old)
+    check('pre dodavanja: najstarija potvrda je stara', (await stack.getStackSummary('qa_stk_fresh')).oldestConfirmedOn, old)
+    await stack.addSupplement('qa_stk_fresh', { catalogKey: 'iron' }, { timeOfDay: 'morning' }, today)
+    check('addSupplement osvežava potvrdu celog stack-a', (await stack.getStackSummary('qa_stk_fresh')).oldestConfirmedOn, today)
+    check('clearStack i dalje briše sve', await stack.clearStack('qa_stk_fresh'), 2)
+    check('posle clearStack: prazan summary', (await stack.getStackSummary('qa_stk_fresh')).activeCount, 0)
+  })
+
+  await inRollback('Moj stack: ograničenja baze', async () => {
+    await seedProfile('qa_stk_c')
+    const today = stkToday()
+    const base = { userId: 'qa_stk_c', timeOfDay: 'morning' as const, lastConfirmedOn: today }
+    await mustFailInSavepoint('oba imena odjednom → CHECK', 'user_supplements_one_name', () =>
+      db.insert(schema.userSupplements).values({ ...base, catalogKey: 'zinc', customName: 'Cink' }),
+    )
+    await mustFailInSavepoint('nijedno ime → CHECK', 'user_supplements_one_name', () =>
+      db.insert(schema.userSupplements).values({ ...base }),
+    )
+    await mustFailInSavepoint('spajanje kataloškog reda → CHECK', 'user_supplements_merge_custom_only', () =>
+      db.insert(schema.userSupplements).values({ ...base, catalogKey: 'zinc', mergedIntoKey: 'magnesium' }),
+    )
+    await mustFailInSavepoint('isti kataloški ključ dvaput → unique', 'user_supplements_user_catalog_uq', async () => {
+      await db.insert(schema.userSupplements).values({ ...base, catalogKey: 'zinc' })
+      await db.insert(schema.userSupplements).values({ ...base, catalogKey: 'zinc' })
+    })
+  })
+
+  await inRollback('Moj stack: izmena je vezana za vlasnika; potvrda; brisanje', async () => {
+    await seedProfile('qa_stk_a')
+    await seedProfile('qa_stk_b')
+    const today = stkToday()
+    const old = stkAdd(today, -20)
+    const mine = await stack.addSupplement('qa_stk_a', { catalogKey: 'zinc' }, { timeOfDay: 'morning' }, old)
+    const theirs = await stack.addSupplement('qa_stk_b', { catalogKey: 'zinc' }, { timeOfDay: 'morning' }, old)
+
+    check('tuđ red se ne menja', await stack.updateSupplementRow('qa_stk_a', theirs.id, { timeOfDay: 'evening' }, today), false)
+    const [other] = await db.select().from(schema.userSupplements).where(eq(schema.userSupplements.id, theirs.id))
+    check('tuđ red je netaknut', other?.timeOfDay, 'morning')
+
+    let s = await stack.getStackSummary('qa_stk_a')
+    check('summary: broj aktivnih', s.activeCount, 1)
+    check('summary: najstariji datum je string', s.oldestConfirmedOn, old)
+
+    ok('sopstveni update uspeva', await stack.updateSupplementRow('qa_stk_a', mine.id, { doseNote: '15 mg' }, today))
+    s = await stack.getStackSummary('qa_stk_a')
+    check('svaka izmena liste osvežava potvrdu', s.oldestConfirmedOn, today)
+    const [theirsAfter] = await db.select().from(schema.userSupplements).where(eq(schema.userSupplements.id, theirs.id))
+    check('potvrda tuđeg stack-a ostaje stara', theirsAfter?.lastConfirmedOn, old)
+
+    check('prazan update vraća false', await stack.updateSupplementRow('qa_stk_a', mine.id, {}, today), false)
+    check('doseNote se briše sa null', (await stack.updateSupplementRow('qa_stk_a', mine.id, { doseNote: null }, today)), true)
+    const [noNote] = await db.select().from(schema.userSupplements).where(eq(schema.userSupplements.id, mine.id))
+    check('doseNote je stvarno null u bazi', noNote?.doseNote, null)
+    check('prazan stack: summary.activeCount 0', (await stack.getStackSummary('qa_stk_c_nema')).activeCount, 0)
+    check('prazan stack: oldestConfirmedOn null', (await stack.getStackSummary('qa_stk_c_nema')).oldestConfirmedOn, null)
+
+    await db.update(schema.userSupplements).set({ lastConfirmedOn: old }).where(eq(schema.userSupplements.id, mine.id))
+    check('confirmStack vraća broj aktivnih', await stack.confirmStack('qa_stk_a', today), 1)
+    check('confirmStack postavlja današnji dan', (await stack.getStackSummary('qa_stk_a')).oldestConfirmedOn, today)
+
+    const inactiveRow = await stack.addSupplement('qa_stk_a', { customName: 'Neaktivan unos' }, { timeOfDay: 'evening' }, old)
+    await stack.updateSupplementRow('qa_stk_a', inactiveRow.id, { active: false }, old)
+    await db.update(schema.userSupplements).set({ lastConfirmedOn: old }).where(eq(schema.userSupplements.id, inactiveRow.id))
+    await stack.confirmStack('qa_stk_a', today)
+    const [inactiveAfter] = await db.select().from(schema.userSupplements).where(eq(schema.userSupplements.id, inactiveRow.id))
+    check('confirmStack ne dira neaktivan red', inactiveAfter?.lastConfirmedOn, old)
+
+    check('clearStack briše samo svoje (i neaktivne)', await stack.clearStack('qa_stk_a'), 2)
+    check('moj stack prazan', (await stack.listActiveSupplements('qa_stk_a')).length, 0)
+    check('tuđ stack ostaje', (await stack.listActiveSupplements('qa_stk_b')).length, 1)
+  })
+
+  await inRollback('Moj stack: brisanje profila briše stack (CASCADE)', async () => {
+    await seedProfile('qa_stk_del')
+    await stack.addSupplement('qa_stk_del', { catalogKey: 'iron' }, { timeOfDay: 'morning' }, stkToday())
+    await db.delete(schema.profiles).where(eq(schema.profiles.id, 'qa_stk_del'))
+    const left = await db.select().from(schema.userSupplements).where(eq(schema.userSupplements.userId, 'qa_stk_del'))
+    check('redovi nestaju sa profilom', left.length, 0)
+  })
+
+  await inRollback('Moj stack: gornja granica unosa', async () => {
+    await seedProfile('qa_stk_cap')
+    const today = stkToday()
+    let firstId = 0
+    for (let i = 0; i < stack.MAX_SUPPLEMENTS_PER_USER; i++) {
+      const r = await stack.addSupplement('qa_stk_cap', { customName: `Unos broj ${i}` }, { timeOfDay: 'morning' }, today)
+      if (i === 0) firstId = r.id
+    }
+    await mustFail('unos preko granice se odbija', 'Stack je pun', () =>
+      stack.addSupplement('qa_stk_cap', { customName: 'Jedan previše' }, { timeOfDay: 'morning' }, today),
+    )
+    ok('uklanjanje unosa (active=false) uspeva', await stack.updateSupplementRow('qa_stk_cap', firstId, { active: false }, today))
+    const freed = await stack.addSupplement('qa_stk_cap', { customName: 'Oslobođeno mesto' }, { timeOfDay: 'morning' }, today)
+    ok('uklonjen unos oslobađa mesto (granica broji samo aktivne)', freed.id > 0)
+    await mustFail('ponovno aktiviranje uklonjenog unosa na punom stack-u se odbija', 'Stack je pun', () =>
+      stack.addSupplement('qa_stk_cap', { customName: 'Unos broj 0' }, { timeOfDay: 'morning' }, today),
+    )
+  })
+
+  await inRollback('Moj stack: spajanje slobodnog unosa sa katalogom', async () => {
+    await seedProfile('qa_stk_m1')
+    await seedProfile('qa_stk_m2')
+    const today = stkToday()
+    await stack.addSupplement('qa_stk_m1', { customName: 'Mg tablete' }, { timeOfDay: 'evening' }, today)
+    await stack.addSupplement('qa_stk_m2', { customName: 'MG TABLETE' }, { timeOfDay: 'evening' }, today)
+    check('spajanje pogađa oba reda (lower())', await stack.mergeCustomSupplement('mg tablete', 'magnesium'), 2)
+    const merged = await db.select().from(schema.userSupplements).where(eq(schema.userSupplements.mergedIntoKey, 'magnesium'))
+    check('oba reda imaju merged_into_key', merged.length, 2)
+    check('korisnikov originalni unos je netaknut', merged.some((r) => r.customName === 'Mg tablete'), true)
+    check('poništavanje spajanja (null)', await stack.mergeCustomSupplement('mg tablete', null), 2)
+    check('nepostojeći naziv → 0 redova', await stack.mergeCustomSupplement('nema takvog', 'zinc'), 0)
+  })
+
+  const stackAdmin = await import('../lib/admin/stack')
+  await inRollback('Admin stack: agregat po ključu, spajanje, zastareli, prag malih grupa', async () => {
+    const today = stkToday()
+    const stale = stkAdd(today, -60)
+    const before = await stackAdmin.getStackReport(today)
+    await db
+      .insert(schema.profiles)
+      .values({ id: 'qa_sa_admin', email: 'qa_sa_admin@qa.local', role: 'admin', accessStatus: 'vip', onboardingCompleted: true })
+      .onConflictDoNothing()
+    for (const id of ['qa_sa1', 'qa_sa2', 'qa_sa3', 'qa_sa4', 'qa_sa5', 'qa_sa6']) {
+      await db
+        .insert(schema.profiles)
+        .values({ id, email: `${id}@qa.local`, role: 'user', accessStatus: 'vip', onboardingCompleted: true })
+        .onConflictDoNothing()
+    }
+    // magnesium: 3 svežih (jedan preko slobodnog unosa koji admin spaja) + 1 zastareo
+    await stack.addSupplement('qa_sa1', { catalogKey: 'magnesium' }, { timeOfDay: 'evening' }, today)
+    await stack.addSupplement('qa_sa2', { catalogKey: 'magnesium' }, { timeOfDay: 'evening' }, today)
+    await stack.addSupplement('qa_sa3', { customName: 'Mg tablete' }, { timeOfDay: 'evening' }, today)
+    await stack.addSupplement('qa_sa4', { catalogKey: 'magnesium' }, { timeOfDay: 'evening' }, stale)
+    // zinc: samo 2 sveža → maskirano
+    await stack.addSupplement('qa_sa1', { catalogKey: 'zinc' }, { timeOfDay: 'morning' }, today)
+    await stack.addSupplement('qa_sa2', { catalogKey: 'zinc' }, { timeOfDay: 'morning' }, today)
+    // neaktivan unos ne ulazi nigde
+    const gone = await stack.addSupplement('qa_sa5', { catalogKey: 'iron' }, { timeOfDay: 'morning' }, today)
+    await stack.updateSupplementRow('qa_sa5', gone.id, { active: false }, today)
+    // nespojen slobodan unos
+    await stack.addSupplement('qa_sa6', { customName: 'Ekstrakt X' }, { timeOfDay: 'morning' }, today)
+
+    // Admin sa magnezijumom i slobodnim unosom NE ulazi ni u agregat ni u listu slobodnih.
+    await stack.addSupplement('qa_sa_admin', { catalogKey: 'magnesium' }, { timeOfDay: 'evening' }, today)
+    await stack.addSupplement('qa_sa_admin', { customName: 'Admin Miks' }, { timeOfDay: 'evening' }, today)
+
+    let report = await stackAdmin.getStackReport(today)
+    check('admin ne menja broj magnezijuma', report.rows.find((r) => r.key === 'magnesium')?.rawFreshUsers, 2)
+    check('admin ne ulazi u listu slobodnih', report.custom.some((c) => c.name === 'admin miks'), false)
+    const mag = report.rows.find((r) => r.key === 'magnesium')
+    check('pre spajanja: magnezijum sveži = 2 (maskirano)', mag?.freshUsers, null)
+    check('pre spajanja: sirov broj svežih = 2', mag?.rawFreshUsers, 2)
+    check('zastareo se broji zasebno (1 → maskirano)', mag?.staleUsers, null)
+    check('lista slobodnih sadrži „mg tablete" sa 1', report.custom.find((c) => c.name === 'mg tablete')?.users, 1)
+    ok('slobodni unosi NISU u tabeli po suplementu', !report.rows.some((r) => r.key.startsWith('custom:')))
+
+    await stack.mergeCustomSupplement('mg tablete', 'magnesium')
+    report = await stackAdmin.getStackReport(today)
+    const mag2 = report.rows.find((r) => r.key === 'magnesium')
+    check('posle spajanja: magnezijum sveži = 3 (vidljivo)', mag2?.freshUsers, 3)
+    check('posle spajanja: nestaje iz liste slobodnih', report.custom.some((c) => c.name === 'mg tablete'), false)
+    check('label dolazi iz kataloga', mag2?.label, 'Magnezijum')
+    check('zinc sa 2 korisnika je maskiran', report.rows.find((r) => r.key === 'zinc')?.freshUsers, null)
+    check('neaktivan gvožđe ne ulazi', report.rows.some((r) => r.key === 'iron'), false)
+    check('nespojen unos ostaje u listi', report.custom.find((c) => c.name === 'ekstrakt x')?.users, 1)
+    check('onboardovani: tačno +6', report.onboarded - before.onboarded, 6)
+    check('korisnika sa svežim stack-om: tačno +4 (sa1, sa2, sa3, sa6; bez sa4 zastarelog i sa5 neaktivnog)', report.usersWithStack - before.usersWithStack, 4)
+  })
+
   ok('adapter je stvarno korišćen', adapter.queryCount() > 0, `${adapter.queryCount()} upita kroz pg`)
 
   // ── pomoćne ───────────────────────────────────────────────────────────────

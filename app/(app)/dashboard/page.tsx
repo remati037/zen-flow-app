@@ -4,12 +4,15 @@ import { FocusScoreCard } from '@/components/dashboard/focus-score-card'
 import { GreetingHeader } from '@/components/dashboard/greeting-header'
 import { OverviewList } from '@/components/dashboard/overview-list'
 import { ProtocolCtaCard } from '@/components/dashboard/protocol-cta-card'
+import { StackConfirmCard } from '@/components/stack/stack-confirm-card'
 import { requireAppAccess } from '@/lib/access/app-gate'
 import { badges, db, focusSessions, supply } from '@/lib/db'
 import { belgradeDayStart, belgradeToday } from '@/lib/dates'
 import { getFocusTrend } from '@/lib/focus/queries'
 import { getProtocolState } from '@/lib/protocol/queries'
 import { refillUrl as refillLink } from '@/lib/refill'
+import { needsConfirmation } from '@/lib/supplements/confirm-rules'
+import { getStackSummary } from '@/lib/supplements/store'
 
 /**
  * Početna: agregacija svih feature-a Faze 1 na jednom ekranu. Svaki podatak
@@ -24,7 +27,7 @@ export default async function DashboardPage() {
   const today = belgradeToday()
   const dayStart = belgradeDayStart()
 
-  const [protocol, supplyRows, focusRows, badgeRows, focusTrend] = await Promise.all([
+  const [protocol, supplyRows, focusRows, badgeRows, focusTrend, stackSummary] = await Promise.all([
     getProtocolState(profile),
     db
       .select({
@@ -49,12 +52,14 @@ export default async function DashboardPage() {
       .where(eq(badges.userId, profile.id))
       .orderBy(desc(badges.earnedAt), desc(badges.id)),
     getFocusTrend(profile),
+    getStackSummary(profile.id),
   ])
 
   const { streak, todayDoses } = protocol
   const supplyRow = supplyRows[0]
   const focusStats = focusRows[0]
   const refillUrl = refillLink('dashboard')
+  const stackNeedsConfirm = needsConfirmation(stackSummary.oldestConfirmedOn, today)
 
   return (
     <div className="space-y-5">
@@ -74,10 +79,14 @@ export default async function DashboardPage() {
 
       <FocusScoreCard trend={focusTrend} />
 
+      {stackNeedsConfirm && <StackConfirmCard />}
+
       <OverviewList
         capsulesRemaining={supplyRow?.capsulesRemaining ?? 0}
         estimatedRunoutDate={supplyRow?.estimatedRunoutDate ?? null}
         refillUrl={refillUrl}
+        stackCount={stackSummary.activeCount}
+        stackNeedsConfirm={stackNeedsConfirm}
         focusSessions={focusStats?.sessions ?? 0}
         focusMinutes={focusStats?.minutes ?? 0}
         earnedBadgeKeys={badgeRows.map((b) => b.badgeKey)}

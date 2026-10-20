@@ -38,6 +38,11 @@ const {
   classifyOrderStatus, isAccessGrantingStatus, parseWooGmtDate, resolveOrderDate, wasInserted,
 } = await import('../lib/woocommerce/order-rules')
 const { asOverride, resolveAccessStatus } = await import('../lib/access/resolve')
+const { SUPPLEMENT_CATALOG, SUPPLEMENT_CATEGORIES, getCatalogItem, isCatalogKey, supplementDisplayName } =
+  await import('../lib/supplements/catalog')
+const { normalizeSearch, searchCatalog, matchCatalogExact } = await import('../lib/supplements/search')
+const { CONFIRM_AFTER_DAYS, needsConfirmation } = await import('../lib/supplements/confirm-rules')
+const { MIN_GROUP_SIZE, maskSmallGroup } = await import('../lib/supplements/aggregate-rules')
 const { LOW_STOCK_THRESHOLD, LOW_STOCK_MAX_ALERTS_PER_EPISODE } = await import('../lib/protocol/dosing')
 
 console.log('\n=== 1. Ponoć: 23:50 i 00:10 po Beogradu (zima, UTC+1) ===')
@@ -861,6 +866,109 @@ console.log('\n=== 18. Focus Score kroz vreme (procena iz ponašanja) ===')
   })
   check('fokus blokovi dodaju na skor', practice.current > steady.current, true)
   check('skor nikad preko 100', computeFocusTrend({ baseline: 95, startDate: '2026-10-06', today: '2026-10-19', takenByDay: full(d14), focusMinByDay: new Map(d14.map((d) => [d, 60])) }).current <= 100, true)
+}
+
+// ── Moj stack: katalog, pretraga, nedeljna potvrda ──────────────────────────
+{
+  console.log('\n=== Moj stack: katalog ===')
+  check('katalog ima 100 stavki', SUPPLEMENT_CATALOG.length, 100)
+  const keys = SUPPLEMENT_CATALOG.map((i) => i.key)
+  check('ključevi su jedinstveni', new Set(keys).size, keys.length)
+  check('ključevi su [a-z0-9_]', keys.every((k) => /^[a-z0-9_]+$/.test(k)), true)
+  const categoryIds = new Set<string>(SUPPLEMENT_CATEGORIES.map((c) => c.id))
+  check('svaka stavka ima poznatu kategoriju', SUPPLEMENT_CATALOG.every((i) => categoryIds.has(i.category)), true)
+  check('svaka kategorija ima stavke', SUPPLEMENT_CATEGORIES.every((c) => SUPPLEMENT_CATALOG.some((i) => i.category === c.id)), true)
+  check('svaka stavka ima bar jedan alias', SUPPLEMENT_CATALOG.every((i) => i.aliases.length > 0), true)
+  check('ZenFlow nije u katalogu', SUPPLEMENT_CATALOG.some((i) => /zenflow/i.test(i.label + i.key)), false)
+
+  // Naziv/alias ne sme da pripada dvema stavkama — inače je matchCatalogExact dvosmislen.
+  // Ako ovo padne: ukloni duplirani alias iz MANJE specifične stavke u catalog.ts.
+  const owner = new Map<string, string>()
+  const dupes: string[] = []
+  for (const item of SUPPLEMENT_CATALOG) {
+    for (const term of new Set([item.label, ...item.aliases].map(normalizeSearch))) {
+      const prev = owner.get(term)
+      if (prev !== undefined && prev !== item.key) dupes.push(`${term}: ${prev}/${item.key}`)
+      owner.set(term, item.key)
+    }
+  }
+  check('nijedan naziv/alias nije dvosmislen', dupes, [])
+
+  check('isCatalogKey: poznat', isCatalogKey('magnesium'), true)
+  check('isCatalogKey: nepoznat', isCatalogKey('nepostoji'), false)
+  check('getCatalogItem vraća naziv', getCatalogItem('creatine')?.label, 'Kreatin')
+  check('supplementDisplayName: katalog', supplementDisplayName('collagen', null), 'Kolagen')
+  check('supplementDisplayName: izbačen ključ ostaje sirov', supplementDisplayName('stari_kljuc', null), 'stari_kljuc')
+  check('supplementDisplayName: slobodan unos', supplementDisplayName(null, 'Moj miks'), 'Moj miks')
+
+  console.log('\n=== Moj stack: normalizacija i pretraga ===')
+  check('normalizacija: dijakritici', normalizeSearch('Žen-šen ĆČ'), 'zen sen cc')
+  check('normalizacija: đ → dj', normalizeSearch('Gvožđe'), 'gvozdje')
+  check('normalizacija: apostrof', normalizeSearch("Lion's mane"), 'lions mane')
+  check('normalizacija: razmaci i crtice', normalizeSearch('  L-teanin  '), 'l teanin')
+
+  const first = (q: string) => searchCatalog(q)[0]?.key
+  check('„kolagen" → collagen', first('kolagen'), 'collagen')
+  check('„collagen" → collagen', first('collagen'), 'collagen')
+  check('„magnezijum" → magnesium (osnovni oblik prvi)', first('magnezijum'), 'magnesium')
+  check('„mg" → magnesium', first('mg'), 'magnesium')
+  check('„kreatin" → creatine', first('kreatin'), 'creatine')
+  check('„protein" → whey_protein prvi', first('protein'), 'whey_protein')
+  check('„protein" nalazi i biljni protein', searchCatalog('protein').some((i) => i.key === 'plant_protein'), true)
+  check('„cink" → zinc', first('cink'), 'zinc')
+  check('„zink" → zinc', first('zink'), 'zinc')
+  check('„riblje ulje" → omega3', first('riblje ulje'), 'omega3')
+  check('„ashvaganda" → ashwagandha', first('ashvaganda'), 'ashwagandha')
+  check('„b12" → vitamin_b12', first('b12'), 'vitamin_b12')
+  check('„vitamin d" → vitamin_d3', first('vitamin d'), 'vitamin_d3')
+  check('„gvožđe" → iron', first('gvožđe'), 'iron')
+  check('„siladjit" → shilajit', first('siladjit'), 'shilajit')
+  check('„lions mane" → lions_mane', first('lions mane'), 'lions_mane')
+  check('„5htp" → five_htp', first('5htp'), 'five_htp')
+  check('„l-teanin" → l_theanine', first('l-teanin'), 'l_theanine')
+  check('upit bez pogotka → prazno', searchCatalog('qqqqzzzz').length, 0)
+  check('prazan upit → cela lista', searchCatalog('').length, 100)
+  check('prazan upit + kategorija → samo ta kategorija',
+    searchCatalog('', 'minerals').every((i) => i.category === 'minerals'), true)
+  check('upit + kategorija filtrira', searchCatalog('protein', 'minerals').length, 0)
+  check('dvoslovni upit ne radi podstring („ac" ne pogađa sve)', searchCatalog('ac').length < 15, true)
+
+  console.log('\n=== Moj stack: tačno poklapanje „Drugo" sa katalogom ===')
+  check('„Magnezijum" → magnesium', matchCatalogExact('Magnezijum')?.key, 'magnesium')
+  check('„  MG " → magnesium', matchCatalogExact('  MG ')?.key, 'magnesium')
+  check('„riblje ulje" → omega3', matchCatalogExact('riblje ulje')?.key, 'omega3')
+  check('delimičan naziv NIJE tačan pogodak', matchCatalogExact('magnez'), undefined)
+  check('nepoznat naziv → undefined', matchCatalogExact('Moj domaći miks'), undefined)
+  check('prazan naziv → undefined', matchCatalogExact('   '), undefined)
+
+  console.log('\n=== Moj stack: nedeljna potvrda ===')
+  check('prag je 7 dana', CONFIRM_AFTER_DAYS, 7)
+  check('nema aktivnih → nema kartice', needsConfirmation(null, '2026-10-20'), false)
+  check('potvrđeno danas → nema kartice', needsConfirmation('2026-10-20', '2026-10-20'), false)
+  check('pre 6 dana → nema kartice', needsConfirmation('2026-10-14', '2026-10-20'), false)
+  check('pre 7 dana → kartica', needsConfirmation('2026-10-13', '2026-10-20'), true)
+  check('pre 8 dana → kartica', needsConfirmation('2026-10-12', '2026-10-20'), true)
+  // Kraj letnjeg računanja vremena u EU (25. 10. 2026): kalendarski dani, ne milisekunde.
+  check('DST: 6 kalendarskih dana → nema kartice', needsConfirmation('2026-10-25', '2026-10-31'), false)
+  check('DST: 7 kalendarskih dana → kartica', needsConfirmation('2026-10-24', '2026-10-31'), true)
+
+  console.log('\n=== Moj stack: prag malih grupa ===')
+  check('prag je 3', MIN_GROUP_SIZE, 3)
+  check('0 ostaje 0', maskSmallGroup(0), 0)
+  check('1 → maskirano', maskSmallGroup(1), null)
+  check('2 → maskirano', maskSmallGroup(2), null)
+  check('3 → vidljivo', maskSmallGroup(3), 3)
+  check('50 → vidljivo', maskSmallGroup(50), 50)
+}
+
+{
+  const { updateSupplementSchema } = await import('../lib/validations/stack')
+  check('update: active:true se odbija (zaobilazi granicu)', updateSupplementSchema.safeParse({ id: 1, active: true }).success, false)
+  check('update: active:false se prihvata', updateSupplementSchema.safeParse({ id: 1, active: false }).success, true)
+  const { addSupplementSchema } = await import('../lib/validations/stack')
+  check('add: naziv samo od interpunkcije se odbija', addSupplementSchema.safeParse({ customName: '--', timeOfDay: 'morning' }).success, false)
+  check('add: običan slobodan naziv se prihvata', addSupplementSchema.safeParse({ customName: 'Kurkuma Plus', timeOfDay: 'morning' }).success, true)
+  check('update: bez ijedne promene se odbija', updateSupplementSchema.safeParse({ id: 1 }).success, false)
 }
 
 console.log(`\n──────────────\nRezultat: ${pass} prošlo, ${fail} palo\n`)
