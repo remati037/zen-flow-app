@@ -1,15 +1,13 @@
-import { redirect } from 'next/navigation'
 import { and, asc, count, eq, gte, sql } from 'drizzle-orm'
 
 import { DailyTasks } from '@/components/focus/daily-tasks'
 import { PomodoroTimer } from '@/components/focus/pomodoro-timer'
-import { getCurrentProfile } from '@/lib/auth'
+import { requireAppAccess } from '@/lib/access/app-gate'
 import { dailyTasks, db, focusSessions } from '@/lib/db'
 import { belgradeDayStart, belgradeToday } from '@/lib/dates'
 
 export default async function FokusPage() {
-  const profile = await getCurrentProfile()
-  if (!profile) redirect('/sign-in')
+  const { profile } = await requireAppAccess()
 
   const today = belgradeToday()
   const dayStart = belgradeDayStart()
@@ -35,10 +33,10 @@ export default async function FokusPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-medium text-ink">Fokus</h1>
+        <h1 className="font-heading text-3xl font-medium tracking-[-0.03em] text-ink">Fokus</h1>
         <p className="text-slate-mid">
           {sessions === 0
-            ? 'Pomodoro timer za fokusirane blokove rada.'
+            ? 'Pomodoro tajmer za rad u fokusiranim blokovima.'
             : `Danas: ${sessions} ${sessions === 1 ? 'sesija' : sessions < 5 ? 'sesije' : 'sesija'} · ${minutes} min`}
         </p>
       </header>

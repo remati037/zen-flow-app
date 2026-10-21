@@ -2,11 +2,11 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { belgradeToday } from '@/lib/dates'
-import { CAPSULES_PER_PACKAGE, estimateDaysRemaining, estimateRunoutDate } from '@/lib/protocol/dosing'
+import { belgradeToday, formatIsoDateSr } from '@/lib/dates'
+import { estimateDaysRemaining, estimateRunoutDate, initialCapsulesForStart } from '@/lib/protocol/dosing'
 import { FOCUS_QUIZ_LENGTH, scoreFocusQuiz } from '@/lib/quiz/focus-quiz'
 
 import { completeOnboarding } from './actions'
@@ -46,10 +46,11 @@ const PHASE_LABEL: Record<TrackedPhase, string> = {
   notifications: 'Podsetnici',
 }
 
+// `toLocaleDateString('sr-RS')` daje ćirilicu i parsira ISO kao UTC ponoć (dan
+// ranije zapadno od Griniča) — `formatIsoDateSr` je latinica i bez zone.
 function formatDateSr(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleDateString('sr-RS', { day: 'numeric', month: 'long', year: 'numeric' })
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return ''
+  return formatIsoDateSr(iso)
 }
 
 function isTracked(phase: Phase): phase is TrackedPhase {
@@ -76,7 +77,8 @@ export function OnboardingWizard({ defaultPackages }: { defaultPackages: number 
   const [packages, setPackages] = useState(String(defaultPackages))
   const [startDate, setStartDate] = useState(belgradeToday())
   const [doseMorningTime, setDoseMorningTime] = useState('08:00')
-  const [doseEveningTime, setDoseEveningTime] = useState('20:00')
+  // Druga doza je popodnevna; preporučeni termin je oko 14h.
+  const [doseEveningTime, setDoseEveningTime] = useState('14:00')
   const [quizAnswers, setQuizAnswers] = useState<(number | null)[]>(
     Array(FOCUS_QUIZ_LENGTH).fill(null),
   )
@@ -85,17 +87,21 @@ export function OnboardingWizard({ defaultPackages }: { defaultPackages: number 
   const [error, setError] = useState<string | null>(null)
 
   const packagesNum = Math.max(1, Number.parseInt(packages, 10) || 1)
-  const capsules = packagesNum * CAPSULES_PER_PACKAGE
 
-  const estimate = useMemo<SupplyEstimate>(
-    () => ({
+  // Ista funkcija kao u `completeOnboarding` — procena na ekranu i upis u bazu se
+  // ne razilaze. Protekli dani od početka protokola su već potrošeni.
+  const estimate = useMemo<SupplyEstimate>(() => {
+    const today = belgradeToday()
+    const capsules = /^\d{4}-\d{2}-\d{2}$/.test(startDate)
+      ? initialCapsulesForStart(packagesNum, startDate, today)
+      : initialCapsulesForStart(packagesNum, today, today)
+    return {
       packages: packagesNum,
       capsules,
       days: estimateDaysRemaining(capsules),
-      runoutLabel: formatDateSr(estimateRunoutDate(startDate, capsules)),
-    }),
-    [packagesNum, capsules, startDate],
-  )
+      runoutLabel: formatDateSr(estimateRunoutDate(today, capsules)),
+    }
+  }, [packagesNum, startDate])
 
   // Skor se računa istom funkcijom kao na serveru — rezultat na ekranu i
   // `focusScoreBaseline` u bazi ne mogu da se raziđu.
@@ -178,6 +184,9 @@ export function OnboardingWizard({ defaultPackages }: { defaultPackages: number 
       )}
 
       <CardContent className="min-h-[26rem]">
+        {/* `reducedMotion="user"`: uz sistemsko „Smanji pokrete" motion gasi
+            transform animacije (klizanje koraka), a zadržava prelaz providnosti. */}
+        <MotionConfig reducedMotion="user">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={phase}
@@ -267,6 +276,7 @@ export function OnboardingWizard({ defaultPackages }: { defaultPackages: number 
             )}
           </motion.div>
         </AnimatePresence>
+        </MotionConfig>
       </CardContent>
     </Card>
   )

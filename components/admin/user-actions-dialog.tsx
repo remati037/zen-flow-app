@@ -72,12 +72,12 @@ export function UserActionsDialog({ user }: { user: AdminUserRow }) {
       } else if (override === null) {
         toast.success(
           hasOrderInWindow
-            ? 'Override skinut — nalog je pod automatikom i ima porudžbinu u prozoru (VIP).'
-            : 'Override skinut — nalog je pod automatikom i bez porudžbine u prozoru (neaktivan).',
+            ? 'Override je skinut. Nalog je pod automatikom i ima porudžbinu u prozoru (VIP).'
+            : 'Override je skinut. Nalog je pod automatikom i nema porudžbinu u prozoru (neaktivan).',
         )
       } else {
         toast.success(
-          `Override postavljen: ${override === 'vip' ? 'VIP' : 'neaktivan'}. Ostaje dok ga ne skineš — ni cron ni korisnikov refresh ga ne menjaju.`,
+          `Override postavljen: ${override === 'vip' ? 'VIP' : 'neaktivan'}. Ostaje dok ga ne skineš. Ne menjaju ga ni cron ni korisnikov refresh.`,
         )
       }
 
@@ -139,7 +139,7 @@ export function UserActionsDialog({ user }: { user: AdminUserRow }) {
         <DialogHeader>
           <DialogTitle className="break-all">{user.email}</DialogTitle>
           <DialogDescription>
-            {user.name ?? 'Bez imena'} · {user.role === 'admin' ? 'admin' : 'korisnik'} · streak{' '}
+            {user.name ?? 'Bez imena'} · {user.role === 'admin' ? 'admin' : 'korisnik'} · niz{' '}
             {user.streak}
           </DialogDescription>
         </DialogHeader>
@@ -201,11 +201,11 @@ export function UserActionsDialog({ user }: { user: AdminUserRow }) {
             <p>
               <span className="font-medium text-ink">Kako override radi:</span> upisuje se u{' '}
               <code className="text-[0.95em]">access_override</code>, zasebnu kolonu koju poštuju i
-              gejt pristupa i noćni cron. <span className="font-medium">Trajan je</span> — ne gasi ga
+              gejt pristupa i noćni cron. <span className="font-medium">Trajan je.</span> Ne gasi ga
               ni korisnikov refresh ni <code className="text-[0.95em]">maintainAccessStatuses</code>,
-              samo dugme „Vrati automatiku&ldquo;. Bez override-a pristup zavisi isključivo od
+              već samo dugme „Vrati automatiku&ldquo;. Bez override-a pristup zavisi isključivo od
               porudžbine u poslednjih 60 dana. Nalog sa{' '}
-              <span className="font-medium">admin rolom</span> je uvek VIP — njemu override na
+              <span className="font-medium">admin rolom</span> je uvek VIP, pa mu override na
               „neaktivan&ldquo; nema efekta dok mu se rola ne skine u Clerk-u.
             </p>
           </div>

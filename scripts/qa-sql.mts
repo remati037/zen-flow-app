@@ -34,6 +34,7 @@
 
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 let pass = 0
 let fail = 0
@@ -116,7 +117,8 @@ async function mustFail(label: string, expectFragment: string, run: () => Promis
   }
 }
 
-const MIGRATIONS_DIR = new URL('../drizzle', import.meta.url).pathname
+// fileURLToPath, ne `.pathname` — pathname ostavlja `%20` za razmak u putanji checkout-a.
+const MIGRATIONS_DIR = fileURLToPath(new URL('../drizzle', import.meta.url))
 
 // ════════════════════════════════════════════════════════════════════════════
 // DEO 1 — offline: migracije i dijagnostički spisak (ne treba baza)
@@ -475,6 +477,384 @@ async function runDatabaseChecks() {
     check('getOrderStatusSummary — GROUP BY status, case-insensitive', summary.map((r) => [r.status, r.count, r.grantsAccess]), [['completed', 1, true]])
     const refund = await diag.getOrderStatusSummary('refund@qa.local')
     check('refundirana porudžbina je vidljiva, ali ne računa se', refund.map((r) => [r.status, r.grantsAccess]), [['refunded', false]])
+  })
+
+  // ── Sprint 2: SQL koji je do sada proveravan samo JS simulacijom ──────────
+  const onboarding = await import('../lib/onboarding/finalize')
+  const woo = await import('../lib/woocommerce/sync')
+
+  await inRollback('Onboarding: profil + zalihe + kviz u JEDNOJ izjavi, jednokratno', async () => {
+    await seedProfile('qa_onb')
+    const input = {
+      userId: 'qa_onb',
+      startDate: '2026-09-29',
+      doseMorningTime: '08:00',
+      doseEveningTime: '20:00',
+      score: 42,
+      quizAnswers: [3, 3, 3, 3, 3],
+      capsulesRemaining: 40,
+      estimatedRunoutDate: '2026-10-29',
+      today: '2026-10-19',
+    }
+    check('prvi poziv upisuje', await onboarding.finalizeOnboarding(input), true)
+    check('drugi poziv (dupli submit) ne upisuje ništa',
+      await onboarding.finalizeOnboarding({ ...input, capsulesRemaining: 999 }), false)
+    const [sup] = await db.select().from(schema.supply).where(eq(schema.supply.userId, 'qa_onb'))
+    check('zalihe iz PRVOG poziva', sup?.capsulesRemaining, 40)
+    const quiz = await db.select().from(schema.focusQuizResults).where(eq(schema.focusQuizResults.userId, 'qa_onb'))
+    check('tačno jedan red kviza', quiz.length, 1)
+    const [prof] = await db.select().from(schema.profiles).where(eq(schema.profiles.id, 'qa_onb'))
+    check('onboarding označen', prof?.onboardingCompleted, true)
+  })
+
+  const wooOrder = (id: number, email: string, createdGmt: string) => ({
+    id,
+    status: 'processing',
+    date_created_gmt: createdGmt,
+    date_paid_gmt: createdGmt,
+    billing: { email },
+    line_items: [{ sku: 'NURO-002', quantity: 1 }],
+  })
+  const capsulesOf = async (userId: string) =>
+    (await db.select().from(schema.supply).where(eq(schema.supply.userId, userId)))[0]
+
+  await inRollback('Woo top-up: delta nad tekućom vrednošću + reset epizode', async () => {
+    await db.insert(schema.profiles)
+      .values({ id: 'qa_woo', email: 'QA_Woo@qa.local', role: 'user', accessStatus: 'vip' })
+    await db.insert(schema.supply).values({ userId: 'qa_woo', capsulesRemaining: 10, lowStockAlertsSent: 2 })
+    const first = await woo.upsertOrder(wooOrder(990001, 'qa_woo@qa.local', '2026-10-18T10:00:00'))
+    check('nova porudžbina → created', first.result, 'created')
+    const after = await capsulesOf('qa_woo')
+    check('zalihe 10 + 60 (mejl case-insensitive)', after?.capsulesRemaining, 70)
+    check('epizoda niskih zaliha zatvorena', after?.lowStockAlertsSent, 0)
+    ok('runout datum preračunat', after?.estimatedRunoutDate !== null, String(after?.estimatedRunoutDate))
+    const again = await woo.upsertOrder(wooOrder(990001, 'qa_woo@qa.local', '2026-10-18T10:00:00'))
+    check('ponovljen webhook → updated', again.result, 'updated')
+    check('ponovljen webhook NE naduvava ponovo', (await capsulesOf('qa_woo'))?.capsulesRemaining, 70)
+  })
+
+  await inRollback('Backfill top-up samo za porudžbine POSLE onboardinga', async () => {
+    await db.insert(schema.profiles)
+      .values({ id: 'qa_bf', email: 'qa_bf@qa.local', role: 'user', accessStatus: 'vip' })
+    await db.insert(schema.supply).values({ userId: 'qa_bf', capsulesRemaining: 5 })
+    await db.insert(schema.focusQuizResults).values({ userId: 'qa_bf', date: '2026-08-10', score: 40 })
+    await woo.upsertOrder(wooOrder(990002, 'qa_bf@qa.local', '2026-08-05T10:00:00'), { topUpSupply: 'after-onboarding' })
+    check('porudžbina PRE onboardinga ne dopunjuje', (await capsulesOf('qa_bf'))?.capsulesRemaining, 5)
+    await woo.upsertOrder(wooOrder(990003, 'qa_bf@qa.local', '2026-08-10T10:00:00'), { topUpSupply: 'after-onboarding' })
+    check('porudžbina ISTOG dana ne dopunjuje (dvosmisleno)', (await capsulesOf('qa_bf'))?.capsulesRemaining, 5)
+    await woo.upsertOrder(wooOrder(990004, 'qa_bf@qa.local', '2026-08-12T10:00:00'), { topUpSupply: 'after-onboarding' })
+    check('porudžbina POSLE onboardinga dopunjuje', (await capsulesOf('qa_bf'))?.capsulesRemaining, 65)
+    await woo.upsertOrder(wooOrder(990005, 'qa_bf@qa.local', '2026-08-13T10:00:00'), { topUpSupply: false })
+    check('topUpSupply=false ne dopunjuje', (await capsulesOf('qa_bf'))?.capsulesRemaining, 65)
+  })
+
+  const winback = await import('../lib/access/winback')
+  await inRollback('Win-back kandidati: GROUP BY/HAVING nad pravim Postgres-om', async () => {
+    const today = '2026-10-19'
+    const seedLapsed = async (id: string, orderGmt: string, extra: Partial<typeof schema.profiles.$inferInsert> = {}) => {
+      await db.insert(schema.profiles).values({
+        id, email: `${id}@qa.local`, role: 'user', accessStatus: 'inactive', ...extra,
+      })
+      await db.insert(schema.orders).values({
+        wooOrderId: `wb-${id}`, email: `${id}@qa.local`, productType: 'full',
+        quantityPackages: 1, capsulesTotal: 60, orderDate: new Date(orderGmt), status: 'completed',
+      })
+    }
+    // Porudžbina 2026-08-15 → istek 2026-10-14 → 5 dana posle = faza 1.
+    await seedLapsed('qa_wb_1', '2026-08-15T10:00:00Z')
+    // Istek pre 10 dana → faza 2.
+    await seedLapsed('qa_wb_2', '2026-08-10T10:00:00Z')
+    // Davno istekao → van prozora.
+    await seedLapsed('qa_wb_old', '2026-03-01T10:00:00Z')
+    // Admin ručno ugasio pristup → bez win-back-a.
+    await seedLapsed('qa_wb_override', '2026-08-15T10:00:00Z', { accessOverride: 'inactive' })
+
+    const found = await winback.getWinbackCandidates(today)
+    const byId = new Map(found.map((c) => [c.profile.id, c]))
+    check('faza 1 (5 dana posle isteka)', byId.get('qa_wb_1')?.stage, 1)
+    check('poslednji dan pristupa', byId.get('qa_wb_1')?.expiryDay, '2026-10-14')
+    check('faza 2 (10 dana posle isteka)', byId.get('qa_wb_2')?.stage, 2)
+    check('davno istekao NIJE kandidat', byId.has('qa_wb_old'), false)
+    check('ručni override NIJE kandidat', byId.has('qa_wb_override'), false)
+  })
+
+  // ── Sprint 4 ──────────────────────────────────────────────────────────────
+  const record = await import('../lib/protocol/record-dose')
+  const { belgradeToday: bt, addDaysIso: add } = await import('../lib/dates')
+  await inRollback('recordDose: log + zalihe u JEDNOJ izjavi (double-tap, undo, prozor)', async () => {
+    const today = bt()
+    await db.insert(schema.profiles).values({
+      id: 'qa_dose', email: 'qa_dose@qa.local', role: 'user', accessStatus: 'vip',
+      onboardingCompleted: true, protocolStartDate: add(today, -3),
+    })
+    await db.insert(schema.supply).values({ userId: 'qa_dose', capsulesRemaining: 20 })
+    const [prof] = await db.select().from(schema.profiles).where(eq(schema.profiles.id, 'qa_dose'))
+    const supplyOf = async () =>
+      (await db.select().from(schema.supply).where(eq(schema.supply.userId, 'qa_dose')))[0]?.capsulesRemaining
+
+    const first = await record.recordDose(prof!, { date: today, dose: 'morning', status: 'taken' })
+    check('uzeta doza troši 2 kapsule', first.capsulesRemaining, 18)
+    await record.recordDose(prof!, { date: today, dose: 'morning', status: 'taken' })
+    check('double-tap ne troši ponovo', await supplyOf(), 18)
+    const second = await record.recordDose(prof!, { date: today, dose: 'evening', status: 'taken' })
+    check('obe doze → dan kompletan', second.streak.todayComplete, true)
+    ok('bedž „prva-doza" dodeljen', first.newBadges.includes('prva-doza'), first.newBadges.join(',') || 'nijedan')
+    await record.recordDose(prof!, { date: today, dose: 'evening', status: 'skipped' })
+    check('undo vraća 2 kapsule', await supplyOf(), 18)
+    await mustFail('dan van backfill prozora se odbija', 'poslednjih', () =>
+      record.recordDose(prof!, { date: add(today, -30), dose: 'morning', status: 'taken' }),
+    )
+  })
+
+  const retention = await import('../lib/admin/retention')
+  await inRollback('Retencija: funnel, konverzija i liste se IZVRŠAVAJU', async () => {
+    const today = '2026-10-19'
+    await db.insert(schema.profiles).values({
+      id: 'qa_ret', email: 'qa_ret@qa.local', role: 'user', accessStatus: 'vip', onboardingCompleted: true,
+    })
+    await db.insert(schema.orders).values([
+      { wooOrderId: 'ret-1', email: 'qa_ret@qa.local', productType: 'full', quantityPackages: 1, capsulesTotal: 60, orderDate: new Date('2026-09-01T10:00:00Z'), status: 'completed' },
+      { wooOrderId: 'ret-2', email: 'qa_ret@qa.local', productType: 'refill', quantityPackages: 1, capsulesTotal: 60, orderDate: new Date('2026-10-10T10:00:00Z'), status: 'completed' },
+      { wooOrderId: 'ret-3', email: 'kupac_bez_naloga@qa.local', productType: 'full', quantityPackages: 1, capsulesTotal: 60, orderDate: new Date('2026-10-01T10:00:00Z'), status: 'processing' },
+    ])
+    await db.insert(schema.supply).values({ userId: 'qa_ret', capsulesRemaining: 10, estimatedRunoutDate: '2026-10-21' })
+    await db.insert(schema.notificationsLog).values({
+      userId: 'qa_ret', type: 'low_stock_alert', channel: 'email', status: 'success', sentAt: new Date('2026-10-05T08:00:00Z'),
+    })
+    const report = await retention.getRetentionReport(today)
+    ok('funnel broji kupce', report.funnel.buyers >= 2, `kupaca: ${report.funnel.buyers}`)
+    ok('ponovna kupovina sa app-om', report.funnel.repeatRegistered.repeat >= 1)
+    ok('konverzija: porudžbina 5 dana posle alerta se broji', report.refill.converted >= 1,
+      `${report.refill.converted}/${report.refill.alerted}`)
+    ok('„ističu uskoro" sadrži korisnika', report.runningOut.some((r) => r.userId === 'qa_ret'))
+    ok('„kupili, a nemaju nalog" sadrži kupca',
+      report.unregisteredBuyers.some((r) => r.email === 'kupac_bez_naloga@qa.local'))
+  })
+
+  const focusQ = await import('../lib/focus/queries')
+  await inRollback('Focus Score: GROUP BY po beogradskom danu se izvršava', async () => {
+    const today = bt()
+    await db.insert(schema.profiles).values({
+      id: 'qa_fs', email: 'qa_fs@qa.local', role: 'user', accessStatus: 'vip',
+      onboardingCompleted: true, protocolStartDate: add(today, -5), focusScoreBaseline: 40,
+    })
+    for (let i = 5; i >= 1; i--) {
+      for (const dose of ['morning', 'evening'] as const) {
+        await db.insert(schema.protocolLogs).values({ userId: 'qa_fs', date: add(today, -i), dose, status: 'taken' })
+      }
+    }
+    await db.insert(schema.focusSessions).values({ userId: 'qa_fs', durationMin: 25, completed: true })
+    const [prof] = await db.select().from(schema.profiles).where(eq(schema.profiles.id, 'qa_fs'))
+    const t = await focusQ.getFocusTrend(prof!)
+    check('polazna tačka iz kviza', t.baseline, 40)
+    ok('5 punih dana + blok → skor iznad polazne', t.current > 40, `skor ${t.current}`)
+    check('serija od početka protokola do danas', t.points.length, 6)
+  })
+
+  // ── Moj stack ─────────────────────────────────────────────────────────────
+  const stack = await import('../lib/supplements/store')
+  const { belgradeToday: stkToday, addDaysIso: stkAdd } = await import('../lib/dates')
+
+  await inRollback('Moj stack: katalog + slobodan unos, reaktivacija, case-insensitive', async () => {
+    await seedProfile('qa_stk')
+    const today = stkToday()
+    const a = await stack.addSupplement('qa_stk', { catalogKey: 'magnesium' }, { timeOfDay: 'evening', doseNote: '400 mg' }, today)
+    ok('unos iz kataloga vraća id', typeof a.id === 'number')
+
+    const again = await stack.addSupplement('qa_stk', { catalogKey: 'magnesium' }, { timeOfDay: 'morning' }, today)
+    check('isti ključ ne pravi drugi red', again.id, a.id)
+    let rows = await stack.listActiveSupplements('qa_stk')
+    check('i dalje jedan red', rows.length, 1)
+    check('doba dana prepisano', rows[0]?.timeOfDay, 'morning')
+    check('napomena o dozi prepisana (nema → null)', rows[0]?.doseNote, null)
+
+    const c1 = await stack.addSupplement('qa_stk', { customName: 'Moj Miks' }, { timeOfDay: 'afternoon' }, today)
+    const c2 = await stack.addSupplement('qa_stk', { customName: 'moj miks' }, { timeOfDay: 'afternoon' }, today)
+    check('slobodan naziv je case-insensitive jedinstven', c2.id, c1.id)
+    check('dva reda ukupno', (await stack.listActiveSupplements('qa_stk')).length, 2)
+
+    // Soft delete pa ponovno dodavanje = reaktivacija ISTOG reda.
+    ok('update uklanjanja uspeva', await stack.updateSupplementRow('qa_stk', a.id, { active: false }, today))
+    check('uklonjen red nije u listi', (await stack.listActiveSupplements('qa_stk')).length, 1)
+    const back = await stack.addSupplement('qa_stk', { catalogKey: 'magnesium' }, { timeOfDay: 'evening' }, today)
+    check('reaktivacija koristi isti red', back.id, a.id)
+    rows = await stack.listActiveSupplements('qa_stk')
+    check('opet dva aktivna', rows.length, 2)
+    const total = await db.select().from(schema.userSupplements).where(eq(schema.userSupplements.userId, 'qa_stk'))
+    check('u bazi nema duplikata', total.length, 2)
+  })
+
+  await inRollback('Moj stack: dodavanje osvežava potvrdu', async () => {
+    await seedProfile('qa_stk_fresh')
+    const today = stkToday()
+    const old = stkAdd(today, -20)
+    await stack.addSupplement('qa_stk_fresh', { catalogKey: 'zinc' }, { timeOfDay: 'morning' }, old)
+    check('pre dodavanja: najstarija potvrda je stara', (await stack.getStackSummary('qa_stk_fresh')).oldestConfirmedOn, old)
+    await stack.addSupplement('qa_stk_fresh', { catalogKey: 'iron' }, { timeOfDay: 'morning' }, today)
+    check('addSupplement osvežava potvrdu celog stack-a', (await stack.getStackSummary('qa_stk_fresh')).oldestConfirmedOn, today)
+    check('clearStack i dalje briše sve', await stack.clearStack('qa_stk_fresh'), 2)
+    check('posle clearStack: prazan summary', (await stack.getStackSummary('qa_stk_fresh')).activeCount, 0)
+  })
+
+  await inRollback('Moj stack: ograničenja baze', async () => {
+    await seedProfile('qa_stk_c')
+    const today = stkToday()
+    const base = { userId: 'qa_stk_c', timeOfDay: 'morning' as const, lastConfirmedOn: today }
+    await mustFailInSavepoint('oba imena odjednom → CHECK', 'user_supplements_one_name', () =>
+      db.insert(schema.userSupplements).values({ ...base, catalogKey: 'zinc', customName: 'Cink' }),
+    )
+    await mustFailInSavepoint('nijedno ime → CHECK', 'user_supplements_one_name', () =>
+      db.insert(schema.userSupplements).values({ ...base }),
+    )
+    await mustFailInSavepoint('spajanje kataloškog reda → CHECK', 'user_supplements_merge_custom_only', () =>
+      db.insert(schema.userSupplements).values({ ...base, catalogKey: 'zinc', mergedIntoKey: 'magnesium' }),
+    )
+    await mustFailInSavepoint('isti kataloški ključ dvaput → unique', 'user_supplements_user_catalog_uq', async () => {
+      await db.insert(schema.userSupplements).values({ ...base, catalogKey: 'zinc' })
+      await db.insert(schema.userSupplements).values({ ...base, catalogKey: 'zinc' })
+    })
+  })
+
+  await inRollback('Moj stack: izmena je vezana za vlasnika; potvrda; brisanje', async () => {
+    await seedProfile('qa_stk_a')
+    await seedProfile('qa_stk_b')
+    const today = stkToday()
+    const old = stkAdd(today, -20)
+    const mine = await stack.addSupplement('qa_stk_a', { catalogKey: 'zinc' }, { timeOfDay: 'morning' }, old)
+    const theirs = await stack.addSupplement('qa_stk_b', { catalogKey: 'zinc' }, { timeOfDay: 'morning' }, old)
+
+    check('tuđ red se ne menja', await stack.updateSupplementRow('qa_stk_a', theirs.id, { timeOfDay: 'evening' }, today), false)
+    const [other] = await db.select().from(schema.userSupplements).where(eq(schema.userSupplements.id, theirs.id))
+    check('tuđ red je netaknut', other?.timeOfDay, 'morning')
+
+    let s = await stack.getStackSummary('qa_stk_a')
+    check('summary: broj aktivnih', s.activeCount, 1)
+    check('summary: najstariji datum je string', s.oldestConfirmedOn, old)
+
+    ok('sopstveni update uspeva', await stack.updateSupplementRow('qa_stk_a', mine.id, { doseNote: '15 mg' }, today))
+    s = await stack.getStackSummary('qa_stk_a')
+    check('svaka izmena liste osvežava potvrdu', s.oldestConfirmedOn, today)
+    const [theirsAfter] = await db.select().from(schema.userSupplements).where(eq(schema.userSupplements.id, theirs.id))
+    check('potvrda tuđeg stack-a ostaje stara', theirsAfter?.lastConfirmedOn, old)
+
+    check('prazan update vraća false', await stack.updateSupplementRow('qa_stk_a', mine.id, {}, today), false)
+    check('doseNote se briše sa null', (await stack.updateSupplementRow('qa_stk_a', mine.id, { doseNote: null }, today)), true)
+    const [noNote] = await db.select().from(schema.userSupplements).where(eq(schema.userSupplements.id, mine.id))
+    check('doseNote je stvarno null u bazi', noNote?.doseNote, null)
+    check('prazan stack: summary.activeCount 0', (await stack.getStackSummary('qa_stk_c_nema')).activeCount, 0)
+    check('prazan stack: oldestConfirmedOn null', (await stack.getStackSummary('qa_stk_c_nema')).oldestConfirmedOn, null)
+
+    await db.update(schema.userSupplements).set({ lastConfirmedOn: old }).where(eq(schema.userSupplements.id, mine.id))
+    check('confirmStack vraća broj aktivnih', await stack.confirmStack('qa_stk_a', today), 1)
+    check('confirmStack postavlja današnji dan', (await stack.getStackSummary('qa_stk_a')).oldestConfirmedOn, today)
+
+    const inactiveRow = await stack.addSupplement('qa_stk_a', { customName: 'Neaktivan unos' }, { timeOfDay: 'evening' }, old)
+    await stack.updateSupplementRow('qa_stk_a', inactiveRow.id, { active: false }, old)
+    await db.update(schema.userSupplements).set({ lastConfirmedOn: old }).where(eq(schema.userSupplements.id, inactiveRow.id))
+    await stack.confirmStack('qa_stk_a', today)
+    const [inactiveAfter] = await db.select().from(schema.userSupplements).where(eq(schema.userSupplements.id, inactiveRow.id))
+    check('confirmStack ne dira neaktivan red', inactiveAfter?.lastConfirmedOn, old)
+
+    check('clearStack briše samo svoje (i neaktivne)', await stack.clearStack('qa_stk_a'), 2)
+    check('moj stack prazan', (await stack.listActiveSupplements('qa_stk_a')).length, 0)
+    check('tuđ stack ostaje', (await stack.listActiveSupplements('qa_stk_b')).length, 1)
+  })
+
+  await inRollback('Moj stack: brisanje profila briše stack (CASCADE)', async () => {
+    await seedProfile('qa_stk_del')
+    await stack.addSupplement('qa_stk_del', { catalogKey: 'iron' }, { timeOfDay: 'morning' }, stkToday())
+    await db.delete(schema.profiles).where(eq(schema.profiles.id, 'qa_stk_del'))
+    const left = await db.select().from(schema.userSupplements).where(eq(schema.userSupplements.userId, 'qa_stk_del'))
+    check('redovi nestaju sa profilom', left.length, 0)
+  })
+
+  await inRollback('Moj stack: gornja granica unosa', async () => {
+    await seedProfile('qa_stk_cap')
+    const today = stkToday()
+    let firstId = 0
+    for (let i = 0; i < stack.MAX_SUPPLEMENTS_PER_USER; i++) {
+      const r = await stack.addSupplement('qa_stk_cap', { customName: `Unos broj ${i}` }, { timeOfDay: 'morning' }, today)
+      if (i === 0) firstId = r.id
+    }
+    await mustFail('unos preko granice se odbija', 'Stack je pun', () =>
+      stack.addSupplement('qa_stk_cap', { customName: 'Jedan previše' }, { timeOfDay: 'morning' }, today),
+    )
+    ok('uklanjanje unosa (active=false) uspeva', await stack.updateSupplementRow('qa_stk_cap', firstId, { active: false }, today))
+    const freed = await stack.addSupplement('qa_stk_cap', { customName: 'Oslobođeno mesto' }, { timeOfDay: 'morning' }, today)
+    ok('uklonjen unos oslobađa mesto (granica broji samo aktivne)', freed.id > 0)
+    await mustFail('ponovno aktiviranje uklonjenog unosa na punom stack-u se odbija', 'Stack je pun', () =>
+      stack.addSupplement('qa_stk_cap', { customName: 'Unos broj 0' }, { timeOfDay: 'morning' }, today),
+    )
+  })
+
+  await inRollback('Moj stack: spajanje slobodnog unosa sa katalogom', async () => {
+    await seedProfile('qa_stk_m1')
+    await seedProfile('qa_stk_m2')
+    const today = stkToday()
+    await stack.addSupplement('qa_stk_m1', { customName: 'Mg tablete' }, { timeOfDay: 'evening' }, today)
+    await stack.addSupplement('qa_stk_m2', { customName: 'MG TABLETE' }, { timeOfDay: 'evening' }, today)
+    check('spajanje pogađa oba reda (lower())', await stack.mergeCustomSupplement('mg tablete', 'magnesium'), 2)
+    const merged = await db.select().from(schema.userSupplements).where(eq(schema.userSupplements.mergedIntoKey, 'magnesium'))
+    check('oba reda imaju merged_into_key', merged.length, 2)
+    check('korisnikov originalni unos je netaknut', merged.some((r) => r.customName === 'Mg tablete'), true)
+    check('poništavanje spajanja (null)', await stack.mergeCustomSupplement('mg tablete', null), 2)
+    check('nepostojeći naziv → 0 redova', await stack.mergeCustomSupplement('nema takvog', 'zinc'), 0)
+  })
+
+  const stackAdmin = await import('../lib/admin/stack')
+  await inRollback('Admin stack: agregat po ključu, spajanje, zastareli, prag malih grupa', async () => {
+    const today = stkToday()
+    const stale = stkAdd(today, -60)
+    const before = await stackAdmin.getStackReport(today)
+    await db
+      .insert(schema.profiles)
+      .values({ id: 'qa_sa_admin', email: 'qa_sa_admin@qa.local', role: 'admin', accessStatus: 'vip', onboardingCompleted: true })
+      .onConflictDoNothing()
+    for (const id of ['qa_sa1', 'qa_sa2', 'qa_sa3', 'qa_sa4', 'qa_sa5', 'qa_sa6']) {
+      await db
+        .insert(schema.profiles)
+        .values({ id, email: `${id}@qa.local`, role: 'user', accessStatus: 'vip', onboardingCompleted: true })
+        .onConflictDoNothing()
+    }
+    // magnesium: 3 svežih (jedan preko slobodnog unosa koji admin spaja) + 1 zastareo
+    await stack.addSupplement('qa_sa1', { catalogKey: 'magnesium' }, { timeOfDay: 'evening' }, today)
+    await stack.addSupplement('qa_sa2', { catalogKey: 'magnesium' }, { timeOfDay: 'evening' }, today)
+    await stack.addSupplement('qa_sa3', { customName: 'Mg tablete' }, { timeOfDay: 'evening' }, today)
+    await stack.addSupplement('qa_sa4', { catalogKey: 'magnesium' }, { timeOfDay: 'evening' }, stale)
+    // zinc: samo 2 sveža → maskirano
+    await stack.addSupplement('qa_sa1', { catalogKey: 'zinc' }, { timeOfDay: 'morning' }, today)
+    await stack.addSupplement('qa_sa2', { catalogKey: 'zinc' }, { timeOfDay: 'morning' }, today)
+    // neaktivan unos ne ulazi nigde
+    const gone = await stack.addSupplement('qa_sa5', { catalogKey: 'iron' }, { timeOfDay: 'morning' }, today)
+    await stack.updateSupplementRow('qa_sa5', gone.id, { active: false }, today)
+    // nespojen slobodan unos
+    await stack.addSupplement('qa_sa6', { customName: 'Ekstrakt X' }, { timeOfDay: 'morning' }, today)
+
+    // Admin sa magnezijumom i slobodnim unosom NE ulazi ni u agregat ni u listu slobodnih.
+    await stack.addSupplement('qa_sa_admin', { catalogKey: 'magnesium' }, { timeOfDay: 'evening' }, today)
+    await stack.addSupplement('qa_sa_admin', { customName: 'Admin Miks' }, { timeOfDay: 'evening' }, today)
+
+    let report = await stackAdmin.getStackReport(today)
+    check('admin ne menja broj magnezijuma', report.rows.find((r) => r.key === 'magnesium')?.rawFreshUsers, 2)
+    check('admin ne ulazi u listu slobodnih', report.custom.some((c) => c.name === 'admin miks'), false)
+    const mag = report.rows.find((r) => r.key === 'magnesium')
+    check('pre spajanja: magnezijum sveži = 2 (maskirano)', mag?.freshUsers, null)
+    check('pre spajanja: sirov broj svežih = 2', mag?.rawFreshUsers, 2)
+    check('zastareo se broji zasebno (1 → maskirano)', mag?.staleUsers, null)
+    check('lista slobodnih sadrži „mg tablete" sa 1', report.custom.find((c) => c.name === 'mg tablete')?.users, 1)
+    ok('slobodni unosi NISU u tabeli po suplementu', !report.rows.some((r) => r.key.startsWith('custom:')))
+
+    await stack.mergeCustomSupplement('mg tablete', 'magnesium')
+    report = await stackAdmin.getStackReport(today)
+    const mag2 = report.rows.find((r) => r.key === 'magnesium')
+    check('posle spajanja: magnezijum sveži = 3 (vidljivo)', mag2?.freshUsers, 3)
+    check('posle spajanja: nestaje iz liste slobodnih', report.custom.some((c) => c.name === 'mg tablete'), false)
+    check('label dolazi iz kataloga', mag2?.label, 'Magnezijum')
+    check('zinc sa 2 korisnika je maskiran', report.rows.find((r) => r.key === 'zinc')?.freshUsers, null)
+    check('neaktivan gvožđe ne ulazi', report.rows.some((r) => r.key === 'iron'), false)
+    check('nespojen unos ostaje u listi', report.custom.find((c) => c.name === 'ekstrakt x')?.users, 1)
+    check('onboardovani: tačno +6', report.onboarded - before.onboarded, 6)
+    check('korisnika sa svežim stack-om: tačno +4 (sa1, sa2, sa3, sa6; bez sa4 zastarelog i sa5 neaktivnog)', report.usersWithStack - before.usersWithStack, 4)
   })
 
   ok('adapter je stvarno korišćen', adapter.queryCount() > 0, `${adapter.queryCount()} upita kroz pg`)

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Hanken_Grotesk } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "@/components/ui/sonner";
+import { clerkLocalization } from "@/lib/clerk-localization";
 import "./globals.css";
 
 const hankenGrotesk = Hanken_Grotesk({
@@ -11,9 +12,9 @@ const hankenGrotesk = Hanken_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "ZenFlow — Tvoj protokol, na dohvat ruke",
+  title: "ZenFlow · Tvoj dnevni protokol",
   description:
-    "Companion aplikacija za ZenFlow™ protokol — dnevni habit tracker, alati za fokus i sistem koji čuva niz.",
+    "Aplikacija za ZenFlow™ protokol. Beleži doze, prati zalihe i radi u fokusu.",
   applicationName: "ZenFlow",
   appleWebApp: {
     capable: true,
@@ -27,7 +28,12 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#203849",
+  // Paper, ne ink: header je svetao, pa bi tamna traka iznad njega (Android
+  // adresna traka / iOS status bar) izgledala kao greška.
+  themeColor: "#ECF0F3",
+  // App je namerno samo svetla — bez ovoga Android Chrome „auto-dark" invertuje
+  // brand boje (lime postaje blatnjav, ink beo) i kontrast puca.
+  colorScheme: "light",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -40,6 +46,7 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider
+      localization={clerkLocalization}
       appearance={{
         variables: {
           colorPrimary: "#203849",
@@ -58,7 +65,7 @@ export default function RootLayout({
         },
       }}
     >
-      <html lang="sr" className={hankenGrotesk.variable}>
+      <html lang="sr-Latn" className={hankenGrotesk.variable}>
         <body>
           {children}
           <Toaster richColors position="top-center" />

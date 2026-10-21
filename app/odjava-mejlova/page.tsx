@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 export const metadata = {
-  title: 'Odjava sa alert mejlova — NuroLab',
+  title: 'Odjava sa alert mejlova · NuroLab',
 }
 
 /**
@@ -35,15 +35,15 @@ export default async function OdjavaMejlovaPage({
           </CardTitle>
           <CardDescription>
             {failed
-              ? 'Odjavni link je nepotpun ili je izmenjen u prenosu. Alerte možeš isključiti i iz same aplikacije, u Podešavanjima.'
-              : 'Više ti ne šaljemo mejlove o niskim zalihama. Ovo ne dira tvoj nalog, streak ni push podsetnike.'}
+              ? 'Link za odjavu je nepotpun ili je izmenjen usput. Alert mejlove možeš da isključiš i u Podešavanjima aplikacije.'
+              : 'Više ti ne šaljemo mejlove o niskim zalihama. Nalog, niz i push podsetnici ostaju kakvi su bili.'}
           </CardDescription>
         </CardHeader>
 
         <CardContent className="flex flex-col gap-4">
           {!failed && (
             <p className="text-sm text-slate-mid">
-              Predomislio si se? Uključi ih ponovo u{' '}
+              Ako se predomisliš, uključi ih ponovo u{' '}
               <span className="font-medium text-ink">Podešavanja → Notifikacije</span>.
             </p>
           )}

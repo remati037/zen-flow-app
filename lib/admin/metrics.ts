@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { and, eq, gte, isNotNull, sql } from 'drizzle-orm'
+import { and, eq, gte, inArray, isNotNull, sql } from 'drizzle-orm'
 
 import {
   db,
@@ -11,6 +11,7 @@ import {
   pushSubscriptions,
 } from '@/lib/db'
 import { addDaysIso, belgradeToday } from '@/lib/dates'
+import { SYNCED_STATUSES } from '@/lib/woocommerce/order-rules'
 import type { IsoDate } from '@/lib/protocol/streak'
 
 import { getUserStatsForProfiles } from './user-stats'
@@ -78,7 +79,8 @@ export async function getAdminMetrics(): Promise<AdminMetrics> {
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(orders)
-      .where(gte(orders.orderDate, ordersSince)),
+      // Samo važeće porudžbine — refundirane/otkazane nisu prodaja.
+      .where(and(gte(orders.orderDate, ordersSince), inArray(orders.status, [...SYNCED_STATUSES]))),
 
     db
       .select({

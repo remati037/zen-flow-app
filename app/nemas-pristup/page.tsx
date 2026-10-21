@@ -3,11 +3,16 @@ import { redirect } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { refreshAccessStatusForProfile } from '@/lib/access/status'
+import { getLatestOrderDate, refreshAccessStatusForProfile } from '@/lib/access/status'
+import { accessWindowEnd } from '@/lib/access/window'
 import { getCurrentProfile, isAdmin } from '@/lib/auth'
+import { formatIsoDateSr, toBelgradeIso } from '@/lib/dates'
+import { danaLabel } from '@/lib/protocol/milestones'
+import { getProtocolState } from '@/lib/protocol/queries'
+import { refillUrl } from '@/lib/refill'
 
 export const metadata = {
-  title: 'Nemaš pristup — NuroLab',
+  title: 'Nemaš pristup · NuroLab',
 }
 
 /**
@@ -32,6 +37,25 @@ export default async function NemasPristupPage() {
   const storeUrl = process.env.WOO_STORE_URL ?? 'https://nurolab.rs'
   const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? 'podrska@nurolab.rs'
 
+  // Povratni kupac (ima važeću porudžbinu, ali van prozora) ≠ nalog bez kupovine.
+  // „Nismo pronašli porudžbinu" je povratnom kupcu bilo netačno — i propuštena
+  // prilika: ovo je trenutak kad je ponovna kupovina najverovatnija. Ručni
+  // override (admin namerno ugasio pristup) dobija neutralni ekran.
+  const latestOrder = profile.accessOverride ? null : await getLatestOrderDate(profile.email)
+  if (latestOrder) {
+    const expiredOn = formatIsoDateSr(accessWindowEnd(toBelgradeIso(latestOrder)))
+    const { streak } = await getProtocolState(profile)
+    return (
+      <LapsedScreen
+        email={profile.email}
+        expiredOn={expiredOn}
+        pausedStreak={streak.current}
+        ctaHref={refillUrl('nemas_pristup') ?? storeUrl}
+        supportEmail={supportEmail}
+      />
+    )
+  }
+
   return (
     <main className="flex min-h-dvh items-center justify-center bg-paper px-4 py-12">
       <Card className="w-full max-w-md shadow-soft" size="default">
@@ -41,8 +65,8 @@ export default async function NemasPristupPage() {
           </p>
           <CardTitle className="text-lg">Nalog još nema pristup</CardTitle>
           <CardDescription>
-            Companion aplikaciju koriste ZenFlow kupci. Nismo pronašli porudžbinu vezanu za tvoj
-            nalog.
+            Aplikacija je za ZenFlow kupce. Za ovaj nalog nismo pronašli nijednu
+            porudžbinu.
           </CardDescription>
         </CardHeader>
 
@@ -53,15 +77,82 @@ export default async function NemasPristupPage() {
           </div>
 
           <p className="text-sm text-muted-foreground">
-            Registruj se <strong className="text-foreground">istim mejlom</strong> koji si koristio
-            pri kupovini na nurolab.rs. Ako si tek poručio, pristup se aktivira u par minuta — osveži
-            ovu stranicu.
+            Registruj se <strong className="text-foreground">istim mejlom kao pri kupovini</strong>{' '}
+            na nurolab.rs. Posle porudžbine pristup se aktivira za par minuta. Tada osveži ovu
+            stranicu.
           </p>
 
           <div className="flex flex-col gap-2">
             <Button asChild variant="lime" size="lg">
               <a href={storeUrl} target="_blank" rel="noopener noreferrer">
                 Kupi ZenFlow
+              </a>
+            </Button>
+
+            <Button asChild variant="outline" size="lg">
+              <a href={`mailto:${supportEmail}`}>Kontaktiraj podršku</a>
+            </Button>
+
+            <SignOutButton redirectUrl="/sign-in">
+              <Button variant="ghost" size="lg">
+                Odjavi se / promeni nalog
+              </Button>
+            </SignOutButton>
+          </div>
+        </CardContent>
+      </Card>
+    </main>
+  )
+}
+
+/** Kupac kome je istekao pristup: niz je pauziran, ne izgubljen — CTA vodi na dopunu. */
+function LapsedScreen({
+  email,
+  expiredOn,
+  pausedStreak,
+  ctaHref,
+  supportEmail,
+}: {
+  email: string
+  expiredOn: string
+  pausedStreak: number
+  ctaHref: string
+  supportEmail: string
+}) {
+  return (
+    <main className="flex min-h-dvh items-center justify-center bg-paper px-4 py-12">
+      <Card className="w-full max-w-md shadow-soft" size="default">
+        <CardHeader>
+          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            ZenFlow pristup
+          </p>
+          <CardTitle className="text-lg">Tvoj protokol je pauziran</CardTitle>
+          <CardDescription>
+            Pristup je istekao {expiredOn}, jer je od poslednje porudžbine prošlo više od 60 dana.
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="flex flex-col gap-5">
+          {pausedStreak > 0 && (
+            <div className="rounded-lg bg-ink px-4 py-3 text-paper">
+              <p className="text-xs text-paper/70">Tvoj niz</p>
+              <p className="font-heading text-2xl font-semibold text-lime">
+                {pausedStreak} {danaLabel(pausedStreak)}
+              </p>
+              <p className="text-xs text-paper/70">Sačuvan je i čeka te.</p>
+            </div>
+          )}
+
+          <p className="text-sm text-muted-foreground">
+            Istorija i niz čekaju tačno tamo gde su stali. Čim stigne nova porudžbina na{' '}
+            <span className="font-medium text-foreground break-all">{email}</span>, pristup se
+            vraća sam. Osveži ovu stranicu par minuta posle kupovine.
+          </p>
+
+          <div className="flex flex-col gap-2">
+            <Button asChild variant="lime" size="lg">
+              <a href={ctaHref} target="_blank" rel="noopener noreferrer">
+                Nastavi protokol
               </a>
             </Button>
 

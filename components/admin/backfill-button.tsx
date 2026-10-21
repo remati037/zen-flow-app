@@ -63,7 +63,7 @@ export function BackfillButton() {
       router.refresh()
     } catch {
       toast.error('Poziv nije uspeo. Pokušaj ponovo.')
-      setResult('Mrežna greška — poziv nije stigao do servera.')
+      setResult('Mrežna greška. Poziv nije stigao do servera.')
     } finally {
       setLoading(false)
     }

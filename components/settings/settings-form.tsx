@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Moon, Sun } from 'lucide-react'
+import { Sun, Sunrise } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { updateSettings } from '@/app/(app)/podesavanja/actions'
@@ -46,7 +46,7 @@ export function SettingsForm({
         doseEveningTime: evening,
       })
       if (result.ok) {
-        toast.success('Podešavanja sačuvana.')
+        toast.success('Podešavanja su sačuvana.')
         router.refresh()
       } else {
         toast.error(result.error)
@@ -70,7 +70,7 @@ export function SettingsForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="settings-morning" className="flex items-center gap-1.5">
-            <Sun className="size-4 text-slate-mid" />
+            <Sunrise className="size-4 text-slate-mid" />
             Jutarnja doza
           </Label>
           <Input
@@ -82,8 +82,8 @@ export function SettingsForm({
         </div>
         <div className="space-y-2">
           <Label htmlFor="settings-evening" className="flex items-center gap-1.5">
-            <Moon className="size-4 text-slate-mid" />
-            Večernja doza
+            <Sun className="size-4 text-slate-mid" />
+            Popodnevna doza <span className="font-normal text-slate-soft">· preporuka oko 14h</span>
           </Label>
           <Input
             id="settings-evening"
@@ -95,7 +95,7 @@ export function SettingsForm({
       </div>
 
       <p className="text-xs text-slate-soft">
-        Vremena doza određuju kad ti stižu podsetnici i računaju se u tvoj protokol.
+        U ove termine ti stižu podsetnici za doze.
       </p>
 
       <Button variant="dark" onClick={submit} disabled={isPending} className="w-full sm:w-auto">

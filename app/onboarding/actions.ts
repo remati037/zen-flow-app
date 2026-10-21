@@ -5,10 +5,9 @@ import { revalidatePath } from 'next/cache'
 import { createAction } from '@/lib/actions/safe-action'
 import { ActionError } from '@/lib/actions/types'
 import { checkAndAwardBadges } from '@/lib/badges/award'
-import { db, focusQuizResults, profiles, supply } from '@/lib/db'
-import { eq } from 'drizzle-orm'
+import { finalizeOnboarding } from '@/lib/onboarding/finalize'
 import { belgradeToday } from '@/lib/dates'
-import { CAPSULES_PER_PACKAGE, estimateRunoutDate } from '@/lib/protocol/dosing'
+import { estimateRunoutDate, initialCapsulesForStart } from '@/lib/protocol/dosing'
 import { scoreFocusQuiz } from '@/lib/quiz/focus-quiz'
 import { completeOnboardingSchema } from '@/lib/validations/onboarding'
 
@@ -30,7 +29,8 @@ import { completeOnboardingSchema } from '@/lib/validations/onboarding'
  * JEDNOKRATNO: `/onboarding` stranica preusmerava završene korisnike, ali akcija je
  * direktno pozivljiva (server action endpoint), a ponovni prolaz bi RESETOVAO zalihe
  * na `packages × 60`, upisao drugi `focus_quiz_results` red za isti dan i pomerio
- * `protocolStartDate` — što briše streak istoriju. Zato guard ide i ovde, na serveru.
+ * `protocolStartDate` — što briše streak istoriju. Zato guard ide i ovde, na serveru,
+ * i to ATOMARNO (vidi `finalizeOnboarding` u `lib/onboarding/finalize.ts`).
  */
 export const completeOnboarding = createAction(
   completeOnboardingSchema,
@@ -39,41 +39,26 @@ export const completeOnboarding = createAction(
       throw new ActionError('Onboarding je već završen.')
     }
 
-    const capsulesRemaining = data.packages * CAPSULES_PER_PACKAGE
-    const estimatedRunoutDate = estimateRunoutDate(data.startDate, capsulesRemaining)
-    const score = scoreFocusQuiz(data.quizAnswers)
     const today = belgradeToday()
+    const capsulesRemaining = initialCapsulesForStart(data.packages, data.startDate, today)
+    // Od DANAS, ne od početka protokola: kapsule su već umanjene za protekle dane.
+    const estimatedRunoutDate = estimateRunoutDate(today, capsulesRemaining)
+    const score = scoreFocusQuiz(data.quizAnswers)
 
-    await db
-      .update(profiles)
-      .set({
-        protocolStartDate: data.startDate,
-        doseMorningTime: data.doseMorningTime,
-        doseEveningTime: data.doseEveningTime,
-        focusScoreBaseline: score,
-        onboardingCompleted: true,
-      })
-      .where(eq(profiles.id, profile.id))
-
-    await db
-      .insert(supply)
-      .values({
-        userId: profile.id,
-        capsulesRemaining,
-        estimatedRunoutDate,
-        updatedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: supply.userId,
-        set: { capsulesRemaining, estimatedRunoutDate, updatedAt: new Date() },
-      })
-
-    await db.insert(focusQuizResults).values({
+    const claimed = await finalizeOnboarding({
       userId: profile.id,
-      date: today,
+      startDate: data.startDate,
+      doseMorningTime: data.doseMorningTime,
+      doseEveningTime: data.doseEveningTime,
       score,
-      answers: data.quizAnswers,
+      quizAnswers: data.quizAnswers,
+      capsulesRemaining,
+      estimatedRunoutDate,
+      today,
     })
+    if (!claimed) {
+      throw new ActionError('Onboarding je već završen.')
+    }
 
     const newBadges = await checkAndAwardBadges(profile.id, { trigger: 'onboarding' })
 

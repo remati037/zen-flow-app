@@ -1,14 +1,11 @@
-import { redirect } from 'next/navigation'
-
 import { DoseCheckin } from '@/components/protocol/dose-checkin'
 import { StreakHeader } from '@/components/protocol/streak-header'
-import { getCurrentProfile } from '@/lib/auth'
+import { requireAppAccess } from '@/lib/access/app-gate'
 import { belgradeToday } from '@/lib/dates'
 import { getProtocolState } from '@/lib/protocol/queries'
 
 export default async function ProtokolPage() {
-  const profile = await getCurrentProfile()
-  if (!profile) redirect('/sign-in')
+  const { profile } = await requireAppAccess()
 
   const { streak, todayDoses, weekStrip } = await getProtocolState(profile)
   const today = belgradeToday()
@@ -16,18 +13,21 @@ export default async function ProtokolPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-medium text-ink">Protokol</h1>
+        <h1 className="font-heading text-3xl font-medium tracking-[-0.03em] text-ink">Protokol</h1>
         <p className="text-slate-mid">Označi doze i gradi svoj niz iz dana u dan.</p>
       </header>
 
       <StreakHeader streak={streak} weekStrip={weekStrip} />
 
-      <DoseCheckin
-        today={today}
-        doses={todayDoses}
-        morningTime={profile.doseMorningTime}
-        eveningTime={profile.doseEveningTime}
-      />
+      <section className="space-y-2">
+        <h2 className="px-1 text-xs font-medium tracking-[0.14em] text-slate-soft uppercase">Danas</h2>
+        <DoseCheckin
+          today={today}
+          doses={todayDoses}
+          morningTime={profile.doseMorningTime}
+          eveningTime={profile.doseEveningTime}
+        />
+      </section>
     </div>
   )
 }

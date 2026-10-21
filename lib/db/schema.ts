@@ -26,6 +26,7 @@ export const productTypeEnum = pgEnum('product_type', ['full', 'refill'])
 export const doseEnum = pgEnum('dose', ['morning', 'evening'])
 export const protocolStatusEnum = pgEnum('protocol_status', ['taken', 'skipped'])
 export const channelEnum = pgEnum('channel', ['push', 'email'])
+export const supplementTimeEnum = pgEnum('supplement_time', ['morning', 'afternoon', 'evening'])
 
 // ────────────────────────────────────────────────────────────
 // profiles — korisnički nalog (id = Clerk user id)
@@ -377,6 +378,53 @@ export const focusQuizResults = pgTable(
   },
   // Baseline i poređenje kroz vreme se čitaju po korisniku, hronološki.
   (t) => [index('focus_quiz_results_user_date_idx').on(t.userId, t.date)],
+)
+
+// ────────────────────────────────────────────────────────────
+// user_supplements — „Moj stack": dodatni suplementi koje korisnik pije
+// ────────────────────────────────────────────────────────────
+
+/**
+ * Tačno jedno od `catalog_key` / `custom_name` (CHECK). Uklanjanje je soft (`active = false`)
+ * da istorija ostane za analizu; ponovno dodavanje istog suplementa REAKTIVIRA red, jer ga
+ * jedinstveni indeksi ne dozvoljavaju dvaput. `merged_into_key` je admin-ovo spajanje
+ * slobodnog unosa sa ključem kataloga — korisnikov originalni unos se ne dira.
+ * `last_confirmed_on` je beogradski dan (`belgradeToday()`), osnova nedeljne potvrde.
+ */
+export const userSupplements = pgTable(
+  'user_supplements',
+  {
+    id: serial('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    catalogKey: text('catalog_key'),
+    customName: text('custom_name'),
+    timeOfDay: supplementTimeEnum('time_of_day').notNull(),
+    doseNote: text('dose_note'),
+    active: boolean('active').notNull().default(true),
+    mergedIntoKey: text('merged_into_key'),
+    lastConfirmedOn: date('last_confirmed_on').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check('user_supplements_one_name', sql`num_nonnulls(${t.catalogKey}, ${t.customName}) = 1`),
+    check(
+      'user_supplements_merge_custom_only',
+      sql`${t.mergedIntoKey} is null or ${t.customName} is not null`,
+    ),
+    uniqueIndex('user_supplements_user_catalog_uq')
+      .on(t.userId, t.catalogKey)
+      .where(sql`${t.catalogKey} is not null`),
+    uniqueIndex('user_supplements_user_custom_uq')
+      .on(t.userId, sql`lower(${t.customName})`)
+      .where(sql`${t.customName} is not null`),
+    index('user_supplements_user_idx').on(t.userId),
+    // Admin agregat gleda samo aktivne redove, grupisano po ključu kataloga.
+    index('user_supplements_catalog_active_idx')
+      .on(t.catalogKey)
+      .where(sql`${t.active}`),
+  ],
 )
 
 // ────────────────────────────────────────────────────────────

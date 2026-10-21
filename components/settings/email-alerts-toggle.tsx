@@ -27,7 +27,7 @@ export function EmailAlertsToggle({ initialEnabled }: { initialEnabled: boolean 
     startTransition(async () => {
       const result = await updateSettings({ emailAlerts: next })
       if (result.ok) {
-        toast.success(next ? 'Alert mejlovi uključeni.' : 'Alert mejlovi isključeni.')
+        toast.success(next ? 'Alert mejlovi su uključeni.' : 'Alert mejlovi su isključeni.')
         router.refresh()
       } else {
         setEnabled(!next)
@@ -41,8 +41,8 @@ export function EmailAlertsToggle({ initialEnabled }: { initialEnabled: boolean 
       <div className="space-y-1">
         <Label htmlFor="email-alerts">Alert mejlovi</Label>
         <p className="text-xs text-slate-soft">
-          Mejl kad ti zalihe padnu pri kraj. Najviše 3 po epizodi — brojač se resetuje kad dopuniš
-          zalihe. Ne utiče na push podsetnike.
+          Mejl kad su ti zalihe pri kraju. Najviše 3 dok ne dopuniš zalihe, pa se broji ispočetka.
+          Push podsetnici ostaju kakvi jesu.
         </p>
       </div>
       <Switch

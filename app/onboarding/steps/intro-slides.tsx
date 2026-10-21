@@ -27,25 +27,25 @@ const SLIDES: readonly IntroSlide[] = [
   {
     icon: Sparkles,
     eyebrow: 'Uvod · 1 od 3',
-    title: 'ZenFlow nije tableta — to je protokol',
-    body: 'Dve doze dnevno, u istim terminima. Jutarnja nosi fokus kroz radni deo dana, večernja radi na oporavku i bistrini sutradan. Ceo protokol staje u te dve tačke.',
+    title: 'ZenFlow se uzima po protokolu',
+    body: 'Dve doze dnevno, svaki dan u isto vreme. Jutarnja pokriva prepodne, a popodnevna, oko 14h, ostatak dana.',
   },
   {
     icon: TrendingDown,
     eyebrow: 'Uvod · 2 od 3',
-    title: 'Efekat se gradi doslednošću — i bledi kad prekineš',
-    body: 'Sastojci se akumuliraju. Prvi jasan pomak se obično oseti oko 10.–14. dana, a nekoliko propuštenih dana te vraća unazad. Zato ova aplikacija broji niz, a ne pojedinačne dane — i zato te opomene za zalihe stižu pre nego što ostaneš bez.',
+    title: 'Efekat raste sa svakim danom',
+    body: 'Sastojci se nakupljaju postepeno. Prvi jasan pomak se obično oseti od 10. do 14. dana, a nekoliko propuštenih dana te vraća unazad. Zato aplikacija broji niz i javlja ti na vreme, pre nego što ostaneš bez kapsula.',
   },
   {
     icon: Flame,
     eyebrow: 'Uvod · 3 od 3',
     title: 'Šta te čeka unutra',
-    body: 'Sve je podređeno jednoj stvari: da niz ne pukne.',
+    body: 'Sve što ti treba da ostaneš u ritmu.',
     bullets: [
       { icon: CalendarCheck, text: 'Dnevni check-in obe doze i niz koji raste' },
-      { icon: Flame, text: 'Praćenje zaliha i podsetnik pre nego što ponestane' },
+      { icon: Flame, text: 'Praćenje zaliha i podsetnik pre nego što ti ponestane' },
       { icon: Timer, text: 'Pomodoro fokus blokovi i tri dnevna zadatka' },
-      { icon: Sparkles, text: 'Bedževi za prekretnice u protokolu' },
+      { icon: Sparkles, text: 'Bedževi za važne korake u protokolu' },
     ],
   },
 ] as const
@@ -97,7 +97,7 @@ export function IntroSlides({
           </span>
 
           <div className="flex flex-col gap-1.5">
-            <p className="text-[11px] font-medium tracking-wide text-slate-soft uppercase">
+            <p className="text-xs font-medium tracking-wide text-slate-soft uppercase">
               {slide.eyebrow}
             </p>
             <h2 className="font-heading text-xl leading-tight font-medium text-ink">{slide.title}</h2>
@@ -159,7 +159,7 @@ export function IntroSlides({
           <button
             type="button"
             onClick={onSkip}
-            className="self-center rounded-lg px-2 py-1 text-xs font-medium text-slate-soft underline-offset-4 transition-colors hover:text-ink hover:underline"
+            className="inline-flex min-h-11 items-center self-center rounded-lg px-3 text-sm font-medium text-slate-soft underline-offset-4 transition-colors hover:text-ink hover:underline"
           >
             Preskoči uvod
           </button>

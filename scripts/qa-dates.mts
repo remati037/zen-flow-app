@@ -38,6 +38,11 @@ const {
   classifyOrderStatus, isAccessGrantingStatus, parseWooGmtDate, resolveOrderDate, wasInserted,
 } = await import('../lib/woocommerce/order-rules')
 const { asOverride, resolveAccessStatus } = await import('../lib/access/resolve')
+const { SUPPLEMENT_CATALOG, SUPPLEMENT_CATEGORIES, getCatalogItem, isCatalogKey, supplementDisplayName } =
+  await import('../lib/supplements/catalog')
+const { normalizeSearch, searchCatalog, matchCatalogExact } = await import('../lib/supplements/search')
+const { CONFIRM_AFTER_DAYS, needsConfirmation } = await import('../lib/supplements/confirm-rules')
+const { MIN_GROUP_SIZE, maskSmallGroup } = await import('../lib/supplements/aggregate-rules')
 const { LOW_STOCK_THRESHOLD, LOW_STOCK_MAX_ALERTS_PER_EPISODE } = await import('../lib/protocol/dosing')
 
 console.log('\n=== 1. Ponoć: 23:50 i 00:10 po Beogradu (zima, UTC+1) ===')
@@ -725,43 +730,287 @@ check('List-Unsubscribe je u uglastim zagradama',
 check('one-click je deklarisan',
   unsubscribeHeaders('user_aaa')['List-Unsubscribe-Post'], 'List-Unsubscribe=One-Click')
 
-console.log('\n=== 15. Pozivnice (Clerk Restricted mod) ===')
-// Vrsta pozivnice odlučuje o VIP override-u pri registraciji, pa parser NIKAD ne
-// sme da pogodi `admin` iz nečega što nije tačno naš oblik.
-const {
-  parseInviteMetadata, inviteMetadata, canReissueBuyerInvite, normalizeEmail,
-  BUYER_INVITE_COOLDOWN_MIN,
-} = await import('../lib/invitations/rules')
+console.log('\n=== 15. Sprint 2: početne zalihe, low-stock po datumu, dnevni cron ===')
+{
+  const { initialCapsulesForStart, isLowStock, LOW_STOCK_LEAD_DAYS } = await import('../lib/protocol/dosing')
+  const { isDailyJobStale, DAILY_JOB_STALE_HOURS } = await import('../lib/cron/health')
+  const { refillUrl } = await import('../lib/refill')
 
-check('roundtrip admin metadata', parseInviteMetadata(inviteMetadata('admin', 'user_admin')), { kind: 'admin', by: 'user_admin' })
-check('roundtrip buyer metadata', parseInviteMetadata(inviteMetadata('buyer', null)), { kind: 'buyer', by: null })
-check('metadata nosi role: user (middleware claim od starta)', inviteMetadata('admin', 'x').role, 'user')
-check('bez invite ključa → null', parseInviteMetadata({ role: 'user' }), null)
-check('null/undefined → null', [parseInviteMetadata(null), parseInviteMetadata(undefined)], [null, null])
-check('nepoznata vrsta → null (ne pogađa admin)', parseInviteMetadata({ invite: { kind: 'superadmin' } }), null)
-check('invite kao string → null', parseInviteMetadata({ invite: 'admin' }), null)
-check('prazan `by` → null', parseInviteMetadata({ invite: { kind: 'admin', by: '' } }), { kind: 'admin', by: null })
+  // Onboarding: protekli dani su potrošeni (4 kapsule/dan), danas još nije.
+  check('start danas → puna pakovanja', initialCapsulesForStart(2, '2026-10-19', '2026-10-19'), 120)
+  check('start pre 20 dana → 120 − 80', initialCapsulesForStart(2, '2026-09-29', '2026-10-19'), 40)
+  check('start davno → clamp na 0', initialCapsulesForStart(1, '2026-08-20', '2026-10-19'), 0)
+  check('start preko DST granice (25.10.) broji kalendarske dane',
+    initialCapsulesForStart(1, '2026-10-24', '2026-10-27'), 60 - 3 * 4)
 
-const t0 = Date.UTC(2026, 9, 21, 12, 0, 0)
-check('bez postojeće pozivnice → sme', canReissueBuyerInvite(null, t0), true)
-check('1 min posle → NE sme (cooldown)', canReissueBuyerInvite(t0, t0 + 60_000), false)
-check('tačno na granici cooldown-a → sme', canReissueBuyerInvite(t0, t0 + BUYER_INVITE_COOLDOWN_MIN * 60_000), true)
-check('normalizeEmail trim + lowercase', normalizeEmail('  Ime@Primer.RS '), 'ime@primer.rs')
+  // Low-stock: broj kapsula ILI procenjeni datum isteka.
+  check('LEAD_DAYS prati prag (14 kapsula / 4 dnevno)', LOW_STOCK_LEAD_DAYS, 4)
+  check('ispod praga → low', isLowStock(LOW_STOCK_THRESHOLD, '2026-12-01', '2026-10-19'), true)
+  check('iznad praga, datum daleko → nije low', isLowStock(60, '2026-11-03', '2026-10-19'), false)
+  check('iznad praga, datum za 4 dana → low (ne štiklira)', isLowStock(60, '2026-10-23', '2026-10-19'), true)
+  check('iznad praga, datum za 5 dana → nije low', isLowStock(60, '2026-10-24', '2026-10-19'), false)
+  check('iznad praga, datum u prošlosti → low', isLowStock(60, '2026-10-01', '2026-10-19'), true)
+  check('bez datuma odlučuje samo broj', isLowStock(60, null, '2026-10-19'), false)
 
-const { decideSignUpRequest, senderDomain } = await import('../lib/invitations/rules')
-const base = { hasAccount: false, isBuyer: true, newestPendingCreatedAtMs: null, nowMs: t0 }
-check('kupac bez naloga i pozivnice → šalje', decideSignUpRequest(base), { action: 'send' })
-check('nalog ima prednost nad svim', decideSignUpRequest({ ...base, hasAccount: true, isBuyer: false }), { action: 'skip', reason: 'account_exists' })
-check('ne-kupac → preskače', decideSignUpRequest({ ...base, isBuyer: false }), { action: 'skip', reason: 'not_a_buyer' })
-check('svež link (2 min) → cooldown još 8 min', decideSignUpRequest({ ...base, newestPendingCreatedAtMs: t0 - 2 * 60_000 }), { action: 'skip', reason: 'cooldown', retryInMin: 8 })
-check('link star 10 min → šalje', decideSignUpRequest({ ...base, newestPendingCreatedAtMs: t0 - 10 * 60_000 }), { action: 'send' })
-check('senderDomain iz "Ime <a@b.rs>"', senderDomain('NuroLab <noreply@app.nurolab.rs>'), 'app.nurolab.rs')
-check('senderDomain iz gole adrese', senderDomain('noreply@Nurolab.RS'), 'nurolab.rs')
-check('senderDomain bez @ → null', senderDomain('NuroLab'), null)
+  // Dnevni cron-ovi: stali = nikad ili duže od praga.
+  const now = new RealDate('2026-10-19T08:00:00Z')
+  check('nikad nije radio → stao', isDailyJobStale(null, now), true)
+  check('radio pre 24h → živ', isDailyJobStale(new RealDate('2026-10-18T08:00:00Z'), now), false)
+  check(`radio pre ${DAILY_JOB_STALE_HOURS + 1}h → stao`,
+    isDailyJobStale(new RealDate(now.getTime() - (DAILY_JOB_STALE_HOURS + 1) * 3_600_000), now), true)
 
-const { inviteEmail } = await import('../lib/validations/invitations')
-check('zod normalizuje mejl', inviteEmail.safeParse('  Ime@Primer.RS ').data, 'ime@primer.rs')
-check('zod odbija nevalidan mejl', inviteEmail.safeParse('nije-mejl').success, false)
+  // Refill link: UTM tagovi, postojeća kampanja se ne gazi, neispravan URL → null.
+  const prev = process.env.NEXT_PUBLIC_SHOP_REFILL_URL
+  process.env.NEXT_PUBLIC_SHOP_REFILL_URL = 'https://nurolab.rs/proizvod/zenflow'
+  const email = new URL(refillUrl('email_low_stock')!)
+  check('mejl: utm_source=email', email.searchParams.get('utm_source'), 'email')
+  check('mejl: utm_content=email_low_stock', email.searchParams.get('utm_content'), 'email_low_stock')
+  check('app: utm_source=app', new URL(refillUrl('dashboard')!).searchParams.get('utm_source'), 'app')
+  process.env.NEXT_PUBLIC_SHOP_REFILL_URL = 'https://nurolab.rs/p?utm_campaign=jesen'
+  check('postojeća kampanja se ne gazi',
+    new URL(refillUrl('zalihe')!).searchParams.get('utm_campaign'), 'jesen')
+  process.env.NEXT_PUBLIC_SHOP_REFILL_URL = 'javascript:alert(1)'
+  check('ne-http URL → null', refillUrl('zalihe'), null)
+  process.env.NEXT_PUBLIC_SHOP_REFILL_URL = ''
+  check('bez env-a → null (CTA se sakriva)', refillUrl('zalihe'), null)
+  if (prev === undefined) delete process.env.NEXT_PUBLIC_SHOP_REFILL_URL
+  else process.env.NEXT_PUBLIC_SHOP_REFILL_URL = prev
+}
+
+console.log('\n=== 16. Sprint 3: sledeći bedž niza i win-back faze ===')
+{
+  const { nextStreakMilestone, danaLabel } = await import('../lib/protocol/milestones')
+  const { winbackStageFor, winbackType } = await import('../lib/access/winback-rules')
+
+  check('niz 0 → prvi prag 3', nextStreakMilestone(0)?.days, 3)
+  check('niz 0 → fale 3 dana', nextStreakMilestone(0)?.remaining, 3)
+  check('niz 3 → sledeći prag 7 (pređen prag se preskače)', nextStreakMilestone(3)?.days, 7)
+  check('niz 5 → fale 2 do 7', nextStreakMilestone(5)?.remaining, 2)
+  check('naziv iz kataloga', nextStreakMilestone(10)?.title, 'Niz od 14 dana')
+  check('posle 30 → nema sledećeg', nextStreakMilestone(30), null)
+  check('1 dan', danaLabel(1), 'dan')
+  check('2 dana', danaLabel(2), 'dana')
+  check('11 dana (ne „dan")', danaLabel(11), 'dana')
+  check('21 dan', danaLabel(21), 'dan')
+
+  check('dan isteka (0) → ništa', winbackStageFor(0), null)
+  check('1 dan posle → faza 1', winbackStageFor(1), 1)
+  check('6 dana → faza 1', winbackStageFor(6), 1)
+  check('7 dana → faza 2', winbackStageFor(7), 2)
+  check('14–20 dana → pauza između faza', winbackStageFor(15), null)
+  check('21 dan → faza 3', winbackStageFor(21), 3)
+  check('28+ dana → ništa (bez talasa ka starim kupcima)', winbackStageFor(28), null)
+  check('stari kupac (200 dana) → ništa', winbackStageFor(200), null)
+  check('tip notifikacije po fazi', winbackType(2), 'winback_2')
+}
+
+console.log('\n=== 17. Sprint 4: token za check-in iz notifikacije ===')
+{
+  const prevCron = process.env.CRON_SECRET
+  const prevPush = process.env.PUSH_ACTION_SECRET
+  delete process.env.PUSH_ACTION_SECRET
+  process.env.CRON_SECRET = 'qa-cron-secret'
+  const { checkinToken, verifyCheckinToken } = await import('../lib/push/checkin-token')
+  const t = checkinToken('user_a', '2026-10-19', 'morning')!
+  check('token je 64 hex znaka', /^[0-9a-f]{64}$/.test(t), true)
+  check('validan token prolazi', verifyCheckinToken('user_a', '2026-10-19', 'morning', t), true)
+  check('drugi KORISNIK ne prolazi', verifyCheckinToken('user_b', '2026-10-19', 'morning', t), false)
+  check('drugi DAN ne prolazi', verifyCheckinToken('user_a', '2026-10-20', 'morning', t), false)
+  check('druga DOZA ne prolazi', verifyCheckinToken('user_a', '2026-10-19', 'evening', t), false)
+  check('skraćen token ne prolazi (bez bacanja)', verifyCheckinToken('user_a', '2026-10-19', 'morning', t.slice(0, 10)), false)
+  check('nije isti kao odjavni token (druga namena)',
+    t === (await import('../lib/email/unsubscribe')).unsubscribeToken('user_a'), false)
+  const { BADGE_CATALOG } = await import('../lib/badges/catalog')
+  const { BADGE_KEYS } = await import('../lib/badges/keys')
+  check('katalog bedževa prati redosled ključeva', BADGE_CATALOG.map((b) => b.key), [...BADGE_KEYS])
+  delete process.env.CRON_SECRET
+  check('bez tajne nema tokena (dugme se izostavlja)', checkinToken('user_a', '2026-10-19', 'morning'), null)
+  if (prevCron !== undefined) process.env.CRON_SECRET = prevCron
+  if (prevPush !== undefined) process.env.PUSH_ACTION_SECRET = prevPush
+}
+
+console.log('\n=== 18. Focus Score kroz vreme (procena iz ponašanja) ===')
+{
+  const { computeFocusTrend, MAX_UPLIFT, DEFAULT_BASELINE } = await import('../lib/focus/score')
+  const days = (from: string, n: number) => Array.from({ length: n }, (_, i) => addDaysIso(from, i))
+  const full = (list: string[]) => new Map(list.map((d) => [d, 2]))
+  const none = new Map<string, number>()
+
+  const noStart = computeFocusTrend({ baseline: 40, startDate: null, today: '2026-10-19', takenByDay: none, focusMinByDay: none })
+  check('bez protokola: skor = polazna tačka', noStart.current, 40)
+  check('bez kviza: polazna tačka je podrazumevana', computeFocusTrend({ baseline: null, startDate: null, today: '2026-10-19', takenByDay: none, focusMinByDay: none }).baseline, DEFAULT_BASELINE)
+
+  const d14 = days('2026-10-06', 14)
+  const steady = computeFocusTrend({ baseline: 50, startDate: '2026-10-06', today: '2026-10-19', takenByDay: full(d14), focusMinByDay: none })
+  check('14 punih dana → skor raste', steady.current > 50, true)
+  check('bez fokus blokova rast ne prelazi 80% prostora', steady.current <= 50 + Math.round(MAX_UPLIFT * 0.8), true)
+  check('trend: raste', steady.trend, 'up')
+  check('serija ima tačku po danu', steady.points.length, 14)
+
+  const stopped = computeFocusTrend({
+    baseline: 50, startDate: '2026-09-22', today: '2026-10-19',
+    takenByDay: full(days('2026-09-22', 14)), focusMinByDay: none,
+  })
+  check('posle pauze od 2 nedelje skor pada ka polaznoj', stopped.current < steady.current, true)
+  check('trend posle pauze: pada', stopped.trend, 'down')
+
+  const morningOnlyToday = new Map(full(days('2026-10-06', 13)))
+  const beforeToday = computeFocusTrend({ baseline: 50, startDate: '2026-10-06', today: '2026-10-19', takenByDay: morningOnlyToday, focusMinByDay: none })
+  morningOnlyToday.set('2026-10-19', 0)
+  const zeroToday = computeFocusTrend({ baseline: 50, startDate: '2026-10-06', today: '2026-10-19', takenByDay: morningOnlyToday, focusMinByDay: none })
+  check('današnji dan bez doza NE spušta skor (dan nije gotov)', zeroToday.current, beforeToday.current)
+
+  const practice = computeFocusTrend({
+    baseline: 50, startDate: '2026-10-06', today: '2026-10-19',
+    takenByDay: full(d14), focusMinByDay: new Map(d14.map((d) => [d, 25])),
+  })
+  check('fokus blokovi dodaju na skor', practice.current > steady.current, true)
+  check('skor nikad preko 100', computeFocusTrend({ baseline: 95, startDate: '2026-10-06', today: '2026-10-19', takenByDay: full(d14), focusMinByDay: new Map(d14.map((d) => [d, 60])) }).current <= 100, true)
+}
+
+// ── Moj stack: katalog, pretraga, nedeljna potvrda ──────────────────────────
+{
+  console.log('\n=== Moj stack: katalog ===')
+  check('katalog ima 100 stavki', SUPPLEMENT_CATALOG.length, 100)
+  const keys = SUPPLEMENT_CATALOG.map((i) => i.key)
+  check('ključevi su jedinstveni', new Set(keys).size, keys.length)
+  check('ključevi su [a-z0-9_]', keys.every((k) => /^[a-z0-9_]+$/.test(k)), true)
+  const categoryIds = new Set<string>(SUPPLEMENT_CATEGORIES.map((c) => c.id))
+  check('svaka stavka ima poznatu kategoriju', SUPPLEMENT_CATALOG.every((i) => categoryIds.has(i.category)), true)
+  check('svaka kategorija ima stavke', SUPPLEMENT_CATEGORIES.every((c) => SUPPLEMENT_CATALOG.some((i) => i.category === c.id)), true)
+  check('svaka stavka ima bar jedan alias', SUPPLEMENT_CATALOG.every((i) => i.aliases.length > 0), true)
+  check('ZenFlow nije u katalogu', SUPPLEMENT_CATALOG.some((i) => /zenflow/i.test(i.label + i.key)), false)
+
+  // Naziv/alias ne sme da pripada dvema stavkama — inače je matchCatalogExact dvosmislen.
+  // Ako ovo padne: ukloni duplirani alias iz MANJE specifične stavke u catalog.ts.
+  const owner = new Map<string, string>()
+  const dupes: string[] = []
+  for (const item of SUPPLEMENT_CATALOG) {
+    for (const term of new Set([item.label, ...item.aliases].map(normalizeSearch))) {
+      const prev = owner.get(term)
+      if (prev !== undefined && prev !== item.key) dupes.push(`${term}: ${prev}/${item.key}`)
+      owner.set(term, item.key)
+    }
+  }
+  check('nijedan naziv/alias nije dvosmislen', dupes, [])
+
+  check('isCatalogKey: poznat', isCatalogKey('magnesium'), true)
+  check('isCatalogKey: nepoznat', isCatalogKey('nepostoji'), false)
+  check('getCatalogItem vraća naziv', getCatalogItem('creatine')?.label, 'Kreatin')
+  check('supplementDisplayName: katalog', supplementDisplayName('collagen', null), 'Kolagen')
+  check('supplementDisplayName: izbačen ključ ostaje sirov', supplementDisplayName('stari_kljuc', null), 'stari_kljuc')
+  check('supplementDisplayName: slobodan unos', supplementDisplayName(null, 'Moj miks'), 'Moj miks')
+
+  console.log('\n=== Moj stack: normalizacija i pretraga ===')
+  check('normalizacija: dijakritici', normalizeSearch('Žen-šen ĆČ'), 'zen sen cc')
+  check('normalizacija: đ → dj', normalizeSearch('Gvožđe'), 'gvozdje')
+  check('normalizacija: apostrof', normalizeSearch("Lion's mane"), 'lions mane')
+  check('normalizacija: razmaci i crtice', normalizeSearch('  L-teanin  '), 'l teanin')
+
+  const first = (q: string) => searchCatalog(q)[0]?.key
+  check('„kolagen" → collagen', first('kolagen'), 'collagen')
+  check('„collagen" → collagen', first('collagen'), 'collagen')
+  check('„magnezijum" → magnesium (osnovni oblik prvi)', first('magnezijum'), 'magnesium')
+  check('„mg" → magnesium', first('mg'), 'magnesium')
+  check('„kreatin" → creatine', first('kreatin'), 'creatine')
+  check('„protein" → whey_protein prvi', first('protein'), 'whey_protein')
+  check('„protein" nalazi i biljni protein', searchCatalog('protein').some((i) => i.key === 'plant_protein'), true)
+  check('„cink" → zinc', first('cink'), 'zinc')
+  check('„zink" → zinc', first('zink'), 'zinc')
+  check('„riblje ulje" → omega3', first('riblje ulje'), 'omega3')
+  check('„ashvaganda" → ashwagandha', first('ashvaganda'), 'ashwagandha')
+  check('„b12" → vitamin_b12', first('b12'), 'vitamin_b12')
+  check('„vitamin d" → vitamin_d3', first('vitamin d'), 'vitamin_d3')
+  check('„gvožđe" → iron', first('gvožđe'), 'iron')
+  check('„siladjit" → shilajit', first('siladjit'), 'shilajit')
+  check('„lions mane" → lions_mane', first('lions mane'), 'lions_mane')
+  check('„5htp" → five_htp', first('5htp'), 'five_htp')
+  check('„l-teanin" → l_theanine', first('l-teanin'), 'l_theanine')
+  check('upit bez pogotka → prazno', searchCatalog('qqqqzzzz').length, 0)
+  check('prazan upit → cela lista', searchCatalog('').length, 100)
+  check('prazan upit + kategorija → samo ta kategorija',
+    searchCatalog('', 'minerals').every((i) => i.category === 'minerals'), true)
+  check('upit + kategorija filtrira', searchCatalog('protein', 'minerals').length, 0)
+  check('dvoslovni upit ne radi podstring („ac" ne pogađa sve)', searchCatalog('ac').length < 15, true)
+
+  console.log('\n=== Moj stack: tačno poklapanje „Drugo" sa katalogom ===')
+  check('„Magnezijum" → magnesium', matchCatalogExact('Magnezijum')?.key, 'magnesium')
+  check('„  MG " → magnesium', matchCatalogExact('  MG ')?.key, 'magnesium')
+  check('„riblje ulje" → omega3', matchCatalogExact('riblje ulje')?.key, 'omega3')
+  check('delimičan naziv NIJE tačan pogodak', matchCatalogExact('magnez'), undefined)
+  check('nepoznat naziv → undefined', matchCatalogExact('Moj domaći miks'), undefined)
+  check('prazan naziv → undefined', matchCatalogExact('   '), undefined)
+
+  console.log('\n=== Moj stack: nedeljna potvrda ===')
+  check('prag je 7 dana', CONFIRM_AFTER_DAYS, 7)
+  check('nema aktivnih → nema kartice', needsConfirmation(null, '2026-10-20'), false)
+  check('potvrđeno danas → nema kartice', needsConfirmation('2026-10-20', '2026-10-20'), false)
+  check('pre 6 dana → nema kartice', needsConfirmation('2026-10-14', '2026-10-20'), false)
+  check('pre 7 dana → kartica', needsConfirmation('2026-10-13', '2026-10-20'), true)
+  check('pre 8 dana → kartica', needsConfirmation('2026-10-12', '2026-10-20'), true)
+  // Kraj letnjeg računanja vremena u EU (25. 10. 2026): kalendarski dani, ne milisekunde.
+  check('DST: 6 kalendarskih dana → nema kartice', needsConfirmation('2026-10-25', '2026-10-31'), false)
+  check('DST: 7 kalendarskih dana → kartica', needsConfirmation('2026-10-24', '2026-10-31'), true)
+
+  console.log('\n=== Moj stack: prag malih grupa ===')
+  check('prag je 3', MIN_GROUP_SIZE, 3)
+  check('0 ostaje 0', maskSmallGroup(0), 0)
+  check('1 → maskirano', maskSmallGroup(1), null)
+  check('2 → maskirano', maskSmallGroup(2), null)
+  check('3 → vidljivo', maskSmallGroup(3), 3)
+  check('50 → vidljivo', maskSmallGroup(50), 50)
+}
+
+{
+  const { updateSupplementSchema } = await import('../lib/validations/stack')
+  check('update: active:true se odbija (zaobilazi granicu)', updateSupplementSchema.safeParse({ id: 1, active: true }).success, false)
+  check('update: active:false se prihvata', updateSupplementSchema.safeParse({ id: 1, active: false }).success, true)
+  const { addSupplementSchema } = await import('../lib/validations/stack')
+  check('add: naziv samo od interpunkcije se odbija', addSupplementSchema.safeParse({ customName: '--', timeOfDay: 'morning' }).success, false)
+  check('add: običan slobodan naziv se prihvata', addSupplementSchema.safeParse({ customName: 'Kurkuma Plus', timeOfDay: 'morning' }).success, true)
+  check('update: bez ijedne promene se odbija', updateSupplementSchema.safeParse({ id: 1 }).success, false)
+}
+
+console.log('\n=== 19. Pozivnice (Clerk Restricted mod) ===')
+// Blok: lokalna imena (`base`, `t0`) ne smeju da se sudare sa sekcijama iznad.
+{
+  // Vrsta pozivnice odlučuje o VIP override-u pri registraciji, pa parser NIKAD ne
+  // sme da pogodi `admin` iz nečega što nije tačno naš oblik.
+  const {
+    parseInviteMetadata, inviteMetadata, canReissueBuyerInvite, normalizeEmail,
+    BUYER_INVITE_COOLDOWN_MIN,
+  } = await import('../lib/invitations/rules')
+
+  check('roundtrip admin metadata', parseInviteMetadata(inviteMetadata('admin', 'user_admin')), { kind: 'admin', by: 'user_admin' })
+  check('roundtrip buyer metadata', parseInviteMetadata(inviteMetadata('buyer', null)), { kind: 'buyer', by: null })
+  check('metadata nosi role: user (middleware claim od starta)', inviteMetadata('admin', 'x').role, 'user')
+  check('bez invite ključa → null', parseInviteMetadata({ role: 'user' }), null)
+  check('null/undefined → null', [parseInviteMetadata(null), parseInviteMetadata(undefined)], [null, null])
+  check('nepoznata vrsta → null (ne pogađa admin)', parseInviteMetadata({ invite: { kind: 'superadmin' } }), null)
+  check('invite kao string → null', parseInviteMetadata({ invite: 'admin' }), null)
+  check('prazan `by` → null', parseInviteMetadata({ invite: { kind: 'admin', by: '' } }), { kind: 'admin', by: null })
+
+  const t0 = Date.UTC(2026, 9, 21, 12, 0, 0)
+  check('bez postojeće pozivnice → sme', canReissueBuyerInvite(null, t0), true)
+  check('1 min posle → NE sme (cooldown)', canReissueBuyerInvite(t0, t0 + 60_000), false)
+  check('tačno na granici cooldown-a → sme', canReissueBuyerInvite(t0, t0 + BUYER_INVITE_COOLDOWN_MIN * 60_000), true)
+  check('normalizeEmail trim + lowercase', normalizeEmail('  Ime@Primer.RS '), 'ime@primer.rs')
+
+  const { decideSignUpRequest, senderDomain } = await import('../lib/invitations/rules')
+  const base = { hasAccount: false, isBuyer: true, newestPendingCreatedAtMs: null, nowMs: t0 }
+  check('kupac bez naloga i pozivnice → šalje', decideSignUpRequest(base), { action: 'send' })
+  check('nalog ima prednost nad svim', decideSignUpRequest({ ...base, hasAccount: true, isBuyer: false }), { action: 'skip', reason: 'account_exists' })
+  check('ne-kupac → preskače', decideSignUpRequest({ ...base, isBuyer: false }), { action: 'skip', reason: 'not_a_buyer' })
+  check('svež link (2 min) → cooldown još 8 min', decideSignUpRequest({ ...base, newestPendingCreatedAtMs: t0 - 2 * 60_000 }), { action: 'skip', reason: 'cooldown', retryInMin: 8 })
+  check('link star 10 min → šalje', decideSignUpRequest({ ...base, newestPendingCreatedAtMs: t0 - 10 * 60_000 }), { action: 'send' })
+  check('senderDomain iz "Ime <a@b.rs>"', senderDomain('NuroLab <noreply@app.nurolab.rs>'), 'app.nurolab.rs')
+  check('senderDomain iz gole adrese', senderDomain('noreply@Nurolab.RS'), 'nurolab.rs')
+  check('senderDomain bez @ → null', senderDomain('NuroLab'), null)
+
+  const { inviteEmail } = await import('../lib/validations/invitations')
+  check('zod normalizuje mejl', inviteEmail.safeParse('  Ime@Primer.RS ').data, 'ime@primer.rs')
+  check('zod odbija nevalidan mejl', inviteEmail.safeParse('nije-mejl').success, false)
+}
 
 console.log(`\n──────────────\nRezultat: ${pass} prošlo, ${fail} palo\n`)
 process.exit(fail > 0 ? 1 : 0)

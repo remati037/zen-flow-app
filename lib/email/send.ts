@@ -13,6 +13,8 @@ import { InvitationEmail } from './templates/invitation'
 import { LowStockEmail } from './templates/low-stock'
 import { unsubscribeHeaders, unsubscribeUrl } from './unsubscribe'
 import { WelcomeEmail } from './templates/welcome'
+import { WinbackEmail } from './templates/winback'
+import { winbackType, type WinbackStage } from '@/lib/access/winback-rules'
 
 /**
  * Tipovi mejlova koje gasi `profiles.email_alerts` (V10).
@@ -24,7 +26,14 @@ import { WelcomeEmail } from './templates/welcome'
  * zaglavlje: deklarisati odjavu na mejlu koji se odjavom ne gasi je laž prema
  * mailbox provajderu.
  */
-const EMAIL_ALERT_TYPES = new Set<string>(['low_stock_alert'])
+const EMAIL_ALERT_TYPES = new Set<string>([
+  'low_stock_alert',
+  // Win-back je poruka sa rasporeda (cron), ne posledica radnje korisnika — isti
+  // opt-out i ista one-click odjava kao low-stock.
+  'winback_1',
+  'winback_2',
+  'winback_3',
+])
 
 /** Da li dati tip podleže opt-out-u (i nosi odjavno zaglavlje). */
 export function isEmailAlertType(type: string): boolean {
@@ -186,14 +195,19 @@ export function sendWelcomeEmail(profile: ProfileLike, options: SendOptions = {}
   return sendEmail({
     userId: profile.id,
     to: profile.email,
-    subject: 'Dobrodošao u NuroLab 🌿',
+    subject: 'Dobrodošlica u ZenFlow aplikaciju',
     react: WelcomeEmail({ name: profile.name }),
     type: 'welcome',
     ...options,
   })
 }
 
-type SupplyLike = { capsulesRemaining: number; estimatedRunoutDate?: string | null }
+type SupplyLike = {
+  capsulesRemaining: number
+  estimatedRunoutDate?: string | null
+  /** Alert je okinut po procenjenom datumu, ne po broju kapsula (vidi `isLowStock`). */
+  estimated?: boolean
+}
 
 /** Low-stock alert (cron). */
 export function sendLowStockEmail(
@@ -204,11 +218,14 @@ export function sendLowStockEmail(
   return sendEmail({
     userId: profile.id,
     to: profile.email,
-    subject: `Zalihe su pri kraju — ostalo ${supply.capsulesRemaining} kapsula`,
+    subject: supply.estimated
+      ? 'Zalihe ti uskoro ističu'
+      : `Ostalo ti je još ${supply.capsulesRemaining} kapsula`,
     react: LowStockEmail({
       name: profile.name,
       capsulesRemaining: supply.capsulesRemaining,
       runoutDate: supply.estimatedRunoutDate,
+      estimated: supply.estimated,
       // Vidljiv link u podnožju uz `List-Unsubscribe` zaglavlje: zaglavlje vide
       // samo neki klijenti (Gmail, Apple Mail), a odjava mora da postoji u SVAKOM.
       unsubscribeUrl: unsubscribeUrl(profile.id),
@@ -244,4 +261,31 @@ export async function sendInvitationEmail(args: {
     logError(EVENTS.emailSendFailed, err, { type: 'invitation', kind: args.kind })
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }
+}
+
+/** Win-back (cron `refresh-access`) — kupac kome je istekao pristup. */
+export function sendWinbackEmail(
+  profile: ProfileLike,
+  args: { stage: WinbackStage; pausedStreak: number; ctaHref: string },
+  options: SendOptions = {},
+): Promise<SendResult> {
+  const subjects: Record<WinbackStage, string> = {
+    1: 'Tvoj ZenFlow niz je pauziran',
+    2: 'Zašto se ZenFlow uzima svaki dan',
+    3: 'Poslednji podsetnik od nas',
+  }
+  return sendEmail({
+    userId: profile.id,
+    to: profile.email,
+    subject: subjects[args.stage],
+    react: WinbackEmail({
+      name: profile.name,
+      stage: args.stage,
+      pausedStreak: args.pausedStreak,
+      ctaHref: args.ctaHref,
+      unsubscribeUrl: unsubscribeUrl(profile.id),
+    }),
+    type: winbackType(args.stage),
+    ...options,
+  })
 }

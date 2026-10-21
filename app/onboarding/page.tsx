@@ -1,7 +1,9 @@
 import { redirect } from 'next/navigation'
 
 import { refreshAccessStatusForProfile } from '@/lib/access/status'
+import { accessWindowCutoff } from '@/lib/access/window'
 import { getCurrentProfile, isAdmin } from '@/lib/auth'
+import { BELGRADE_TZ, belgradeToday } from '@/lib/dates'
 import { db, orders } from '@/lib/db'
 import { SYNCED_STATUSES } from '@/lib/woocommerce/order-rules'
 import { and, inArray, sql } from 'drizzle-orm'
@@ -9,7 +11,7 @@ import { and, inArray, sql } from 'drizzle-orm'
 import { OnboardingWizard } from './onboarding-wizard'
 
 export const metadata = {
-  title: 'Onboarding — NuroLab',
+  title: 'Podešavanje protokola · NuroLab',
 }
 
 /**
@@ -34,7 +36,9 @@ export default async function OnboardingPage() {
     redirect('/dashboard')
   }
 
-  // Prefil broja pakovanja iz zbira porudžbina za korisnikov mejl (default 1).
+  // Prefil broja pakovanja iz zbira porudžbina u PROZORU PRISTUPA (default 1).
+  // Zbir svih porudžbina ikad je kupcu koji se vraća nudio 5+ pakovanja koja je
+  // odavno popio — i naduvavao zalihe, pa je low-stock alert kasnio.
   const [row] = await db
     .select({ total: sql<number>`coalesce(sum(${orders.quantityPackages}), 0)` })
     .from(orders)
@@ -43,6 +47,7 @@ export default async function OnboardingPage() {
       and(
         sql`lower(${orders.email}) = ${profile.email.trim().toLowerCase()}`,
         inArray(orders.status, [...SYNCED_STATUSES]),
+        sql`(${orders.orderDate} at time zone ${BELGRADE_TZ})::date >= ${accessWindowCutoff(belgradeToday())}::date`,
       ),
     )
 

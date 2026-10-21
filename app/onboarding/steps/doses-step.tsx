@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { StepHeading } from './step-heading'
 
 /**
- * Korak 2 — termini jutarnje i večernje doze. Cron dispatcher (1.9) šalje
+ * Korak 2: termini jutarnje i popodnevne doze. Cron dispatcher (1.9) šalje
  * podsetnike tačno po ovim vremenima, pa su ona deo protokola, ne kozmetika.
  */
 export function DosesStep({
@@ -29,7 +29,7 @@ export function DosesStep({
       <StepHeading
         eyebrow="Korak 2 od 5"
         title="Vreme doza"
-        description="Kad uzimaš jutarnju i večernju dozu? Po ovome ti stižu podsetnici."
+        description="Kada uzimaš jutarnju, a kada popodnevnu dozu? U to vreme ti stižu podsetnici."
       />
 
       <div className="flex flex-col gap-4">
@@ -39,12 +39,14 @@ export function DosesStep({
         </label>
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-ink">Večernja doza</span>
+          <span className="text-sm font-medium text-ink">
+            Popodnevna doza <span className="font-normal text-slate-soft">· preporuka oko 14h</span>
+          </span>
           <Input type="time" value={doseEveningTime} onChange={(e) => onEveningChange(e.target.value)} />
         </label>
 
         <p className="rounded-lg bg-paper px-4 py-3 text-sm text-slate-mid">
-          Isti termin svakog dana je pola posla — protokol se gradi ritmom. Vremena kasnije menjaš u
+          Najbolje deluje kad doze uzimaš svaki dan u isto vreme. Termine uvek možeš da promeniš u
           Podešavanjima.
         </p>
       </div>

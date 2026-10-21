@@ -79,8 +79,8 @@ export function QuizStep({
     <div className="flex flex-col gap-5">
       <StepHeading
         eyebrow={`Korak 3 od 5 · Pitanje ${index + 1}/${FOCUS_QUIZ_LENGTH}`}
-        title="Focus Score — početno stanje"
-        description="Kratak snimak startne pozicije. Nije medicinska procena."
+        title="Focus Score: tvoja polazna tačka"
+        description="Pet kratkih pitanja o tome kako se danas osećaš. Ovo nije medicinska procena."
       />
 
       <AnimatePresence mode="wait" initial={false} custom={direction}>
@@ -101,40 +101,66 @@ export function QuizStep({
             <span className="text-xs text-slate-soft">{question.hint}</span>
           </legend>
 
-          <div className="flex items-stretch gap-1.5">
-            {question.emojis.map((emoji, i) => {
+          {/* Skala 1–5 bez emotikona: broj + nivo (koliko crtica je popunjeno) +
+              oznaka. Smajliji su delovali neozbiljno za proizvod koji se bavi
+              fokusom; nivo čita isto, a izgleda mirno i premium. */}
+          <div className="flex items-stretch gap-1.5" role="radiogroup" aria-label={question.prompt}>
+            {FOCUS_QUIZ_SCALE_LABELS.map((label, i) => {
               const value = i + 1
               const selected = current === value
-              const label = FOCUS_QUIZ_SCALE_LABELS[i]
               return (
                 <motion.button
                   key={value}
                   type="button"
-                  title={label}
-                  aria-label={`${value} — ${label}`}
-                  aria-pressed={selected}
+                  role="radio"
+                  aria-checked={selected}
+                  aria-label={`${value} od 5: ${label}`}
                   onClick={() => choose(value)}
-                  whileTap={{ scale: 0.92 }}
-                  animate={{ scale: selected ? 1.06 : 1 }}
-                  transition={{ type: 'spring', stiffness: 420, damping: 24 }}
+                  whileTap={{ scale: 0.96 }}
+                  transition={{ type: 'spring', stiffness: 420, damping: 28 }}
                   className={cn(
-                    'flex flex-1 flex-col items-center gap-1 rounded-xl border px-1 py-3 transition-colors',
+                    'flex min-h-24 flex-1 flex-col items-center justify-between gap-2 rounded-xl border px-1 pt-3 pb-2.5 transition-colors',
                     selected
-                      ? 'border-transparent bg-lime text-ink shadow-soft'
-                      : 'border-border bg-white text-slate-mid hover:bg-paper',
+                      ? 'border-ink bg-ink text-paper shadow-soft'
+                      : 'border-border bg-white text-ink hover:border-ink/30',
                   )}
                 >
-                  <span className="text-2xl leading-none" aria-hidden="true">
-                    {emoji}
+                  <span className="font-heading text-xl leading-none font-semibold tabular-nums">
+                    {value}
                   </span>
-                  <span className="text-[10px] leading-tight font-medium">{label}</span>
+                  <span className="flex items-end gap-0.5" aria-hidden="true">
+                    {Array.from({ length: 5 }).map((_, bar) => (
+                      <span
+                        key={bar}
+                        className={cn(
+                          'w-1 rounded-full',
+                          bar < value
+                            ? selected
+                              ? 'bg-lime'
+                              : 'bg-ink/70'
+                            : selected
+                              ? 'bg-paper/25'
+                              : 'bg-ink/12',
+                        )}
+                        style={{ height: `${6 + bar * 2}px` }}
+                      />
+                    ))}
+                  </span>
+                  <span
+                    className={cn(
+                      'text-xs leading-tight font-medium',
+                      selected ? 'text-paper/85' : 'text-slate-mid',
+                    )}
+                  >
+                    {label}
+                  </span>
                 </motion.button>
               )
             })}
           </div>
 
           <p className="text-xs text-slate-soft">
-            Dodirni odgovor — sledeće pitanje stiže samo.
+            Izaberi odgovor i prelaziš na sledeće pitanje.
           </p>
         </motion.fieldset>
       </AnimatePresence>

@@ -5,7 +5,7 @@ import { and, count, eq } from 'drizzle-orm'
 import { badges, db, focusSessions, profiles, protocolLogs } from '@/lib/db'
 import { EVENTS, logError } from '@/lib/observability/log'
 import { getProtocolState } from '@/lib/protocol/queries'
-import { type BadgeKey, sortBadgeKeys } from './catalog'
+import { type BadgeKey, sortBadgeKeys } from './keys'
 
 /**
  * Award engine — poziva se na kraju akcije koja je mogla nešto da otključa

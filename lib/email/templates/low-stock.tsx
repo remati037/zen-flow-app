@@ -1,6 +1,7 @@
 import { Button, Heading, Link, Section, Text } from '@react-email/components'
 
 import { APP_URL } from '../client'
+import { refillUrl } from '../../refill'
 import { brand, brandButtonStyle, EmailLayout } from './layout'
 
 type LowStockEmailProps = {
@@ -14,14 +15,20 @@ type LowStockEmailProps = {
    * ijedne vidljive odjave se ne odjavljuje — prijavljuje se kao spam.
    */
   unsubscribeUrl?: string | null
+  /**
+   * Alert je okinut po procenjenom datumu isteka, ne po broju kapsula: korisnik ne
+   * štiklira doze, pa `capsulesRemaining` u bazi nije tačan i ne prikazuje se.
+   */
+  estimated?: boolean
 }
 
 function formatDate(value?: string | null) {
   if (!value) return null
-  // value je `YYYY-MM-DD` (Drizzle `date`). Prikaži kao DD.MM.YYYY.
+  // value je `YYYY-MM-DD` (Drizzle `date`). Prikaži kao DD.MM.YYYY — bez završne
+  // tačke: datum stoji na kraju rečenice, pa bi tačka bila dupla („22.10.2026..").
   const [y, m, d] = value.split('-')
   if (!y || !m || !d) return value
-  return `${d}.${m}.${y}.`
+  return `${d}.${m}.${y}`
 }
 
 /** Low-stock alert — šalje cron kad kapsule padnu ispod praga. */
@@ -30,38 +37,61 @@ export function LowStockEmail({
   capsulesRemaining,
   runoutDate,
   unsubscribeUrl,
+  estimated = false,
 }: LowStockEmailProps) {
   const greeting = name ? `Zdravo ${name},` : 'Zdravo,'
   const runout = formatDate(runoutDate)
+  // Pravo u shop (sa UTM-om) — svaki dodatni korak između mejla i korpe gubi
+  // kupovinu. Dok shop link nije postavljen, vodi na zalihe u app-u.
+  const ctaHref = refillUrl('email_low_stock') ?? `${APP_URL}/zalihe`
 
   return (
-    <EmailLayout preview={`Ostalo ti je još ${capsulesRemaining} kapsula — vreme za refill.`}>
+    <EmailLayout
+      preview={
+        estimated
+          ? 'Po našoj proceni zalihe su ti pri kraju. Vreme je za novo pakovanje.'
+          : `Ostalo ti je još ${capsulesRemaining} kapsula. Vreme je za novo pakovanje.`
+      }
+    >
       <Heading style={{ color: brand.ink, fontSize: 24, fontWeight: 800, margin: '0 0 16px', letterSpacing: '-0.02em' }}>
-        Zalihe su ti pri kraju ⏳
+        Zalihe su ti pri kraju
       </Heading>
 
       <Text style={{ color: brand.ink, fontSize: 15, lineHeight: '24px', margin: '0 0 16px' }}>
         {greeting}
       </Text>
 
-      <Text style={{ color: brand.ink, fontSize: 15, lineHeight: '24px', margin: '0 0 16px' }}>
-        Ostalo ti je još <strong>{capsulesRemaining} kapsula</strong>
-        {runout ? (
-          <>
-            {' '}— po trenutnom ritmu, zaliha ti se završava oko <strong>{runout}</strong>
-          </>
-        ) : null}
-        .
-      </Text>
+      {estimated ? (
+        <Text style={{ color: brand.ink, fontSize: 15, lineHeight: '24px', margin: '0 0 16px' }}>
+          Po našoj proceni zalihe su ti pri kraju
+          {runout ? (
+            <>
+              {' '}i ističu oko <strong>{runout}</strong>
+            </>
+          ) : null}
+          . Ako doze uzimaš, a ne štikliraš ih u aplikaciji, zalihe na ekranu
+          pokazuju više nego što stvarno imaš.
+        </Text>
+      ) : (
+        <Text style={{ color: brand.ink, fontSize: 15, lineHeight: '24px', margin: '0 0 16px' }}>
+          Ostalo ti je još <strong>{capsulesRemaining} kapsula</strong>
+          {runout ? (
+            <>
+              . Ovim tempom trajaće ti do oko <strong>{runout}</strong>
+            </>
+          ) : null}
+          .
+        </Text>
+      )}
 
       <Text style={{ color: brand.ink, fontSize: 15, lineHeight: '24px', margin: '0 0 24px' }}>
-        Setimo se kako ZenFlow radi: <strong>pauza u protokolu poništava napredak koji si do sada
-        izgradio.</strong> Naruči refill na vreme da ne prekineš streak i ne izgubiš efekte.
+        <strong>Efekat ZenFlow-a se gradi redovnim uzimanjem i slabi tokom pauze.</strong> Naruči
+        na vreme i nastavi protokol bez prekida.
       </Text>
 
       <Section style={{ textAlign: 'center', margin: '8px 0 8px' }}>
-        <Button href={`${APP_URL}/dashboard`} style={brandButtonStyle()}>
-          Naruči refill
+        <Button href={ctaHref} style={brandButtonStyle()}>
+          Naruči dopunu
         </Button>
       </Section>
 

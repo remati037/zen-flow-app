@@ -87,7 +87,7 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
 - **Protocol tracker sa streak mehanikom** — `/protokol`, check-in obe doze, 7-dnevni strip, backfill do 7 dana. Streak se pauzira dok je korisnik `inactive` (vidi „Poznata ograničenja" u README).
 - **Supply tracking** — `/zalihe`, check-in troši kapsule, Woo porudžbina top-upuje tačno jednom, low-stock alert na push + email.
 - **Pomodoro timer + 3 dnevna zadatka** — `/fokus`, timestamp-based countdown, limit zadataka enforce-ovan server-side.
-- **Dashboard sa bedževima** — `/dashboard` (agregat + Recharts doslednost 14d), `/bedzevi` (9 bedževa, award engine).
+- **Dashboard sa bedževima** — `/dashboard` (agregat + Focus Score kroz vreme: procena iz doslednosti i fokus blokova, `lib/focus/score.ts`), `/bedzevi` (9 bedževa, award engine).
 - **Web Push** — VAPID, SW `push`/`notificationclick` handleri, dispatcher na 15 min (eksterni scheduler), dedup po beogradskom danu.
 - **Admin panel** — `/admin` metrike, korisnici sa streak-ovima + access override, porudžbine + backfill.
 - **WooCommerce order sync** — webhook + backfill, isti `upsertOrder` za oba puta.
@@ -105,20 +105,60 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
   (`refreshAccessStatusForProfile` + Clerk rola), ne zastareli `profile.accessStatus`.
   Opt-out je EKSPLICITAN po akciji (`allowInactive: true`) — trenutno ga nijedna ne koristi;
   `admin: true` akcije su izuzete (rola je izvor istine, admin je uvek `vip`).
+- **Gejt za ČITANJE stoji u SVAKOJ `(app)` stranici, ne samo u layout-u.** Svaka stranica počinje
+  sa `const { profile } = await requireAppAccess()` (`lib/access/app-gate.ts`, umotan u React
+  `cache()`). Pri RSC navigaciji App Router renderuje samo segment koji se menja — namešten
+  `Next-Router-State-Tree` header traži render same stranice, layout se ne izvršava i njegov
+  redirect ne štiti ništa. `cache()` deli profil i refresh između layout-a i stranice, pa
+  provera po stranici ne dodaje DB poziv. Nova `(app)` stranica bez ovog poziva je curenje.
+- **Service worker kešira SAMO javne statičke fajlove** (`app/sw.ts`, `STATIC_CACHE_NAMES`).
+  `defaultCache` iz `@serwist/next` je keširao HTML/RSC stranice, `/api/*` i Clerk FAPI odgovore
+  — na deljenom telefonu se posle odjave video tuđi (i adminov) sadržaj. Navigacije, RSC,
+  `/api` i cross-origin idu `NetworkOnly`; offline navigacija pada na `/~offline`. Keševi
+  stare verzije se brišu na `activate` (`LEGACY_PRIVATE_CACHES`). Nikad ne vraćati
+  `defaultCache` u celini.
+- **Svaki refill CTA ide kroz `refillUrl(source)`** (`lib/refill.ts`) — dodaje UTM tagove
+  (`utm_campaign=refill`, `utm_content=<izvor>`) da shop analitika meri koji kanal vraća
+  kupca. Bez `NEXT_PUBLIC_SHOP_REFILL_URL` vraća `null` (CTA se sakriva; mejl pada na
+  `/zalihe`). Nikad direktno `process.env.NEXT_PUBLIC_SHOP_REFILL_URL`.
+- **„Danas" na klijentu može biti zastareo.** Instalirani PWA stoji otvoren preko ponoći;
+  `DayRolloverRefresh` (u `(app)/layout.tsx`) osvežava render na promenu dana, a
+  `DoseCheckin` pre slanja proverava `belgradeToday()` — inače bi tap upisao jučerašnju dozu
+  (u backfill prozoru je, pa je server prihvata).
 - Šema je kompletna za Fazu 1. Odobrene naknadne migracije: `0001` (indeksi), `0002`
   (`cron_runs` heartbeat, Faza 2 blok 1), `0003` (`notifications_log.dedup_day` +
   `notifications_log_dedup_uq`, `push_subscriptions.last_seen_at` + indeks po korisniku;
   Faza 2 blok 2) i `0004` (`profiles.access_override` + `_at` + `_by` + CHECK,
-  `profiles.email_alerts`, `supply.low_stock_alerts_sent`; Faza 2 blok 3) — nema novih bez
+  `profiles.email_alerts`, `supply.low_stock_alerts_sent`; Faza 2 blok 3) i `0005`
+  (`user_supplements` + enum `supplement_time`; Faza 2 „Moj stack") — nema novih bez
   eksplicitne potrebe. `orders_email_lower_date_idx` je funkcionalni
   (`lower(email)`, `order_date DESC`) jer svaki upit za pristup poredi mejl case-insensitive;
   `protocol_logs_date_taken_idx` je parcijalni (`WHERE status = 'taken'`).
+- **„Moj stack" (`/stack`, `/admin/stack`):** katalog od 100 suplemenata je konstanta u
+  `lib/supplements/catalog.ts` (ključevi su STABILNI, upisani su u `user_supplements.catalog_key`;
+  novi suplement = deploy, bez migracije). Sav SQL je u `lib/supplements/store.ts` — akcije su tanke,
+  a `qa-sql` izvršava te iste funkcije. Uklanjanje je soft (`active = false`); ponovno dodavanje
+  REAKTIVIRA red (jedinstveni indeksi: `(user_id, catalog_key)` i `(user_id, lower(custom_name))`).
+  Ograničenje je 60 AKTIVNIH unosa po korisniku (uklonjeni se ne broje). `updateSupplementSchema.active`
+  dozvoljava samo `false`: izmena može samo da UKLONI unos, a vraćanje ide kroz `addSupplement` (koji
+  sprovodi granicu); prekidač „Još pijem" u UI zato samo isključuje, a ponovo se dodaje kroz „Dodaj suplement".
+  „Drugo" koje tačno odgovara kataloškom nazivu/aliasu ide pod kataloški ključ (`matchCatalogExact`).
+  Admin spaja slobodan unos kroz `merged_into_key`, nikad ne dira korisnikov unos; `name` u spajanju
+  je tačno `lower(custom_name)` iz SQL-a (ne JS lowercase — `lower()` zavisi od locale-a baze).
+  Nedeljna potvrda: `needsConfirmation` (7 beogradskih kalendarskih dana, najstariji `last_confirmed_on`
+  među aktivnim); svaka izmena liste osvežava potvrdu. Admin agregat izuzima unose nepotvrđene
+  > 30 dana, `usersWithStack` broji samo onboardovane `role='user'` korisnike sa svežim aktivnim unosom,
+  i maskira grupe od 1–2 korisnika kao „< 3"; nikad ne nosi `user_id` ni mejl.
+  Namerno NEMA: saglasnosti u appu (politika privatnosti na nurolab.rs mora da pokrije prikupljanje),
+  push/mejl podsetnika za potvrdu, dnevnog štikliranja, preporuka ni upozorenja o interakcijama
+  (zdravstvene tvrdnje).
 - Boje samo kroz Tailwind brand tokene (`@theme` u `app/globals.css`). Hardkodovani hex je dozvoljen **samo** u: `app/manifest.ts`, Clerk `appearance` u `app/layout.tsx`, `app/style-guide/page.tsx`, `lib/email/templates/*` (email klijenti nemaju Tailwind), `lib/confetti.ts`.
 - Build ide kroz **webpack** (`next build --webpack`), ne Turbopack — Serwist injector mod.
 - QA harness ima TRI sloja i sva tri moraju ostati zelena (`npm run qa` vozi sve):
   `qa-dates` (čiste funkcije: datumi/streak/prozori/Woo/access override/cap alerta/odjavni
-  token/pozivnice, 240 provera), `qa-routes` (klasifikacija ruta, 50 provera) i **`qa-sql`**
-  (76 provera — SQL koji se STVARNO izvršava nad pravim Postgres-om).
+  token, pozivnice, Sprint 2–6 pravila i „Moj stack“, 365 provera), `qa-routes` (klasifikacija ruta, 54 provere) i **`qa-sql`**
+  (184 provere — SQL koji se STVARNO izvršava nad pravim Postgres-om). Lokalno bez Docker-a:
+  privremeni klaster sa Homebrew `postgresql@16` (`initdb --locale=C`, `pg_ctl -o "-p 5433"`).
 - **`qa-sql` postoji zato što prva dva sloja ne izvršavaju nijedan upit.** Dva produkciona
   otkaza su prošla kroz lint, build i obe stare provere netaknuta: `GROUP BY` sa bind
   parametrom (upit se kompajlira, Postgres ga odbija) i produkcijska baza zaostala na
@@ -167,7 +207,10 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
   BEZ OBZIRA na ishod. `notifications_log` ne može da posluži: run bez kandidata ne upiše nijedan
   red, pa se „scheduler je mrtav" ne razlikuje od „nema kandidata". Klasifikacija stanja je u
   `lib/cron/health.ts` (čist modul, bez `server-only`, da ga QA importuje); admin je vidi kao
-  blocker u „Dijagnostika push-a".
+  blocker u „Dijagnostika push-a". Heartbeat ide i kad run PADNE (`try/catch` oko `run()`,
+  `last_result = { ok: false }`); dnevni izveštaj prijavljuje `failed_last_run` i dnevne
+  poslove koji ćute duže od `DAILY_JOB_STALE_HOURS` (36h) — `low-stock` i `refresh-access`.
+  `db-check` je ručna dijagnostika, ne raspoređen posao, i nema heartbeat.
 - **Batch cron rute idu kroz `runChunked`** (`lib/cron/fanout.ts`, chunk 12) i imaju
   `export const maxDuration = 60` (Hobby maksimum). `Promise.allSettled` izoluje pad na jednog
   korisnika — sekvencijalna petlja bez `try/catch` je jednim `throw`-om obarala ceo batch, a bez
@@ -234,7 +277,63 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
   `supply.low_stock_alerts_sent` + `LOW_STOCK_MAX_ALERTS_PER_EPISODE` (3) drže UKUPAN broj po
   epizodi. Brojač se resetuje kad zalihe pređu `LOW_STOCK_THRESHOLD` — reset je vezan za STANJE,
   ne za događaj „dopuna", pa mora da stoji u SVAKOM putu upisa u `supply`
-  (`updateSupply`, Woo `topUpSupplyForEmail`, CTE u `logDose`).
+  (`updateSupply`, Woo `topUpSupplyForEmail`, CTE u `logDose`, `finalizeOnboarding`).
+- **„Niske zalihe" = `isLowStock`** (`lib/protocol/dosing.ts`): broj kapsula ≤ praga ILI
+  `estimated_runout_date` ≤ danas + `LOW_STOCK_LEAD_DAYS`. Samo broj ne hvata korisnika koji
+  pije a ne štiklira — on nikad ne spusti `capsules_remaining`. Cron i UI kartice koriste ISTO
+  pravilo; alert okinut po datumu (`estimated`) ne prikazuje broj kapsula, jer nije tačan.
+  Na 0 kapsula dispatcher jutarnji podsetnik menja porukom o dopuni, a večernji i
+  streak-at-risk preskače.
+- **Woo top-up je JEDNA izjava sa deltom** (`capsules_remaining + n`), nikad čitanje pa upis
+  apsolutne vrednosti — paralelan check-in bi bio pregažen. Backfill dopunjuje SAMO porudžbine
+  od dana POSLE onboardinga (`topUpSupply: 'after-onboarding'`; dan onboardinga = prvi
+  `focus_quiz_results` red); ranije je uračunao korisnik kroz broj pakovanja.
+- **Pristupačnost (Sprint 5) — minimum za svaki nov UI:** fokus je PUN ink (`--ring`,
+  globalni `:focus-visible` outline); cilj za dodir ≥ 44px (`min-h-11`/`size-11`, ili
+  `after:-inset-*` kad je vizuelni element manji); tekst ≥ 12px (`text-xs`, nikad
+  `text-[10px]`/`[11px]`); ikonica-dugme ima `aria-label`; grafikon ima `sr-only` sažetak.
+  Animacije poštuju `prefers-reduced-motion` (globalno u `globals.css` + `MotionConfig
+  reducedMotion="user"` u onboardingu). Boja upozorenja je token `caution` — nikad `amber-*`.
+- **Svaka grupa ruta ima `loading.tsx` i `error.tsx`** (`components/states/*`); koren ima i
+  `not-found.tsx` i `global-error.tsx`. Ekran greške prikazuje `digest`, nikad poruku greške.
+  Klijentski poziv server akcije MORA da hvata izuzetak (bez mreže akcija BACA, ne vraća
+  `{ ok: false }`) i da vrati optimistično stanje — vidi `DoseCheckin`.
+- **Focus Score kroz vreme je PROCENA iz ponašanja** (`lib/focus/score.ts`, čist modul; upit u
+  `lib/focus/queries.ts`). Polazna tačka je kviz (`focus_score_baseline`); „efekat protokola"
+  raste ka udelu uzetih doza (~2 nedelje) i bledi brže kad se prekine; fokus blokovi nose 20%.
+  Današnji dan samo diže skor. UI mora da kaže da je procena — nikad ga ne predstavljati kao
+  merenje ili medicinski podatak. Model se menja samo uz izmenu QA sekcije 18 u `qa-dates`.
+- **Check-in iz notifikacije** (`/api/push/checkin`, javna, HMAC token iz
+  `lib/push/checkin-token.ts` vezan za korisnika + dan + dozu; prihvata samo danas i juče).
+  Upis ide kroz `recordDose` (`lib/protocol/record-dose.ts`) — ISTU funkciju koju zove
+  `logDose`; nikad drugi put upisa doze. Service worker prikazuje dugme „✓ Uzeto" samo uz
+  potpisan payload; neuspeh otvara `/protokol`.
+- **Award engine uvozi ključeve iz `lib/badges/keys.ts`, nikad iz `catalog.ts`** — katalog
+  vuče `lucide-react`, koji van Next runtime-a puca, pa server moduli koji dodeljuju bedževe
+  ne bi mogli u `qa-sql` (zato `logDose` ranije nije bio pokriven).
+- **Profil i porudžbine po zahtevu: jedan upit.** `getCurrentProfile` je u React `cache()`,
+  a gejt (`getLatestOrderDate`) i streak (`getProtocolState`) čitaju porudžbine kroz isti
+  keširan `getValidOrderDates` (`lib/access/orders.ts`).
+- **Admin `/admin/retencija`** (`lib/admin/retention.ts`): funnel kupci → registrovani →
+  onboardovani → aktivni, ponovna kupovina sa/bez app-a, konverzija low-stock alerta i tri
+  liste za akciju. Sve agregacije su u SQL-u; liste su ograničene na 50 redova.
+- **Win-back za istekle kupce** (`lib/access/winback.ts`, pravila u čistom `winback-rules.ts`):
+  tri mejla po isteku pristupa, faze [1,7) / [7,14) / [21,28) dana. Gornja granica je
+  obavezna — bez nje bi prvo puštanje poslalo mejl SVIM bivšim kupcima. Kandidati se biraju
+  u SQL-u (`having` nad poslednjom važećom porudžbinom), bez ručnog override-a i bez admina.
+  Šalje se iz dnevnog `low-stock` run-a (jutro), ne iz noćnog `refresh-access` (03:00).
+  `winback_*` su u `EMAIL_ALERT_TYPES` — isti opt-out i one-click odjava kao low-stock.
+  `/nemas-pristup` razlikuje povratnog kupca („protokol je pauziran", niz, refill CTA) od
+  naloga bez kupovine.
+- **Brojač niza na dashboardu je optimističan** (`ProtocolCtaCard` je klijentska komponenta):
+  `current − (server: danas kompletan) + (lokalno: danas kompletan)`. Kompletan dan ima svoje
+  slavlje u `DoseCheckin` (konfete samo kad nema novog bedža — bedž ih već ispaljuje).
+  „Niz u opasnosti" se računa tek posle mount-a (vreme na serveru i klijentu bi se razišlo).
+- **Tekstovi su rodno neutralni** („istim mejlom kao pri kupovini", ne „si koristio"). Ista
+  pravila važe za mejlove.
+- **Onboarding upisuje profil, zalihe i kviz JEDNOM izjavom** (`lib/onboarding/finalize.ts`),
+  sa guard-om `where onboarding_completed = false` u samom UPDATE-u. Početne zalihe su
+  `initialCapsulesForStart` — protekli dani od početka protokola su već potrošeni.
 - **`profiles.email_alerts` gasi SAMO alert mejlove** (`EMAIL_ALERT_TYPES` u `lib/email/send.ts`),
   nikad transakcione (`welcome`) i nikad push. Provera stoji na DVA mesta: cron pred-filtrira
   (ušteda upita + tačan brojač), a `sendEmail` je garancija — nova ruta ne može da procuri kroz
@@ -297,6 +396,8 @@ alert mejlove sa `List-Unsubscribe` one-click rutom, cap od 3 alerta po epizodi 
 strukturni JSON logovi umesto `console.error`, agregat isporučenosti u adminu + dnevni cron
 izveštaj, i CI na PR-u (`.github/workflows/ci.yml`). Jedna migracija: `0004`.
 **Sentry NIJE uzet** — vidi „Ograničenja i ključne odluke".
+
+**Moj stack ✅** — evidencija dodatnih suplemenata (katalog 100 + „Drugo"), nedeljna potvrda, admin agregat. Migracija: `0005`.
 
 Ostatak:
 

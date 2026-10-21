@@ -13,6 +13,11 @@ export const CRON_JOBS = {
   lowStock: 'low-stock',
   /** Dnevni izveštaj o isporučenosti (O-M1) — vidi `app/api/cron/daily-report/route.ts`. */
   dailyReport: 'daily-report',
+  /**
+   * Noćno održavanje pristupa (gasi istekle VIP-ove). Do Sprinta 2 nije upisivao
+   * heartbeat — da je stao, ništa to ne bi pokazalo, a istekli kupci bi ostali VIP.
+   */
+  refreshAccess: 'refresh-access',
 } as const
 
 export type CronJob = (typeof CRON_JOBS)[keyof typeof CRON_JOBS]
@@ -30,6 +35,18 @@ export type CronJob = (typeof CRON_JOBS)[keyof typeof CRON_JOBS]
 export const DISPATCHER_STALE_HOURS = 2
 
 const MS_PER_MIN = 60_000
+
+/**
+ * Posle koliko sati bez run-a DNEVNI posao (low-stock, refresh-access) smatramo
+ * stalim. 36h = jedan propušten dan + rezerva za kašnjenje Vercel Cron-a.
+ */
+export const DAILY_JOB_STALE_HOURS = 36
+
+/** Da li je dnevni posao stao: nikad nije radio, ili ćuti duže od `DAILY_JOB_STALE_HOURS`. */
+export function isDailyJobStale(lastRunAt: Date | null, now: Date): boolean {
+  if (!lastRunAt) return true
+  return minutesBetween(lastRunAt, now) > DAILY_JOB_STALE_HOURS * 60
+}
 
 /** Minuta između dva instanta, zaokruženo. Negativno se svodi na 0 (sat unazad). */
 export function minutesBetween(from: Date, to: Date): number {
@@ -95,7 +112,7 @@ export function describeDispatcherHealth({
       maxGapAt: null,
       runsTotal: 0,
       message:
-        '/api/cron/notifications nije pozvan NIJEDNOM — scheduler nije podešen ili ne pogađa rutu. ' +
+        '/api/cron/notifications nije pozvan NIJEDNOM. Proveri da li je scheduler podešen i da li pogađa rutu. ' +
         'Vercel je NE pokreće; vozi je GitHub Actions workflow (docs/cron-setup.md).',
     }
   }
@@ -126,7 +143,7 @@ export function describeDispatcherHealth({
       ...base,
       status: 'gaps',
       message:
-        `Dispatcher radi, ali je bar jednom ćutao ${formatMinutes(run.maxGapMin!)} — šire od prozora ` +
+        `Dispatcher radi, ali je bar jednom ćutao ${formatMinutes(run.maxGapMin!)}, duže od prozora ` +
         `od ${windowMin} min, pa su podsetnici u toj rupi izgubljeni. Ako se ponavlja, prebaci ` +
         'scheduler na cron-job.org (docs/cron-setup.md, opcija B) ili proširi NOTIFICATION_WINDOW_MIN.',
     }
@@ -135,7 +152,7 @@ export function describeDispatcherHealth({
   return {
     ...base,
     status: 'ok',
-    message: `Dispatcher je živ — poslednji run pre ${formatMinutes(sinceLastRunMin)}, bez rupa širih od ${windowMin} min.`,
+    message: `Dispatcher radi. Poslednji run je bio pre ${formatMinutes(sinceLastRunMin)}, bez rupa širih od ${windowMin} min.`,
   }
 }
 

@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm'
 
 import { db, notificationsLog, pushSubscriptions } from '@/lib/db'
 import { EVENTS, logError, logWarn } from '@/lib/observability/log'
+import { checkinToken, type CheckinDose } from './checkin-token'
 import { claimNotification, settleNotification } from './dedup'
 import { PUSH_ENDPOINT_ERROR, isAllowedPushEndpoint } from './endpoint'
 import { checkVapidConfig } from './vapid'
@@ -74,6 +75,15 @@ type SendPushArgs = {
     /** Beogradski kalendarski dan — uvek `belgradeToday()`. */
     day: string
   }
+  /**
+   * Podsetnik za dozu: dodaj dugme „Uzeto" koje upisuje dozu bez otvaranja app-a.
+   * Payload nosi potpisan token (`lib/push/checkin-token.ts`); bez tajne dugme se
+   * prosto izostavlja — klik na notifikaciju i dalje otvara app.
+   */
+  checkin?: {
+    date: string
+    dose: CheckinDose
+  }
 }
 
 /** Detalj neuspelog slanja — bez punog endpoint-a (sadrži tajni token pretplate). */
@@ -113,13 +123,13 @@ function serviceOf(endpoint: string): string {
 function explainStatus(statusCode: number | null, message: string): string {
   switch (statusCode) {
     case 400:
-      return 'Neispravan zahtev — najčešće loš VAPID subject ili oštećeni ključevi pretplate.'
+      return 'Neispravan zahtev. Najčešće je uzrok loš VAPID subject ili oštećeni ključevi pretplate.'
     case 401:
     case 403:
-      return 'Push servis je odbio VAPID potpis (403). Javni ključ kojim je napravljena pretplata ne odgovara privatnom ključu na serveru — postavi oba iz istog para i uradi redeploy.'
+      return 'Push servis je odbio VAPID potpis (403). Javni ključ kojim je napravljena pretplata ne odgovara privatnom ključu na serveru. Postavi oba iz istog para i uradi redeploy.'
     case 404:
     case 410:
-      return 'Pretplata više ne postoji (uređaj je odjavljen ili je app obrisan) — red je uklonjen.'
+      return 'Pretplata više ne postoji (uređaj je odjavljen ili je app obrisan). Red je uklonjen.'
     case 413:
       return 'Payload je prevelik za push servis.'
     case 429:
@@ -134,7 +144,7 @@ function explainStatus(statusCode: number | null, message: string): string {
  * NIKAD ne baca — hvata greške, čisti stale pretplate (404/410), loguje status.
  * Tako webhook/cron pozivaoci ostaju robustni.
  */
-export async function sendPushToUser({ userId, type, title, body, url, tag, dedup }: SendPushArgs): Promise<SendPushResult> {
+export async function sendPushToUser({ userId, type, title, body, url, tag, dedup, checkin }: SendPushArgs): Promise<SendPushResult> {
   try {
     ensureConfigured()
   } catch (err) {
@@ -193,7 +203,16 @@ export async function sendPushToUser({ userId, type, title, body, url, tag, dedu
       : { ok: true, sent: 0, removed: 0, failures: [] }
   }
 
-  const payload = JSON.stringify({ title, body, url: url ?? '/dashboard', tag })
+  const actionToken = checkin ? checkinToken(userId, checkin.date, checkin.dose) : null
+  const payload = JSON.stringify({
+    title,
+    body,
+    url: url ?? '/dashboard',
+    tag,
+    ...(checkin && actionToken
+      ? { checkin: { userId, date: checkin.date, dose: checkin.dose, token: actionToken } }
+      : {}),
+  })
 
   let sent = 0
   let removed = 0

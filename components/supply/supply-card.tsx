@@ -18,15 +18,10 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { SupplyBottle } from '@/components/supply/supply-bottle'
 import { Label } from '@/components/ui/label'
-import { Progress } from '@/components/ui/progress'
-import { formatIsoDateSr } from '@/lib/dates'
-import {
-  CAPSULES_PER_PACKAGE,
-  LOW_STOCK_THRESHOLD,
-  estimateDaysRemaining,
-} from '@/lib/protocol/dosing'
-import { cn } from '@/lib/utils'
+import { belgradeToday, formatIsoDateSr } from '@/lib/dates'
+import { estimateDaysRemaining, isLowStock } from '@/lib/protocol/dosing'
 
 export function SupplyCard({
   capsulesRemaining,
@@ -44,9 +39,9 @@ export function SupplyCard({
 
   const daysRemaining = estimateDaysRemaining(capsulesRemaining)
   const runoutLabel = estimatedRunoutDate ? formatIsoDateSr(estimatedRunoutDate) : null
-  const isLow = capsulesRemaining <= LOW_STOCK_THRESHOLD
+  // Isto pravilo kao low-stock cron: broj kapsula ILI procenjeni datum isteka.
+  const isLow = isLowStock(capsulesRemaining, estimatedRunoutDate, belgradeToday())
   // Referentni "pun" = jedno pakovanje (60 kapsula / 15 dana). Preko toga bar ostaje pun.
-  const percent = Math.min(100, Math.round((capsulesRemaining / CAPSULES_PER_PACKAGE) * 100))
 
   function submit() {
     const parsed = Number(value)
@@ -67,7 +62,10 @@ export function SupplyCard({
   }
 
   return (
-    <div className="rounded-xl bg-white p-6 shadow-soft ring-1 ring-foreground/10">
+    <div className="rounded-[24px] bg-white p-6 ring-1 ring-ink/[0.06]">
+      <div className="grid items-center gap-6 sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-10">
+        <SupplyBottle capsulesRemaining={capsulesRemaining} low={isLow} className="justify-self-center" />
+
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-baseline gap-2">
@@ -132,22 +130,13 @@ export function SupplyCard({
           </DialogContent>
         </Dialog>
       </div>
+      </div>
 
-      <Progress
-        value={percent}
-        className={cn(
-          'mt-6 h-2',
-          '[&_[data-slot=progress-indicator]]:transition-all',
-          isLow
-            ? '[&_[data-slot=progress-indicator]]:bg-amber-500'
-            : '[&_[data-slot=progress-indicator]]:bg-lime',
-        )}
-      />
 
       {isLow && (
-        <div className="mt-4 flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
+        <div className="mt-4 flex items-start gap-2 rounded-lg bg-caution-soft p-3 text-sm text-caution ring-1 ring-caution-line">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-          <span>Zalihe su pri kraju — naruči dopunu da ne prekineš protokol.</span>
+          <span>Zalihe su pri kraju. Naruči dopunu na vreme da ne prekineš protokol.</span>
         </div>
       )}
 

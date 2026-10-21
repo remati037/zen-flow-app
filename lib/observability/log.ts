@@ -43,6 +43,7 @@ export const EVENTS = {
   wooTopUpSkipped: 'woo.top_up_skipped',
   wooOrderSkipped: 'woo.order_skipped',
   wooOrderRevoked: 'woo.order_revoked',
+  wooBackfillFailed: 'woo.backfill_failed',
   webhookFailed: 'webhook.failed',
   cronRun: 'cron.run',
   cronHeartbeatFailed: 'cron.heartbeat_failed',
@@ -66,6 +67,21 @@ export type LogEvent = (typeof EVENTS)[keyof typeof EVENTS]
  */
 export function errorFields(err: unknown): LogFields {
   if (err instanceof Error) {
+    // Drizzle `DrizzleQueryError` u poruku stavlja ceo upit I `params: ...` — mejl,
+    // push endpoint, `p256dh`/`auth`. Takva poruka bi iz svakog pada upita iscurela u
+    // Vercel logove. Logujemo samo uzrok iz drajvera (Postgres poruka + SQLSTATE).
+    if (err.message.startsWith('Failed query:')) {
+      const cause = err.cause
+      const code =
+        cause && typeof cause === 'object' && 'code' in cause && typeof cause.code === 'string'
+          ? cause.code
+          : undefined
+      return {
+        errorName: err.name,
+        errorMessage: cause instanceof Error ? cause.message : 'query failed',
+        errorCode: code,
+      }
+    }
     return { errorName: err.name, errorMessage: err.message }
   }
   return { errorName: 'NonError', errorMessage: String(err) }

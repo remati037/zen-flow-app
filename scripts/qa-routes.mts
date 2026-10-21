@@ -12,6 +12,7 @@
 
 import { readdirSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { createRouteMatcher } from '@clerk/nextjs/server'
 
@@ -43,6 +44,7 @@ check('/api/cron/notifications', true, false, 'scheduler — Bearer CRON_SECRET'
 check('/api/cron/low-stock', true, false, 'Vercel Cron — Bearer CRON_SECRET')
 check('/api/cron/refresh-access', true, false, 'Vercel Cron — Bearer CRON_SECRET')
 check('/api/push/rotate', true, false, 'service worker — bez Clerk sesije, auth = posedovanje endpoint-a')
+check('/api/push/checkin', true, false, 'dugme „Uzeto" u notifikaciji — auth je HMAC token')
 check('/api/email/unsubscribe', true, false, 'List-Unsubscribe one-click — auth je HMAC token')
 check('/odjava-mejlova', true, false, 'potvrda odjave — uređaj bez logina')
 check('/api/webhooks/clerk', true, false, 'svix potpis')
@@ -58,6 +60,7 @@ console.log('\n=== Zaštićene rute (traže Clerk sesiju) ===')
 check('/dashboard', false, false, 'korisnik')
 check('/protokol', false, false, 'korisnik')
 check('/zalihe', false, false, 'korisnik')
+check('/stack', false, false, 'korisnik')
 check('/podesavanja', false, false, 'korisnik')
 check('/onboarding', false, false, 'korisnik')
 // Paywall ekran mora ostati iza Clerk sesije: bez profila nema šta da se prikaže,
@@ -69,6 +72,7 @@ console.log('\n=== Admin rute (traže rolu) ===')
 check('/admin', false, true, 'admin stranica')
 check('/admin/korisnici', false, true, 'admin stranica')
 check('/admin/porudzbine', false, true, 'admin stranica')
+check('/admin/stack', false, true, 'admin stranica')
 check('/api/admin/push/test', false, true, 'admin API')
 check('/api/admin/push/diagnose', false, true, 'admin API')
 check('/api/admin/woocommerce/backfill', false, true, 'admin API')
@@ -145,7 +149,8 @@ function discoverApiRoutes(root: string): string[] {
 }
 
 console.log('\n=== Svaka /api ruta na disku je klasifikovana ===')
-const apiRoot = new URL('../app/api', import.meta.url).pathname
+// fileURLToPath, ne `.pathname` — pathname ostavlja `%20` za razmak u putanji checkout-a.
+const apiRoot = fileURLToPath(new URL('../app/api', import.meta.url))
 for (const path of discoverApiRoutes(apiRoot)) {
   const isPublic = isPublicRoute(req(path))
   const isAdmin = isAdminRoute(req(path))

@@ -21,7 +21,7 @@ import { LOW_STOCK_THRESHOLD } from '@/lib/protocol/dosing'
 
 /** 'YYYY-MM-DD' → 'danas' / 'juče' / 'pre N dana' / datum. */
 function checkInLabel(date: string | null, today: string): string {
-  if (!date) return '—'
+  if (!date) return 'nikad'
   const diff = daysBetweenIso(date, today)
   if (diff <= 0) return 'danas'
   if (diff === 1) return 'juče'
@@ -43,7 +43,7 @@ export default async function AdminKorisniciPage({
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-medium text-ink">Korisnici</h1>
+          <h1 className="font-heading text-3xl font-medium tracking-[-0.03em] text-ink">Korisnici</h1>
           <p className="text-slate-mid">
             Lista naloga, role i status pristupa. Registracija je moguća samo preko pozivnice —
             kupci je sami traže na /sign-up, a ostale pozivaš ovde.
@@ -72,7 +72,7 @@ export default async function AdminKorisniciPage({
             </>
           )}
         </p>
-        {truncated && <p>Prikazano prvih {USERS_PAGE_SIZE} — suzi pretragu.</p>}
+        {truncated && <p>Prikazano je prvih {USERS_PAGE_SIZE}. Suzi pretragu.</p>}
       </div>
 
       <Card className="overflow-hidden py-0">
@@ -87,7 +87,7 @@ export default async function AdminKorisniciPage({
                 <TableRow>
                   <TableHead>Korisnik</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Streak</TableHead>
+                  <TableHead className="text-right">Niz</TableHead>
                   <TableHead className="text-right">Kapsule</TableHead>
                   <TableHead>Check-in</TableHead>
                   <TableHead className="text-right">Akcije</TableHead>
@@ -111,11 +111,11 @@ export default async function AdminKorisniciPage({
                       <AccessStatusBadge status={user.accessStatus} />
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {user.streak > 0 ? `${user.streak} 🔥` : '0'}
+                      {user.streak}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {user.capsulesRemaining === null ? (
-                        <span className="text-slate-soft">—</span>
+                        <span className="text-slate-soft">nema</span>
                       ) : (
                         <span
                           className={

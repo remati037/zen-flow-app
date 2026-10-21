@@ -55,10 +55,10 @@ type Diagnosis = {
 
 /** Ikonica po stanju heartbeat-a — `gaps` je upozorenje, ne otkaz. */
 const HEALTH_ICON: Record<Diagnosis['notificationsDispatcher']['health']['status'], string> = {
-  ok: '✅',
-  gaps: '⚠️',
-  stale: '❌',
-  never: '❌',
+  ok: 'Radi,',
+  gaps: 'Ima rupa,',
+  stale: 'Ne radi,',
+  never: 'Ne radi,',
 }
 
 /** '95' → '1h 35min' — isti prikaz kao u `lib/cron/health.ts`, ali bez server importa. */
@@ -115,8 +115,8 @@ export function PushDiagnostics() {
       const { deleted } = (await res.json()) as { deleted: number }
       toast.success(
         deleted > 0
-          ? `Obrisano ${deleted} današnjih zapisa — podsetnik može ponovo.`
-          : 'Nije bilo šta da se obriše — dedup te i ne blokira.',
+          ? `Obrisano je ${deleted} današnjih zapisa. Podsetnik može ponovo.`
+          : 'Nije bilo šta da se obriše. Dedup te ne blokira.',
       )
       await run()
     } catch {
@@ -176,15 +176,15 @@ export function PushDiagnostics() {
               <dt>VAPID par</dt>
               <dd className="text-ink">
                 {data.vapid.pairMatches === true
-                  ? '✅ poklapa se'
+                  ? 'Poklapa se'
                   : data.vapid.pairMatches === false
-                    ? '❌ NE poklapa se'
-                    : '— nije proverljiv'}
+                    ? 'NE poklapa se'
+                    : 'Nije proverljiv'}
               </dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt>Javni ključ (prefiks)</dt>
-              <dd className="font-mono text-xs text-ink">{data.vapid.publicKeyPrefix ?? '—'}</dd>
+              <dd className="font-mono text-xs text-ink">{data.vapid.publicKeyPrefix ?? 'nije postavljen'}</dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt>Pretplate</dt>
@@ -195,26 +195,26 @@ export function PushDiagnostics() {
             </div>
             <div className="flex justify-between gap-4">
               <dt>CRON_SECRET</dt>
-              <dd className="text-ink">{data.cronSecretSet ? '✅ postavljen' : '❌ nedostaje'}</dd>
+              <dd className="text-ink">{data.cronSecretSet ? 'Postavljen' : 'Nedostaje'}</dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt>Scheduler (poslednji poziv)</dt>
               <dd className="text-ink">
-                {health ? `${HEALTH_ICON[health.status]} ${describeLastRun(health)}` : '—'}
+                {health ? `${HEALTH_ICON[health.status]} ${describeLastRun(health)}` : 'Nema podataka'}
               </dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt>Najveća rupa u rasporedu</dt>
               <dd className="text-ink">
                 {health?.maxGapMin == null
-                  ? '— nijedna izmerena'
+                  ? 'Nijedna izmerena'
                   : `${formatMin(health.maxGapMin)} (prozor ${data.notificationsDispatcher.windowMin} min)`}
               </dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt>Dose reminderi ikad poslati</dt>
               <dd className="text-ink">
-                {data.notificationsDispatcher.seenDoseReminders ? '✅ da' : '❌ nijedan'}
+                {data.notificationsDispatcher.seenDoseReminders ? 'Da' : 'Nijedan'}
               </dd>
             </div>
             <div className="flex justify-between gap-4">
@@ -234,13 +234,13 @@ export function PushDiagnostics() {
             {data.notificationsDispatcher.doseChecks.map((c) => (
               <div key={c.dose} className="rounded-md bg-white px-3 py-2 ring-1 ring-foreground/10">
                 <p className="flex items-center justify-between gap-3 font-medium text-ink">
-                  <span>{c.dose === 'morning' ? 'Jutarnja' : 'Večernja'}</span>
+                  <span>{c.dose === 'morning' ? 'Jutarnja' : 'Popodnevna'}</span>
                   <span className="font-normal text-slate-mid">
                     {c.time ? `${c.time.slice(0, 5)} · prozor ${c.window}` : 'nije podešeno'}
                   </span>
                 </p>
                 <p className="mt-1 text-slate-mid">
-                  {c.wouldSendNow ? '✅ ' : '— '}
+                  {c.wouldSendNow ? 'Šalje se. ' : 'Ne šalje se. '}
                   {c.reason}
                 </p>
               </div>

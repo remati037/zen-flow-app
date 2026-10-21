@@ -1,9 +1,9 @@
 import 'server-only'
 
-import { and, eq, gte, inArray, sql } from 'drizzle-orm'
+import { and, eq, gte } from 'drizzle-orm'
 
-import { db, orders, protocolLogs } from '@/lib/db'
-import { SYNCED_STATUSES } from '@/lib/woocommerce/order-rules'
+import { getValidOrderDates } from '@/lib/access/orders'
+import { db, protocolLogs } from '@/lib/db'
 import type { Profile } from '@/lib/auth'
 import { addDaysIso, belgradeToday, toBelgradeIso } from '@/lib/dates'
 import {
@@ -83,7 +83,7 @@ export async function getProtocolState(
   const today = belgradeToday()
   const since = addDaysIso(today, -LOOKBACK_DAYS)
 
-  const [logs, orderRows] = await Promise.all([
+  const [logs, orderDates] = await Promise.all([
     db
       .select({
         date: protocolLogs.date,
@@ -92,16 +92,9 @@ export async function getProtocolState(
       })
       .from(protocolLogs)
       .where(and(eq(protocolLogs.userId, profile.id), gte(protocolLogs.date, since))),
-    db
-      .select({ orderDate: orders.orderDate })
-      .from(orders)
-      // Samo validne porudžbine daju coverage — opozvana ne sme da drži streak „pauziran".
-      .where(
-        and(
-          sql`lower(${orders.email}) = ${profile.email.trim().toLowerCase()}`,
-          inArray(orders.status, [...SYNCED_STATUSES]),
-        ),
-      ),
+    // Samo validne porudžbine daju coverage — opozvana ne sme da drži streak „pauziran".
+    // Isti (keširan) upit koji koristi gejt pristupa — jedan DB poziv po zahtevu.
+    getValidOrderDates(profile.email),
   ])
 
   const byDate = indexLogsByDate(logs)
@@ -113,7 +106,7 @@ export async function getProtocolState(
 
   const alwaysCovered = profile.role === 'admin'
   const coveredRanges: CoveredRange[] = mergeCoveredRanges(
-    orderRows.map((r) => toBelgradeIso(r.orderDate)),
+    orderDates.map((d) => toBelgradeIso(d)),
   )
 
   const streak = computeStreak({

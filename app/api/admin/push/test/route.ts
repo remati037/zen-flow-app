@@ -36,8 +36,8 @@ export async function POST() {
   const result = await sendPushToUser({
     userId: profile.id,
     type: 'test',
-    title: 'Test notifikacija 🌿',
-    body: 'Push radi! Ovako će izgledati podsetnici.',
+    title: 'Test notifikacija',
+    body: 'Push radi. Ovako će izgledati podsetnici.',
     url: '/dashboard',
     tag: 'test',
   })

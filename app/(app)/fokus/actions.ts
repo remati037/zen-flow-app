@@ -55,7 +55,7 @@ export const addTask = createAction(addTaskSchema, async (data, { profile }) => 
     .where(and(eq(dailyTasks.userId, profile.id), eq(dailyTasks.date, date)))
 
   if (existing >= MAX_DAILY_TASKS) {
-    throw new Error(`Maksimalno ${MAX_DAILY_TASKS} zadatka dnevno — završi ili obriši neki.`)
+    throw new Error(`Najviše ${MAX_DAILY_TASKS} zadatka dnevno. Završi ili obriši neki od njih.`)
   }
 
   const [task] = await db

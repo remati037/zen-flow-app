@@ -38,7 +38,7 @@ export default async function AdminPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-medium text-ink">Pregled</h1>
+        <h1 className="font-heading text-3xl font-medium tracking-[-0.03em] text-ink">Pregled</h1>
         <p className="text-slate-mid">Metrike i upravljanje korisnicima.</p>
       </header>
 
@@ -71,7 +71,7 @@ export default async function AdminPage() {
           accent
         />
         <MetricCard
-          label="Prosečan streak"
+          label="Prosečan niz"
           value={metrics.averageStreak}
           hint={`${metrics.streakUserCount} sa započetim protokolom`}
           icon={Flame}

@@ -1,13 +1,12 @@
-import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
 
 import { SupplyCard } from '@/components/supply/supply-card'
-import { getCurrentProfile } from '@/lib/auth'
+import { requireAppAccess } from '@/lib/access/app-gate'
 import { db, supply } from '@/lib/db'
+import { refillUrl as refillLink } from '@/lib/refill'
 
 export default async function ZalihePage() {
-  const profile = await getCurrentProfile()
-  if (!profile) redirect('/sign-in')
+  const { profile } = await requireAppAccess()
 
   const [row] = await db
     .select({
@@ -18,13 +17,13 @@ export default async function ZalihePage() {
     .where(eq(supply.userId, profile.id))
     .limit(1)
 
-  const refillUrl = process.env.NEXT_PUBLIC_SHOP_REFILL_URL ?? null
+  const refillUrl = refillLink('zalihe')
 
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-medium text-ink">Zalihe</h1>
-        <p className="text-slate-mid">Preostale kapsule i alerti za niske zalihe.</p>
+        <h1 className="font-heading text-3xl font-medium tracking-[-0.03em] text-ink">Zalihe</h1>
+        <p className="text-slate-mid">Koliko kapsula ti je ostalo i kad je vreme za dopunu.</p>
       </header>
 
       <SupplyCard

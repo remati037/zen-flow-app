@@ -1,6 +1,6 @@
 import { defaultCache } from "@serwist/next/worker";
-import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { Serwist } from "serwist";
+import type { PrecacheEntry, RuntimeCaching, SerwistGlobalConfig } from "serwist";
+import { NetworkOnly, Serwist } from "serwist";
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -11,12 +11,64 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope;
 
+// ────────────────────────────────────────────────────────────
+// Runtime keš — SAMO javni statički fajlovi
+// ────────────────────────────────────────────────────────────
+//
+// `defaultCache` iz @serwist/next je NetworkFirst-om keširao i HTML/RSC
+// stranice, i svaki same-origin GET `/api/*` (24h), i cross-origin odgovore
+// (Clerk FAPI `/v1/client` nosi session JWT). Na deljenom telefonu je posle
+// odjave sledeća osoba — offline ili na sporoj mreži (10 s timeout) — videla
+// tuđi dashboard, pa i admin listu mejlova. Ovde zadržavamo samo pravila čiji
+// keš sadrži javne, verzionisane fajlove; sve ostalo ide isključivo na mrežu,
+// a offline navigacija pada na precache-ovan `/~offline`.
+
+/** Keševi iz `defaultCache` koji sadrže samo javne statičke fajlove. */
+const STATIC_CACHE_NAMES = new Set([
+  "google-fonts-webfonts",
+  "google-fonts-stylesheets",
+  "static-font-assets",
+  "static-image-assets",
+  "next-static-js-assets",
+  "next-image",
+  "static-audio-assets",
+  "static-video-assets",
+  "static-js-assets",
+  "static-style-assets",
+]);
+
+/**
+ * Keševi koje je PRETHODNA verzija SW-a punila privatnim sadržajem. Brišu se na
+ * `activate`, inače bi već upisane stranice ostale na uređaju do isteka.
+ */
+const LEGACY_PRIVATE_CACHES = [
+  "pages",
+  "pages-rsc",
+  "pages-rsc-prefetch",
+  "others",
+  "apis",
+  "cross-origin",
+  "next-data",
+  "static-data-assets",
+];
+
+const runtimeCaching: RuntimeCaching[] = [
+  ...defaultCache.filter((entry) => {
+    const cacheName = (entry.handler as { cacheName?: string }).cacheName;
+    return cacheName !== undefined && STATIC_CACHE_NAMES.has(cacheName);
+  }),
+  // Sve ostalo (navigacije, RSC, /api, cross-origin) — mreža, bez keša.
+  // Catch-all mora postojati: `fallbacks` kači `/~offline` na strategije iz
+  // ove liste, pa navigacija bez pravila ne bi dobila offline stranicu.
+  { matcher: () => true, handler: new NetworkOnly() },
+];
+
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
-  runtimeCaching: defaultCache,
+  runtimeCaching,
   fallbacks: {
     entries: [
       {
@@ -31,16 +83,35 @@ const serwist = new Serwist({
 
 serwist.addEventListeners();
 
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    Promise.all(LEGACY_PRIVATE_CACHES.map((name) => caches.delete(name))).catch(() => undefined),
+  );
+});
+
 // ────────────────────────────────────────────────────────────
 // Web Push (Korak 1.8)
 // ────────────────────────────────────────────────────────────
+
+type CheckinPayload = {
+  userId: string;
+  date: string;
+  dose: "morning" | "evening";
+  token: string;
+};
 
 type PushPayload = {
   title?: string;
   body?: string;
   url?: string;
   tag?: string;
+  /** Podsetnik za dozu: dugme „Uzeto" upisuje dozu bez otvaranja app-a. */
+  checkin?: CheckinPayload;
 };
+
+/** Ruta za check-in iz notifikacije. Vidi `app/api/push/checkin/route.ts`. */
+const CHECKIN_URL = "/api/push/checkin";
+const CHECKIN_ACTION = "checkin";
 
 self.addEventListener("push", (event) => {
   let payload: PushPayload = {};
@@ -54,21 +125,68 @@ self.addEventListener("push", (event) => {
   const title = payload.title ?? "NuroLab";
   const url = payload.url ?? "/dashboard";
 
-  event.waitUntil(
-    self.registration.showNotification(title, {
-      body: payload.body ?? "",
-      // `tag` spaja notifikacije istog tipa → nema gomilanja duplikata.
-      tag: payload.tag,
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
-      data: { url },
-    }),
-  );
+  // Dugme se prikazuje samo uz potpisan check-in. Browseri bez podrške za akcije
+  // (iOS Safari) ga prosto izostave — klik na notifikaciju i dalje otvara app.
+  const options: NotificationOptions & { actions?: { action: string; title: string }[] } = {
+    body: payload.body ?? "",
+    // `tag` spaja notifikacije istog tipa → nema gomilanja duplikata.
+    tag: payload.tag,
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    data: { url, checkin: payload.checkin },
+    ...(payload.checkin ? { actions: [{ action: CHECKIN_ACTION, title: "Uzeto" }] } : {}),
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
 });
+
+/**
+ * Check-in iz notifikacije, bez otvaranja app-a. Uspeh se potvrđuje novom
+ * (tihom) notifikacijom; neuspeh otvara app na protokolu, gde korisnik može da
+ * označi dozu ručno — dugme ne sme da „proguta" dozu bez traga.
+ */
+async function checkinFromNotification(checkin: CheckinPayload, tag: string | undefined): Promise<boolean> {
+  try {
+    const res = await fetch(CHECKIN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(checkin),
+    });
+    if (!res.ok) return false;
+    const data = (await res.json()) as { streak?: number; todayComplete?: boolean };
+    const streak = data.streak ?? 0;
+    await self.registration.showNotification(
+      data.todayComplete ? `Dan je kompletan. Niz: ${streak}` : "Doza je zabeležena",
+      {
+        body: data.todayComplete ? "Obe doze su uzete. Vidimo se sutra." : "Još jedna doza do kompletnog dana.",
+        tag,
+        icon: "/icons/icon-192.png",
+        badge: "/icons/icon-192.png",
+        silent: true,
+        data: { url: "/dashboard" },
+      },
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl = (event.notification.data as { url?: string } | undefined)?.url ?? "/dashboard";
+  const data = event.notification.data as { url?: string; checkin?: CheckinPayload } | undefined;
+
+  if (event.action === CHECKIN_ACTION && data?.checkin) {
+    const checkin = data.checkin;
+    event.waitUntil(
+      checkinFromNotification(checkin, event.notification.tag || undefined).then((ok) =>
+        ok ? undefined : self.clients.openWindow("/protokol").then(() => undefined),
+      ),
+    );
+    return;
+  }
+
+  const targetUrl = data?.url ?? "/dashboard";
 
   event.waitUntil(
     (async () => {
@@ -163,7 +281,7 @@ self.addEventListener("pushsubscriptionchange", (event) => {
         // Bez starog endpoint-a server ne zna čija je pretplata bila, a pogađati
         // ne sme. Re-upsert pri sledećem otvaranju app-a (`syncPushSubscription`
         // u `lib/push/client.ts`) je rezervni put za baš ovaj slučaj.
-        console.warn("[sw] pushsubscriptionchange bez oldSubscription — rotacija preskočena");
+        console.warn("[sw] pushsubscriptionchange bez oldSubscription, rotacija preskočena");
         return;
       }
 
@@ -174,7 +292,7 @@ self.addEventListener("pushsubscriptionchange", (event) => {
           changeEvent.oldSubscription,
         );
         if (!applicationServerKey) {
-          console.error("[sw] nema VAPID ključa — nova pretplata nije napravljena");
+          console.error("[sw] nema VAPID ključa, nova pretplata nije napravljena");
           return;
         }
         subscription = await self.registration.pushManager.subscribe({

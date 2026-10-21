@@ -5,7 +5,7 @@ import { requireCronAuth } from '@/lib/cron/auth'
 import { runChunked } from '@/lib/cron/fanout'
 import { CRON_JOBS, isGapMissed } from '@/lib/cron/health'
 import { recordCronRun } from '@/lib/cron/heartbeat'
-import { db, profiles, protocolLogs } from '@/lib/db'
+import { db, profiles, protocolLogs, supply } from '@/lib/db'
 import { EVENTS, logError, logInfo } from '@/lib/observability/log'
 import type { Profile } from '@/lib/auth'
 import { belgradeDayStart, belgradeTimeHM, belgradeToday, hmToMinutes } from '@/lib/dates'
@@ -115,6 +115,18 @@ export async function GET(req: NextRequest) {
   const unauthorized = requireCronAuth(req)
   if (unauthorized) return unauthorized
 
+  // Heartbeat i kad run padne pre kraja (npr. Neon nedostupan na prvom upitu):
+  // bez ovoga bi pad izgledao kao „scheduler ne zove rutu", a uzrok je drugde.
+  try {
+    return await run()
+  } catch (err) {
+    logError(EVENTS.cronRun, err, { job: CRON_JOBS.notifications })
+    await recordCronRun(CRON_JOBS.notifications, { ok: false })
+    return NextResponse.json({ error: 'notifications run failed' }, { status: 500 })
+  }
+}
+
+async function run(): Promise<NextResponse> {
   const startedAt = Date.now()
   const today = belgradeToday()
   const nowMin = hmToMinutes(belgradeTimeHM())
@@ -149,6 +161,19 @@ export async function GET(req: NextRequest) {
     logsByUser.set(log.userId, entry)
   }
 
+  // Korisnici bez ijedne kapsule. „Vreme je za dozu" njima nema smisla — nemaju
+  // šta da uzmu. Jutarnji podsetnik se zamenjuje porukom o dopuni, večernji i
+  // streak-at-risk se preskaču (dva ista nagovaranja dnevno su previše).
+  const emptySupplyRows =
+    ids.length === 0
+      ? []
+      : await db
+          .select({ userId: supply.userId })
+          .from(supply)
+          .where(and(inArray(supply.userId, ids), eq(supply.capsulesRemaining, 0)))
+  const emptySupply = new Set(emptySupplyRows.map((r) => r.userId))
+  let skippedNoSupply = 0
+
   // ── Sakupi kandidate po tipu (pre dedup-a) ────────────────────────────────
   const morningTargets: Profile[] = []
   const eveningTargets: Profile[] = []
@@ -171,7 +196,8 @@ export async function GET(req: NextRequest) {
       !taken.evening &&
       inWindow(nowMin, reminderWindowStart(hmToMinutes(p.doseEveningTime)))
     ) {
-      eveningTargets.push(p)
+      if (emptySupply.has(p.id)) skippedNoSupply += 1
+      else eveningTargets.push(p)
     }
 
     // Streak-at-risk: dan nekompletan + u večernjem prozoru. Streak ≥ 1 se proverava
@@ -181,15 +207,23 @@ export async function GET(req: NextRequest) {
       p.doseEveningTime ? hmToMinutes(p.doseEveningTime) : null,
     )
     if (!dayComplete && inWindow(nowMin, riskStart)) {
-      streakRiskCandidates.push(p)
+      if (emptySupply.has(p.id)) skippedNoSupply += 1
+      else streakRiskCandidates.push(p)
     }
   }
 
   // ── Dedup po danu (kanal: push) i paralelno slanje ────────────────────────
+  type ReminderMessage = {
+    title: string
+    body: string
+    url: string
+    /** Dugme „Uzeto" u notifikaciji — samo za podsetnik na stvarnu dozu. */
+    checkin?: { date: string; dose: 'morning' | 'evening' }
+  }
   const sendReminders = async (
     targets: Profile[],
     type: NotificationType,
-    title: string,
+    message: (p: Profile) => ReminderMessage,
   ): Promise<TypeStats> => {
     const stats = emptyStats(targets.length)
     if (targets.length === 0) return stats
@@ -203,12 +237,14 @@ export async function GET(req: NextRequest) {
 
     const outcomes = await runChunked<Profile, Outcome>(targets, async (p) => {
       if (notified.has(p.id)) return 'skipped_dedup'
+      const { title, body, url, checkin } = message(p)
       const res = await sendPushToUser({
         userId: p.id,
         type,
         title,
-        body: 'Otvori protokol i označi dozu.',
-        url: '/protokol',
+        body,
+        url,
+        checkin,
         tag: type,
         // Bulk `filterNotifiedSince` iznad je samo jeftin pred-filter; ODLUKU donosi
         // rezervacija u `sendPushToUser`. Dva run-a u istom prozoru oba prođu filter
@@ -229,16 +265,26 @@ export async function GET(req: NextRequest) {
   // Tri tipa idu sekvencijalno (paralelizam je UNUTAR tipa) — inače bi tri
   // fan-outa od po 12 dala 36 istovremenih korisnika i pojela isti budžet koji
   // `FANOUT_CHUNK` čuva. Skupovi su i disjunktni po prirodi prozora.
-  const morning = await sendReminders(
-    morningTargets,
-    'dose_reminder_morning',
-    'Vreme je za jutarnju dozu 🌿',
+  const morning = await sendReminders(morningTargets, 'dose_reminder_morning', (p) =>
+    emptySupply.has(p.id)
+      ? {
+          title: 'Kapsule su ti potrošene',
+          body: 'Dopuni zalihe da protokol ne stane. Efekat se gradi iz dana u dan.',
+          url: '/zalihe',
+        }
+      : {
+          title: 'Vreme je za jutarnju dozu',
+          body: 'Kad je uzmeš, označi je ovde ili u aplikaciji.',
+          url: '/protokol',
+          checkin: { date: today, dose: 'morning' },
+        },
   )
-  const evening = await sendReminders(
-    eveningTargets,
-    'dose_reminder_evening',
-    'Vreme je za večernju dozu 🌙',
-  )
+  const evening = await sendReminders(eveningTargets, 'dose_reminder_evening', () => ({
+    title: 'Vreme je za popodnevnu dozu',
+    body: 'Kad je uzmeš, označi je ovde ili u aplikaciji.',
+    url: '/protokol',
+    checkin: { date: today, dose: 'evening' },
+  }))
 
   // Streak-at-risk: dodatni uslov streak ≥ 1 (skup query po korisniku, ali samo
   // za uzak skup koji je prošao vremenski filter).
@@ -261,8 +307,8 @@ export async function GET(req: NextRequest) {
       const res = await sendPushToUser({
         userId: p.id,
         type: 'streak_at_risk',
-        title: `Tvoj niz od ${streak.current} dana je na ivici ⏳`,
-        body: 'Označi današnju dozu da ne prekineš niz.',
+        title: `Tvoj niz od ${streak.current} dana čeka današnje doze`,
+        body: 'Označi ih do ponoći da se niz ne prekine.',
         url: '/protokol',
         tag: 'streak_at_risk',
         dedup: { day: today },
@@ -297,6 +343,8 @@ export async function GET(req: NextRequest) {
     today,
     windowMin: WINDOW_MIN,
     eligibleProfiles: candidates.length,
+    /** Večernji podsetnik / streak-at-risk preskočen jer korisnik nema kapsula. */
+    skippedNoSupply,
     totals,
     byType,
     durationMs: Date.now() - startedAt,

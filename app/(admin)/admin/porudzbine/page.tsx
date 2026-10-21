@@ -24,7 +24,7 @@ export default async function AdminPorudzbinePage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-medium text-ink">Porudžbine</h1>
+        <h1 className="font-heading text-3xl font-medium tracking-[-0.03em] text-ink">Porudžbine</h1>
         <p className="text-slate-mid">WooCommerce sync i verifikacija pristupa.</p>
       </header>
 
@@ -36,7 +36,8 @@ export default async function AdminPorudzbinePage() {
           <p className="text-sm text-slate-mid">
             Uvozi istorijske porudžbine (<span className="font-medium">processing</span> i{' '}
             <span className="font-medium">completed</span>) preko REST API-ja i osvežava VIP status
-            kupaca. Istorijske porudžbine ne naduvavaju zalihe — top-up važi samo za žive webhook-e.
+            kupaca. Zalihe dopunjuju samo porudžbine od dana posle onboardinga kupca. Starije je kupac
+            već uračunao kroz broj pakovanja na onboardingu.
           </p>
           <BackfillButton />
         </CardContent>
@@ -53,7 +54,7 @@ export default async function AdminPorudzbinePage() {
         <CardContent className="p-0">
           {rows.length === 0 ? (
             <p className="py-12 text-center text-sm text-slate-soft">
-              Još nema sinhronizovanih porudžbina — pokreni backfill ili sačekaj webhook.
+              Još nema sinhronizovanih porudžbina. Pokreni backfill ili sačekaj webhook.
             </p>
           ) : (
             <Table>
@@ -103,7 +104,7 @@ export default async function AdminPorudzbinePage() {
       </Card>
 
       <p className="text-xs text-slate-soft">
-        Novčani iznos se ne čuva u <code>orders</code> šemi — sync mapira samo ono što pristup i
+        Novčani iznos se ne čuva u <code>orders</code> šemi. Sync mapira samo ono što pristup i
         zalihe traže (SKU/tip, pakovanja, kapsule). Iznos bi tražio migraciju + ponovni sync.
       </p>
     </div>

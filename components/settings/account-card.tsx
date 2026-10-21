@@ -37,7 +37,7 @@ export function AccountCard({
           <p className="text-xs text-slate-soft">Mejl naloga</p>
           <p className="font-medium break-all text-ink">{email}</p>
           <p className="mt-1 text-xs text-slate-soft">
-            Mejl dolazi iz tvog naloga i ne menja se ovde — po njemu se povezuju porudžbine.
+            Po ovom mejlu povezujemo tvoje porudžbine. Ovde se ne može menjati.
           </p>
         </div>
 
@@ -57,7 +57,7 @@ export function AccountCard({
 
         {status === 'vip' && vipUntilLabel && (
           <p className="text-xs text-slate-soft">
-            Pristup se produžava svakom novom porudžbinom — računa se 60 dana od poslednje.
+            Svaka nova porudžbina produžava pristup na 60 dana od dana kupovine.
           </p>
         )}
 
@@ -68,8 +68,8 @@ export function AccountCard({
         {status === 'inactive' && (
           <div className="space-y-3 rounded-lg bg-muted/50 px-4 py-3">
             <p className="text-sm text-slate-mid">
-              Nemamo aktivnu porudžbinu za ovaj mejl, pa je pristup pauziran. Naruči dopunu da
-              nastaviš protokol tamo gde si stao.
+              Za ovaj mejl nema aktivne porudžbine, pa je pristup pauziran. Posle nove porudžbine
+              protokol se nastavlja tamo gde je stao.
             </p>
             {refillUrl && (
               <Button variant="lime" size="lg" className="w-full sm:w-auto" asChild>
