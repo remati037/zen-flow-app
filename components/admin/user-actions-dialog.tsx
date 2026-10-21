@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, Mail, RotateCcw, ShieldCheck, ShieldOff } from 'lucide-react'
+import { AlertTriangle, Mail, RotateCcw, ShieldCheck, ShieldOff, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import {
+  deleteUser,
   resendWelcomeEmail,
   setUserAccessStatus,
 } from '@/app/(admin)/admin/korisnici/actions'
@@ -25,14 +26,28 @@ import { formatIsoDateSr, toBelgradeIso } from '@/lib/dates'
 import type { AccessOverrideChoice } from '@/lib/validations/admin'
 
 /**
- * Row akcije nad jednim nalogom: ručni access override i ponovno slanje welcome
- * mejla. Obe akcije idu kroz `createAction(..., { admin: true })` — klijent nikad
- * ne dira bazu direktno.
+ * Row akcije nad jednim nalogom: ručni access override, ponovno slanje welcome
+ * mejla i brisanje naloga. Sve idu kroz `createAction(..., { admin: true })` —
+ * klijent nikad ne dira bazu direktno.
  */
 export function UserActionsDialog({ user }: { user: AdminUserRow }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  function removeUser() {
+    startTransition(async () => {
+      const result = await deleteUser({ userId: user.id })
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
+      toast.success(`Nalog ${result.data.email} je obrisan.`)
+      setOpen(false)
+      router.refresh()
+    })
+  }
 
   function applyStatus(choice: AccessOverrideChoice) {
     startTransition(async () => {
@@ -107,7 +122,13 @@ export function UserActionsDialog({ user }: { user: AdminUserRow }) {
     : null
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) setConfirmDelete(false)
+      }}
+    >
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           Upravljaj
@@ -200,6 +221,34 @@ export function UserActionsDialog({ user }: { user: AdminUserRow }) {
             <Button variant="outline" size="sm" onClick={resendWelcome} disabled={isPending}>
               <Mail /> {isPending ? 'Radim…' : 'Pošalji welcome mejl ponovo'}
             </Button>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-ink">Brisanje naloga</p>
+            <p className="text-xs text-slate-mid">
+              Trajno briše nalog u Clerk-u i sve podatke (protokol, streak, zalihe, bedževe, push
+              pretplate). Porudžbine ostaju — kupac može ponovo da zatraži link za registraciju.
+            </p>
+            {user.role === 'admin' ? (
+              <p className="text-xs text-slate-soft">
+                Admin nalog se ne briše odavde — prvo mu skini rolu u Clerk Dashboard-u.
+              </p>
+            ) : confirmDelete ? (
+              <div className="flex flex-wrap gap-2">
+                <Button variant="destructive" size="sm" onClick={removeUser} disabled={isPending}>
+                  <Trash2 /> {isPending ? 'Brišem…' : 'Da, trajno obriši'}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)} disabled={isPending}>
+                  Odustani
+                </Button>
+              </div>
+            ) : (
+              <Button variant="destructive" size="sm" onClick={() => setConfirmDelete(true)} disabled={isPending}>
+                <Trash2 /> Obriši nalog
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>

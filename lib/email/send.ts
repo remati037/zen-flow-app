@@ -9,6 +9,7 @@ import { EVENTS, logError, logInfo } from '@/lib/observability/log'
 import { claimNotification, settleNotification } from '@/lib/push/dedup'
 
 import { EMAIL_FROM, getResend } from './client'
+import { InvitationEmail } from './templates/invitation'
 import { LowStockEmail } from './templates/low-stock'
 import { unsubscribeHeaders, unsubscribeUrl } from './unsubscribe'
 import { WelcomeEmail } from './templates/welcome'
@@ -107,24 +108,13 @@ export async function sendEmail({ userId, to, subject, react, type, dedup }: Sen
   }
 
   try {
-    // Renderujemo HTML + plain-text sami (Resend-ov `react:` prop zahteva zaseban
-    // @react-email/render koji nije instaliran). Pass-ujemo gotov html/text.
-    const html = await render(react)
-    const text = await render(react, { plainText: true })
-
-    const { data, error } = await getResend().emails.send({
-      from: EMAIL_FROM,
+    // Samo alert mejlovi nose odjavu — vidi `EMAIL_ALERT_TYPES`.
+    const data = await renderAndDeliver({
       to,
       subject,
-      html,
-      text,
-      // Samo alert mejlovi nose odjavu — vidi `EMAIL_ALERT_TYPES`.
-      ...(isEmailAlertType(type) ? { headers: unsubscribeHeaders(userId) } : {}),
+      react,
+      headers: isEmailAlertType(type) ? unsubscribeHeaders(userId) : undefined,
     })
-
-    if (error) {
-      throw new Error(error.message)
-    }
 
     // Sa rezervacijom se zatvara postojeći red; bez nje se upisuje nov.
     if (claimId !== null) await settleNotification(claimId, true)
@@ -140,6 +130,37 @@ export async function sendEmail({ userId, to, subject, react, type, dedup }: Sen
     else await logNotification(userId, type, 'failed')
     return { ok: false, error: message }
   }
+}
+
+/**
+ * Render + Resend slanje, bez logovanja i dedup-a. Baca na grešku — pozivalac
+ * odlučuje šta neuspeh znači.
+ *
+ * Renderujemo HTML + plain-text sami (Resend-ov `react:` prop zahteva zaseban
+ * @react-email/render koji nije instaliran). Pass-ujemo gotov html/text.
+ */
+async function renderAndDeliver(args: {
+  to: string
+  subject: string
+  react: ReactElement
+  headers?: Record<string, string>
+}): Promise<{ id: string } | null> {
+  const html = await render(args.react)
+  const text = await render(args.react, { plainText: true })
+
+  const { data, error } = await getResend().emails.send({
+    from: EMAIL_FROM,
+    to: args.to,
+    subject: args.subject,
+    html,
+    text,
+    ...(args.headers ? { headers: args.headers } : {}),
+  })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+  return data
 }
 
 async function logNotification(userId: string, type: string, status: 'success' | 'failed') {
@@ -195,4 +216,32 @@ export function sendLowStockEmail(
     type: 'low_stock_alert',
     ...options,
   })
+}
+
+/**
+ * Pozivnica za registraciju (`lib/invitations/issue.ts`).
+ *
+ * Jedini mejl koji ide OSOBI BEZ NALOGA, pa ne prolazi kroz `sendEmail`:
+ * `notifications_log.user_id` je FK na `profiles`, a profil još ne postoji.
+ * Trag je strukturni log (bez mejl adrese), a stanje pozivnice vodi Clerk.
+ * Transakcioni je (posledica zahteva) — bez odjavnog zaglavlja.
+ * NIKAD ne baca.
+ */
+export async function sendInvitationEmail(args: {
+  to: string
+  url: string
+  kind: 'admin' | 'buyer'
+  expiresInDays: number
+}): Promise<SendResult> {
+  try {
+    const data = await renderAndDeliver({
+      to: args.to,
+      subject: args.kind === 'admin' ? 'Pozivnica za NuroLab Companion 🌿' : 'Tvoj link za registraciju u NuroLab',
+      react: InvitationEmail({ url: args.url, kind: args.kind, expiresInDays: args.expiresInDays }),
+    })
+    return { ok: true, id: data?.id }
+  } catch (err) {
+    logError(EVENTS.emailSendFailed, err, { type: 'invitation', kind: args.kind })
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
 }

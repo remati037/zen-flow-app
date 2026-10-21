@@ -1,4 +1,6 @@
 import { AccessStatusBadge } from '@/components/admin/access-status-badge'
+import { InviteUserDialog } from '@/components/admin/invite-user-dialog'
+import { PendingInvitations } from '@/components/admin/pending-invitations'
 import { UserActionsDialog } from '@/components/admin/user-actions-dialog'
 import { UserSearch } from '@/components/admin/user-search'
 import { Badge } from '@/components/ui/badge'
@@ -38,10 +40,18 @@ export default async function AdminKorisniciPage({
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-medium text-ink">Korisnici</h1>
-        <p className="text-slate-mid">Lista naloga, role i status pristupa.</p>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-medium text-ink">Korisnici</h1>
+          <p className="text-slate-mid">
+            Lista naloga, role i status pristupa. Registracija je moguća samo preko pozivnice —
+            kupci je sami traže na /sign-up, a ostale pozivaš ovde.
+          </p>
+        </div>
+        <InviteUserDialog />
       </header>
+
+      <PendingInvitations />
 
       <UserSearch defaultValue={search || undefined} />
 

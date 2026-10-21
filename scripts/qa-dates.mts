@@ -725,5 +725,32 @@ check('List-Unsubscribe je u uglastim zagradama',
 check('one-click je deklarisan',
   unsubscribeHeaders('user_aaa')['List-Unsubscribe-Post'], 'List-Unsubscribe=One-Click')
 
+console.log('\n=== 15. Pozivnice (Clerk Restricted mod) ===')
+// Vrsta pozivnice odlučuje o VIP override-u pri registraciji, pa parser NIKAD ne
+// sme da pogodi `admin` iz nečega što nije tačno naš oblik.
+const {
+  parseInviteMetadata, inviteMetadata, canReissueBuyerInvite, normalizeEmail,
+  BUYER_INVITE_COOLDOWN_MIN,
+} = await import('../lib/invitations/rules')
+
+check('roundtrip admin metadata', parseInviteMetadata(inviteMetadata('admin', 'user_admin')), { kind: 'admin', by: 'user_admin' })
+check('roundtrip buyer metadata', parseInviteMetadata(inviteMetadata('buyer', null)), { kind: 'buyer', by: null })
+check('metadata nosi role: user (middleware claim od starta)', inviteMetadata('admin', 'x').role, 'user')
+check('bez invite ključa → null', parseInviteMetadata({ role: 'user' }), null)
+check('null/undefined → null', [parseInviteMetadata(null), parseInviteMetadata(undefined)], [null, null])
+check('nepoznata vrsta → null (ne pogađa admin)', parseInviteMetadata({ invite: { kind: 'superadmin' } }), null)
+check('invite kao string → null', parseInviteMetadata({ invite: 'admin' }), null)
+check('prazan `by` → null', parseInviteMetadata({ invite: { kind: 'admin', by: '' } }), { kind: 'admin', by: null })
+
+const t0 = Date.UTC(2026, 9, 21, 12, 0, 0)
+check('bez postojeće pozivnice → sme', canReissueBuyerInvite(null, t0), true)
+check('1 min posle → NE sme (cooldown)', canReissueBuyerInvite(t0, t0 + 60_000), false)
+check('tačno na granici cooldown-a → sme', canReissueBuyerInvite(t0, t0 + BUYER_INVITE_COOLDOWN_MIN * 60_000), true)
+check('normalizeEmail trim + lowercase', normalizeEmail('  Ime@Primer.RS '), 'ime@primer.rs')
+
+const { inviteEmail } = await import('../lib/validations/invitations')
+check('zod normalizuje mejl', inviteEmail.safeParse('  Ime@Primer.RS ').data, 'ime@primer.rs')
+check('zod odbija nevalidan mejl', inviteEmail.safeParse('nije-mejl').success, false)
+
 console.log(`\n──────────────\nRezultat: ${pass} prošlo, ${fail} palo\n`)
 process.exit(fail > 0 ? 1 : 0)

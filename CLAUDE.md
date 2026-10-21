@@ -57,6 +57,18 @@ Ovo nije dekoracija — to je retencioni motor proizvoda.
   nezavisno od porudžbina. Override je TRAJAN — poštuju ga i `resolveAccessStatus` i
   `maintainAccessStatuses`, pa ga ne gasi ni korisnikov refresh ni noćni cron; skida se samo
   eksplicitno („Vrati automatiku"). Admin rola je i dalje iznad override-a.
+- **Registracija je SAMO preko pozivnice** (`lib/invitations/`). Clerk je u **Restricted**
+  sign-up modu (Dashboard → Configure → Restrictions → Sign-up mode: Restricted) — to je
+  brava; `/sign-up` forma je samo UX. Dve vrste pozivnice, obe Clerk invitation link
+  (`notify: false`, naš mejl preko Resend-a): **`buyer`** — kupac na `/sign-up` unese mejl,
+  link dobija samo ako `isKnownBuyer` (bilo koja porudžbina u `SYNCED_STATUSES`, BEZ prozora —
+  registracija ≠ pristup); **`admin`** — admin poziva iz `/admin/korisnici` nezavisno od
+  porudžbina, a Clerk webhook takvom nalogu u SAM insert upisuje trajan
+  `access_override = 'vip'`. Vrsta putuje kroz `publicMetadata.invite` (piše se samo iz
+  Backend API-ja). Javna forma uvek vraća ISTI odgovor i sav posao radi u `after()` — ni
+  tekst ni vreme odgovora ne smeju da otkriju ko je kupac; cooldown 10 min po mejlu.
+  Javne server akcije idu kroz `createPublicAction` (zod + `ActionResult`, bez auth-a).
+  Pozivnice nemaju tabelu — Clerk je izvor istine (bez migracije).
 - **VIP status besplatno** za aktivne WooCommerce kupce (porudžbina u poslednjih 60 dana).
 - Pristup se verifikuje preko **WooCommerce order sync-a**.
 - Kupci sa VIP liste imaju **trajan besplatan pristup dok su aktivni**.
@@ -103,8 +115,8 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
 - Build ide kroz **webpack** (`next build --webpack`), ne Turbopack — Serwist injector mod.
 - QA harness ima TRI sloja i sva tri moraju ostati zelena (`npm run qa` vozi sve):
   `qa-dates` (čiste funkcije: datumi/streak/prozori/Woo/access override/cap alerta/odjavni
-  token, 218 provera), `qa-routes` (klasifikacija ruta, 50 provera) i **`qa-sql`**
-  (69 provera — SQL koji se STVARNO izvršava nad pravim Postgres-om).
+  token/pozivnice, 232 provere), `qa-routes` (klasifikacija ruta, 50 provera) i **`qa-sql`**
+  (74 provere — SQL koji se STVARNO izvršava nad pravim Postgres-om).
 - **`qa-sql` postoji zato što prva dva sloja ne izvršavaju nijedan upit.** Dva produkciona
   otkaza su prošla kroz lint, build i obe stare provere netaknuta: `GROUP BY` sa bind
   parametrom (upit se kompajlira, Postgres ga odbija) i produkcijska baza zaostala na

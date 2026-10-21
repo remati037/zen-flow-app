@@ -343,6 +343,9 @@ async function runDatabaseChecks() {
   await mustRun('refreshAccessStatusForEmail() — nepostojeći profil', () =>
     access.refreshAccessStatusForEmail('nepostojeci@primer.rs'),
   )
+  await mustRun('isKnownBuyer() — uslov registracije (SYNCED_STATUSES, bez prozora)', () =>
+    access.isKnownBuyer('Neko@Primer.rs'),
+  )
 
   await mustRun('filterNotifiedSince() — prazan skup', () =>
     dedup.filterNotifiedSince({ userIds: [], type: 'dose_reminder_morning', since: new Date(0) }),
@@ -452,6 +455,20 @@ async function runDatabaseChecks() {
       .from(schema.supply)
       .where(eq(schema.supply.userId, 'qa_supply'))
     check('SQL delta nad tekućom vrednošću', row?.n, 1)
+  })
+
+  await inRollback('Registracija: isKnownBuyer poštuje status i case, ne prozor', async () => {
+    const access = await import('../lib/access/status')
+    const base = { productType: 'full' as const, capsulesTotal: 60 }
+    await db.insert(schema.orders).values([
+      // Stara porudžbina (van 60-dnevnog prozora) i dalje čini kupca — registracija ≠ pristup.
+      { ...base, wooOrderId: 'qa_buyer_old', email: 'kupac@qa.local', orderDate: new Date('2024-01-01T10:00:00Z'), status: 'completed' },
+      { ...base, wooOrderId: 'qa_buyer_refund', email: 'refund@qa.local', orderDate: new Date(), status: 'refunded' },
+    ])
+    check('kupac (stara completed porudžbina)', await access.isKnownBuyer('kupac@qa.local'), true)
+    check('case-insensitive mejl', await access.isKnownBuyer('  KUPAC@qa.local '), true)
+    check('samo refundirana porudžbina NIJE kupac', await access.isKnownBuyer('refund@qa.local'), false)
+    check('nepoznat mejl', await access.isKnownBuyer('niko@qa.local'), false)
   })
 
   ok('adapter je stvarno korišćen', adapter.queryCount() > 0, `${adapter.queryCount()} upita kroz pg`)

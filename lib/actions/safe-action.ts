@@ -100,3 +100,35 @@ export function createAction<TSchema extends z.ZodType, TOutput>(
     }
   }
 }
+
+/**
+ * Server akcija BEZ sesije — za javne stranice (trenutno samo `/sign-up`, gde
+ * kupac bez naloga traži link za registraciju).
+ *
+ * Postoji da i javne akcije prođu kroz isti zod + hvatanje grešaka + `ActionResult`,
+ * umesto da neko napiše golu `'use server'` funkciju koja baca sirovu grešku u UI.
+ * NEMA auth ni gejt pristupa — handler mora sam da bude bezbedan za anonimnog
+ * pozivaoca (bez otkrivanja podataka, sa sopstvenim ograničenjem učestalosti).
+ */
+export function createPublicAction<TSchema extends z.ZodType, TOutput>(
+  schema: TSchema,
+  handler: (input: z.infer<TSchema>) => Promise<TOutput>,
+) {
+  return async (input: unknown): Promise<ActionResult<TOutput>> => {
+    const parsed = schema.safeParse(input)
+    if (!parsed.success) {
+      const { fieldErrors } = z.flattenError(parsed.error)
+      return actionError('Neispravni podaci.', fieldErrors as Record<string, string[]>)
+    }
+
+    try {
+      return actionOk(await handler(parsed.data))
+    } catch (err) {
+      if (err instanceof ActionError) {
+        return actionError(err.message, err.fieldErrors)
+      }
+      logError(EVENTS.actionFailed, err, { public: true })
+      return actionError('Došlo je do greške. Pokušaj ponovo.')
+    }
+  }
+}
