@@ -1,6 +1,7 @@
 import { SignOutButton } from '@clerk/nextjs'
 import { redirect } from 'next/navigation'
 
+import { RecheckAccessButton } from '@/components/access/recheck-access-button'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { getLatestOrderDate, refreshAccessStatusForProfile } from '@/lib/access/status'
@@ -78,8 +79,8 @@ export default async function NemasPristupPage() {
 
           <p className="text-sm text-muted-foreground">
             Registruj se <strong className="text-foreground">istim mejlom kao pri kupovini</strong>{' '}
-            na nurolab.rs. Posle porudžbine pristup se aktivira za par minuta. Tada osveži ovu
-            stranicu.
+            na nurolab.rs. Posle porudžbine pristup se aktivira za par minuta. Tada klikni
+            „Proveri ponovo&ldquo;.
           </p>
 
           <div className="flex flex-col gap-2">
@@ -88,6 +89,10 @@ export default async function NemasPristupPage() {
                 Kupi ZenFlow
               </a>
             </Button>
+
+            {/* Standalone PWA nema ni adresnu traku ni pull-to-refresh — bez ovoga
+                kupac koji je upravo poručio nema kako da ponovo pokrene proveru. */}
+            <RecheckAccessButton />
 
             <Button asChild variant="outline" size="lg">
               <a href={`mailto:${supportEmail}`}>Kontaktiraj podršku</a>
@@ -146,7 +151,7 @@ function LapsedScreen({
           <p className="text-sm text-muted-foreground">
             Istorija i niz čekaju tačno tamo gde su stali. Čim stigne nova porudžbina na{' '}
             <span className="font-medium text-foreground break-all">{email}</span>, pristup se
-            vraća sam. Osveži ovu stranicu par minuta posle kupovine.
+            vraća sam. Par minuta posle kupovine klikni „Proveri ponovo&ldquo;.
           </p>
 
           <div className="flex flex-col gap-2">
@@ -155,6 +160,8 @@ function LapsedScreen({
                 Nastavi protokol
               </a>
             </Button>
+
+            <RecheckAccessButton />
 
             <Button asChild variant="outline" size="lg">
               <a href={`mailto:${supportEmail}`}>Kontaktiraj podršku</a>

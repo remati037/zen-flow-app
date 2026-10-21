@@ -2,6 +2,7 @@ import { AccessStatusBadge } from '@/components/admin/access-status-badge'
 import { EmailDiagnosticsDialog } from '@/components/admin/email-diagnostics-dialog'
 import { InviteUserDialog } from '@/components/admin/invite-user-dialog'
 import { PendingInvitations } from '@/components/admin/pending-invitations'
+import { SignUpLockBanner } from '@/components/admin/sign-up-lock-banner'
 import { UserActionsDialog } from '@/components/admin/user-actions-dialog'
 import { UserSearch } from '@/components/admin/user-search'
 import { Badge } from '@/components/ui/badge'
@@ -54,6 +55,8 @@ export default async function AdminKorisniciPage({
           <InviteUserDialog />
         </div>
       </header>
+
+      <SignUpLockBanner />
 
       <PendingInvitations />
 

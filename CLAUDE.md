@@ -154,9 +154,17 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
   (zdravstvene tvrdnje).
 - Boje samo kroz Tailwind brand tokene (`@theme` u `app/globals.css`). Hardkodovani hex je dozvoljen **samo** u: `app/manifest.ts`, Clerk `appearance` u `app/layout.tsx`, `app/style-guide/page.tsx`, `lib/email/templates/*` (email klijenti nemaju Tailwind), `lib/confetti.ts`.
 - Build ide kroz **webpack** (`next build --webpack`), ne Turbopack — Serwist injector mod.
+- **Migracije se primenjuju SAME na production deploy-u** (`vercel.json` → `buildCommand:
+  npm run vercel-build` → `scripts/vercel-build.mjs`): `drizzle-kit migrate` pa build, SAMO
+  kad je `VERCEL_ENV=production` (preview ne dira bazu), preko `DATABASE_URL_UNPOOLED` kad
+  postoji. Pad migracije obara build → ostaje prethodni deploy. Uvedeno jer su se kod i šema
+  dvaput razišli na produkciji (`0000`, pa `0005`). CI i dalje vozi `npm run build` bez baze.
+- **`APP_URL`** (`lib/app-url.ts`): `NEXT_PUBLIC_APP_URL` → Vercel
+  `VERCEL_PROJECT_PRODUCTION_URL` → localhost. Bez fallback-a zaboravljena varijabla je slala
+  pozivnice na localhost.
 - QA harness ima TRI sloja i sva tri moraju ostati zelena (`npm run qa` vozi sve):
   `qa-dates` (čiste funkcije: datumi/streak/prozori/Woo/access override/cap alerta/odjavni
-  token, pozivnice, Sprint 2–6 pravila i „Moj stack“, 365 provera), `qa-routes` (klasifikacija ruta, 54 provere) i **`qa-sql`**
+  token, pozivnice, Sprint 2–6 pravila i „Moj stack“, 368 provera), `qa-routes` (klasifikacija ruta, 54 provere) i **`qa-sql`**
   (184 provere — SQL koji se STVARNO izvršava nad pravim Postgres-om). Lokalno bez Docker-a:
   privremeni klaster sa Homebrew `postgresql@16` (`initdb --locale=C`, `pg_ctl -o "-p 5433"`).
 - **`qa-sql` postoji zato što prva dva sloja ne izvršavaju nijedan upit.** Dva produkciona

@@ -59,6 +59,11 @@ export type SignUpDiagnosis = {
     senderDomain: string | null
     resendDomain: CheckState<{ status: string; name: string } | null>
     clerkInstance: 'development' | 'production' | 'nepoznato'
+    /**
+     * Sign-up mod instance (`public` | `restricted` | `waitlist`) — BRAVA cele
+     * registracije. Bez `restricted` Clerk pušta registraciju i bez pozivnice.
+     */
+    clerkSignUpMode: CheckState<string>
   }
 }
 
@@ -95,6 +100,38 @@ async function check<T>(fn: () => Promise<T>): Promise<CheckState<T>> {
   }
 }
 
+/**
+ * Clerk Frontend API host iz publishable key-a (`pk_<env>_<base64(host$)>`) —
+ * ista derivacija kao CSP u `next.config.ts`.
+ */
+function clerkFrontendApiHost(): string | null {
+  const pk = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+  if (!pk) return null
+  const decoded = Buffer.from(pk.replace(/^pk_(test|live)_/, ''), 'base64')
+    .toString('utf8')
+    .replace(/\$$/, '')
+  return /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/i.test(decoded) ? decoded : null
+}
+
+/**
+ * Sign-up mod iz JAVNOG Frontend API-ja (`/v1/environment`, isti poziv koji radi
+ * Clerk-ov browser SDK). Backend API ga ne izlaže, a bez ovoga admin ne može iz
+ * aplikacije da vidi da li je Restricted stvarno uključen na ovoj instanci.
+ */
+export async function clerkSignUpMode(): Promise<string> {
+  const host = clerkFrontendApiHost()
+  if (!host) throw new Error('NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY nije postavljen ili je neispravan')
+  const res = await fetch(`https://${host}/v1/environment`, {
+    cache: 'no-store',
+    signal: AbortSignal.timeout(5000),
+  })
+  if (!res.ok) throw new Error(`Clerk Frontend API: HTTP ${res.status}`)
+  const body = (await res.json()) as { user_settings?: { sign_up?: { mode?: unknown } } }
+  const mode = body.user_settings?.sign_up?.mode
+  if (typeof mode !== 'string') throw new Error('Clerk nije vratio sign-up mod')
+  return mode
+}
+
 function clerkInstance(): SignUpDiagnosis['config']['clerkInstance'] {
   const key = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? ''
   if (key.startsWith('pk_live_')) return 'production'
@@ -119,7 +156,7 @@ export async function diagnoseSignUpEmail(rawEmail: string): Promise<SignUpDiagn
   const email = normalizeEmail(rawEmail)
   const domain = senderDomain(EMAIL_FROM)
 
-  const [[account], orderSummary, isBuyer, clerkUser, pending, resendDomain] = await Promise.all([
+  const [[account], orderSummary, isBuyer, clerkUser, pending, resendDomain, signUpMode] = await Promise.all([
     db
       .select({ userId: profiles.id, role: profiles.role, accessStatus: profiles.accessStatus })
       .from(profiles)
@@ -134,6 +171,7 @@ export async function diagnoseSignUpEmail(rawEmail: string): Promise<SignUpDiagn
     }),
     check(() => listPendingInvitationsFor(email)),
     check(() => resendDomainStatus(domain)),
+    check(clerkSignUpMode),
   ])
 
   const decision = pending.ok
@@ -163,6 +201,7 @@ export async function diagnoseSignUpEmail(rawEmail: string): Promise<SignUpDiagn
       senderDomain: domain,
       resendDomain,
       clerkInstance: clerkInstance(),
+      clerkSignUpMode: signUpMode,
     },
   }
 }

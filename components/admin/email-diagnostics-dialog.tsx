@@ -187,12 +187,23 @@ function Report({ d }: { d: SignUpDiagnosis }) {
             ? null
             : 'Ovo nije produkcijska adresa — postavi NEXT_PUBLIC_APP_URL na https://app.nurolab.rs i redeploy-uj.'}
         </Row>
-        <Row
-          tone={d.config.clerkInstance === 'production' ? 'ok' : 'warn'}
-          title={`Clerk instanca: ${d.config.clerkInstance}`}
-        >
-          Restricted sign-up mod mora biti uključen na OVOJ instanci.
-        </Row>
+        {!d.config.clerkSignUpMode.ok ? (
+          <Row tone="warn" title={`Clerk (${d.config.clerkInstance}): sign-up mod nije mogao da se pročita`}>
+            {d.config.clerkSignUpMode.error}
+          </Row>
+        ) : d.config.clerkSignUpMode.value === 'restricted' ? (
+          <Row tone="ok" title={`Clerk (${d.config.clerkInstance}): sign-up mod restricted`}>
+            Registracija je moguća samo preko pozivnice.
+          </Row>
+        ) : (
+          <Row
+            tone="bad"
+            title={`Clerk (${d.config.clerkInstance}): sign-up mod ${d.config.clerkSignUpMode.value}`}
+          >
+            Registracija NIJE zaključana — ko otvori Clerk formu, može da napravi nalog i bez
+            pozivnice. Clerk Dashboard → Configure → Restrictions → Sign-up mode: Restricted.
+          </Row>
+        )}
       </div>
     </div>
   )

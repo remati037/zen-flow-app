@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { OfflineRetryButton } from "@/components/offline/offline-retry-button";
+
 export const metadata: Metadata = {
   title: "Offline · ZenFlow",
 };
@@ -21,9 +23,11 @@ export default function OfflinePage() {
         </p>
       </div>
 
+      <OfflineRetryButton />
+
       <span
         aria-hidden
-        className="mt-2 inline-block h-2 w-2 rounded-full bg-lime"
+        className="inline-block h-2 w-2 rounded-full bg-lime"
       />
     </main>
   );

@@ -133,7 +133,7 @@ Svih 23 varijable koje kod čita. **Obavezno** = bez nje feature pada ili se tih
 | `CRON_SECRET` | ✅ | **sve cron rute vraćaju 401** | `openssl rand -hex 32` |
 | `EMAIL_UNSUBSCRIBE_SECRET` | ⛔ | fallback `CRON_SECRET`; bez ijednog od ta dva alert mejlovi idu **bez** `List-Unsubscribe` zaglavlja | `openssl rand -hex 32` — postavi samo ako želiš da rotacija `CRON_SECRET`-a ne obori odjavne linkove iz već poslatih mejlova |
 | `NOTIFICATION_WINDOW_MIN` | ⚠️ | fallback `45` — rezerva za jitter GitHub Actions-a (kadenca 15 min); uži prozor gubi podsetnike kad run kasni ili se preskoči | vidi [`docs/cron-setup.md`](./docs/cron-setup.md#preciznost-podsetnika) |
-| `NEXT_PUBLIC_APP_URL` | ✅ | linkovi u mejlovima gađaju `localhost` | `https://app.nurolab.rs` |
+| `NEXT_PUBLIC_APP_URL` | preporučeno | fallback je Vercel produkcijski domen (`VERCEL_PROJECT_PRODUCTION_URL`), pa tek `localhost` | `https://app.nurolab.rs` |
 | `NEXT_PUBLIC_SUPPORT_EMAIL` | ⚠️ | fallback `podrska@nurolab.rs` | — |
 | `NEXT_PUBLIC_SHOP_REFILL_URL` | ✅ | **refill CTA se tiho ne prikazuje** na `/zalihe`, `/dashboard`, `/podesavanja` | link ka ZenFlow proizvodu |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | ✅ | nema push pretplate | `npx web-push generate-vapid-keys` |

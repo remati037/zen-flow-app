@@ -1012,5 +1012,28 @@ console.log('\n=== 19. Pozivnice (Clerk Restricted mod) ===')
   check('zod odbija nevalidan mejl', inviteEmail.safeParse('nije-mejl').success, false)
 }
 
+console.log('\n=== 20. APP_URL: link u pozivnicama i mejlovima ===')
+// Zaboravljen NEXT_PUBLIC_APP_URL na Vercel-u je slao pozivnice na localhost.
+{
+  const { resolveAppUrl } = await import('../lib/app-url')
+  const keep = {
+    a: process.env.NEXT_PUBLIC_APP_URL,
+    b: process.env.VERCEL_PROJECT_PRODUCTION_URL,
+    c: process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL,
+  }
+  delete process.env.NEXT_PUBLIC_APP_URL
+  delete process.env.VERCEL_PROJECT_PRODUCTION_URL
+  delete process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL
+  check('bez ičega → localhost', resolveAppUrl(), 'http://localhost:3000')
+  process.env.VERCEL_PROJECT_PRODUCTION_URL = 'app.nurolab.rs'
+  check('Vercel produkcijski domen → https', resolveAppUrl(), 'https://app.nurolab.rs')
+  process.env.NEXT_PUBLIC_APP_URL = 'https://app.nurolab.rs/'
+  check('eksplicitan URL pobeđuje, bez završne kose crte', resolveAppUrl(), 'https://app.nurolab.rs')
+  for (const [k, v] of [['NEXT_PUBLIC_APP_URL', keep.a], ['VERCEL_PROJECT_PRODUCTION_URL', keep.b], ['NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL', keep.c]] as const) {
+    if (v === undefined) delete process.env[k]
+    else process.env[k] = v
+  }
+}
+
 console.log(`\n──────────────\nRezultat: ${pass} prošlo, ${fail} palo\n`)
 process.exit(fail > 0 ? 1 : 0)
