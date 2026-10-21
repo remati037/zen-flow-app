@@ -748,6 +748,17 @@ check('1 min posle → NE sme (cooldown)', canReissueBuyerInvite(t0, t0 + 60_000
 check('tačno na granici cooldown-a → sme', canReissueBuyerInvite(t0, t0 + BUYER_INVITE_COOLDOWN_MIN * 60_000), true)
 check('normalizeEmail trim + lowercase', normalizeEmail('  Ime@Primer.RS '), 'ime@primer.rs')
 
+const { decideSignUpRequest, senderDomain } = await import('../lib/invitations/rules')
+const base = { hasAccount: false, isBuyer: true, newestPendingCreatedAtMs: null, nowMs: t0 }
+check('kupac bez naloga i pozivnice → šalje', decideSignUpRequest(base), { action: 'send' })
+check('nalog ima prednost nad svim', decideSignUpRequest({ ...base, hasAccount: true, isBuyer: false }), { action: 'skip', reason: 'account_exists' })
+check('ne-kupac → preskače', decideSignUpRequest({ ...base, isBuyer: false }), { action: 'skip', reason: 'not_a_buyer' })
+check('svež link (2 min) → cooldown još 8 min', decideSignUpRequest({ ...base, newestPendingCreatedAtMs: t0 - 2 * 60_000 }), { action: 'skip', reason: 'cooldown', retryInMin: 8 })
+check('link star 10 min → šalje', decideSignUpRequest({ ...base, newestPendingCreatedAtMs: t0 - 10 * 60_000 }), { action: 'send' })
+check('senderDomain iz "Ime <a@b.rs>"', senderDomain('NuroLab <noreply@app.nurolab.rs>'), 'app.nurolab.rs')
+check('senderDomain iz gole adrese', senderDomain('noreply@Nurolab.RS'), 'nurolab.rs')
+check('senderDomain bez @ → null', senderDomain('NuroLab'), null)
+
 const { inviteEmail } = await import('../lib/validations/invitations')
 check('zod normalizuje mejl', inviteEmail.safeParse('  Ime@Primer.RS ').data, 'ime@primer.rs')
 check('zod odbija nevalidan mejl', inviteEmail.safeParse('nije-mejl').success, false)

@@ -76,3 +76,42 @@ export function canReissueBuyerInvite(existingCreatedAtMs: number | null, nowMs:
  */
 export const SIGN_UP_REQUEST_MESSAGE =
   'Ako je ovaj mejl u našoj bazi kupaca, za par minuta stiže ti link za registraciju. Ako već imaš nalog, samo se prijavi.'
+
+/**
+ * Šta bi javna forma URADILA za dati mejl — ista pravila, istim redom kao
+ * `requestSignUpLink` + `issueInvitation` (nalog → kupac → cooldown).
+ *
+ * Postoji zbog admin dijagnostike „Proveri mejl": forma namerno uvek kaže isto,
+ * pa bez ovoga admin ne može da razlikuje „mejl nije kupac" od „Resend ne radi".
+ */
+export type SignUpDecision =
+  | { action: 'send' }
+  | { action: 'skip'; reason: 'account_exists' | 'not_a_buyer' }
+  | { action: 'skip'; reason: 'cooldown'; retryInMin: number }
+
+export function decideSignUpRequest(params: {
+  hasAccount: boolean
+  isBuyer: boolean
+  /** Najnovija pending pozivnica za mejl, ili `null`. */
+  newestPendingCreatedAtMs: number | null
+  nowMs: number
+}): SignUpDecision {
+  const { hasAccount, isBuyer, newestPendingCreatedAtMs, nowMs } = params
+  if (hasAccount) return { action: 'skip', reason: 'account_exists' }
+  if (!isBuyer) return { action: 'skip', reason: 'not_a_buyer' }
+  if (!canReissueBuyerInvite(newestPendingCreatedAtMs, nowMs)) {
+    const elapsedMin = (nowMs - newestPendingCreatedAtMs!) / 60_000
+    return {
+      action: 'skip',
+      reason: 'cooldown',
+      retryInMin: Math.max(1, Math.ceil(BUYER_INVITE_COOLDOWN_MIN - elapsedMin)),
+    }
+  }
+  return { action: 'send' }
+}
+
+/** Domen iz `From` zaglavlja („NuroLab <noreply@app.nurolab.rs>" → „app.nurolab.rs"). */
+export function senderDomain(from: string): string | null {
+  const match = from.match(/@([^\s>]+)>?\s*$/)
+  return match ? match[1].toLowerCase() : null
+}

@@ -68,7 +68,9 @@ Ovo nije dekoracija — to je retencioni motor proizvoda.
   Backend API-ja). Javna forma uvek vraća ISTI odgovor i sav posao radi u `after()` — ni
   tekst ni vreme odgovora ne smeju da otkriju ko je kupac; cooldown 10 min po mejlu.
   Javne server akcije idu kroz `createPublicAction` (zod + `ActionResult`, bez auth-a).
-  Pozivnice nemaju tabelu — Clerk je izvor istine (bez migracije).
+  Pozivnice nemaju tabelu — Clerk je izvor istine (bez migracije). Pošto forma krije ishod,
+  admin ima „Proveri mejl" (`lib/admin/signup-diagnostics.ts`): ista pravila
+  (`decideSignUpRequest`) + Clerk/Resend/`NEXT_PUBLIC_APP_URL` provere tekućeg okruženja.
 - **VIP status besplatno** za aktivne WooCommerce kupce (porudžbina u poslednjih 60 dana).
 - Pristup se verifikuje preko **WooCommerce order sync-a**.
 - Kupci sa VIP liste imaju **trajan besplatan pristup dok su aktivni**.
@@ -115,8 +117,8 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
 - Build ide kroz **webpack** (`next build --webpack`), ne Turbopack — Serwist injector mod.
 - QA harness ima TRI sloja i sva tri moraju ostati zelena (`npm run qa` vozi sve):
   `qa-dates` (čiste funkcije: datumi/streak/prozori/Woo/access override/cap alerta/odjavni
-  token/pozivnice, 232 provere), `qa-routes` (klasifikacija ruta, 50 provera) i **`qa-sql`**
-  (74 provere — SQL koji se STVARNO izvršava nad pravim Postgres-om).
+  token/pozivnice, 240 provera), `qa-routes` (klasifikacija ruta, 50 provera) i **`qa-sql`**
+  (76 provera — SQL koji se STVARNO izvršava nad pravim Postgres-om).
 - **`qa-sql` postoji zato što prva dva sloja ne izvršavaju nijedan upit.** Dva produkciona
   otkaza su prošla kroz lint, build i obe stare provere netaknuta: `GROUP BY` sa bind
   parametrom (upit se kompajlira, Postgres ga odbija) i produkcijska baza zaostala na

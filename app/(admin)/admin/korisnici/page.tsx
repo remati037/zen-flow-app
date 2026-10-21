@@ -1,4 +1,5 @@
 import { AccessStatusBadge } from '@/components/admin/access-status-badge'
+import { EmailDiagnosticsDialog } from '@/components/admin/email-diagnostics-dialog'
 import { InviteUserDialog } from '@/components/admin/invite-user-dialog'
 import { PendingInvitations } from '@/components/admin/pending-invitations'
 import { UserActionsDialog } from '@/components/admin/user-actions-dialog'
@@ -48,7 +49,10 @@ export default async function AdminKorisniciPage({
             kupci je sami traže na /sign-up, a ostale pozivaš ovde.
           </p>
         </div>
-        <InviteUserDialog />
+        <div className="flex flex-wrap gap-2">
+          <EmailDiagnosticsDialog />
+          <InviteUserDialog />
+        </div>
       </header>
 
       <PendingInvitations />

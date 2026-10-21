@@ -8,6 +8,7 @@ import { revalidatePath } from 'next/cache'
 import { getLatestOrderDate, resolveAccessStatus } from '@/lib/access/status'
 import { isWithinAccessWindow } from '@/lib/access/window'
 import { createAction } from '@/lib/actions/safe-action'
+import { diagnoseSignUpEmail, type SignUpDiagnosis } from '@/lib/admin/signup-diagnostics'
 import { ActionError } from '@/lib/actions/types'
 import { belgradeToday, toBelgradeIso } from '@/lib/dates'
 import { db, profiles } from '@/lib/db'
@@ -294,5 +295,20 @@ export const deleteUser = createAction(
     revalidateAdmin()
     return { deleted: true, email: target.email }
   },
+  { admin: true },
+)
+
+// ────────────────────────────────────────────────────────────
+// Dijagnostika registracije
+// ────────────────────────────────────────────────────────────
+
+/**
+ * „Proveri mejl" — zašto (ne) stiže link za registraciju. Samo čita: ne pravi
+ * pozivnicu i ne šalje mejl. Vidi `lib/admin/signup-diagnostics.ts`.
+ */
+export const diagnoseEmail = createAction(
+  // Isti oblik ulaza kao pozivnica (normalizovan mejl).
+  adminInviteSchema,
+  async ({ email }): Promise<SignUpDiagnosis> => diagnoseSignUpEmail(email),
   { admin: true },
 )

@@ -160,6 +160,11 @@ export async function listPendingInvitations(limit = 100): Promise<PendingInvita
   return data.map(toPending)
 }
 
+/** Pending pozivnice za tačno ovaj mejl (admin dijagnostika „Proveri mejl"). */
+export async function listPendingInvitationsFor(email: string): Promise<PendingInvitation[]> {
+  return (await pendingFor(normalizeEmail(email))).map(toPending)
+}
+
 /** Pending pozivnica po id-u, ili `null` ako više nije pending. */
 export async function getPendingInvitation(id: string): Promise<PendingInvitation | null> {
   const client = await clerkClient()

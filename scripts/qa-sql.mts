@@ -469,6 +469,12 @@ async function runDatabaseChecks() {
     check('case-insensitive mejl', await access.isKnownBuyer('  KUPAC@qa.local '), true)
     check('samo refundirana porudžbina NIJE kupac', await access.isKnownBuyer('refund@qa.local'), false)
     check('nepoznat mejl', await access.isKnownBuyer('niko@qa.local'), false)
+
+    const diag = await import('../lib/admin/signup-diagnostics')
+    const summary = await diag.getOrderStatusSummary('KUPAC@qa.local')
+    check('getOrderStatusSummary — GROUP BY status, case-insensitive', summary.map((r) => [r.status, r.count, r.grantsAccess]), [['completed', 1, true]])
+    const refund = await diag.getOrderStatusSummary('refund@qa.local')
+    check('refundirana porudžbina je vidljiva, ali ne računa se', refund.map((r) => [r.status, r.grantsAccess]), [['refunded', false]])
   })
 
   ok('adapter je stvarno korišćen', adapter.queryCount() > 0, `${adapter.queryCount()} upita kroz pg`)
