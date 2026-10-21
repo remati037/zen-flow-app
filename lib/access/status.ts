@@ -46,6 +46,25 @@ export async function getLatestOrderDate(email: string): Promise<Date | null> {
   return row?.orderDate ?? null
 }
 
+/**
+ * Da li mejl ima IJEDNU validnu porudžbinu (bez obzira na prozor pristupa).
+ *
+ * Ovo je uslov za REGISTRACIJU, ne za pristup: „u bazi kupaca" znači da je
+ * ikad kupio. Kupac čija je porudžbina van 60-dnevnog prozora sme da napravi
+ * nalog — gejt u `(app)/layout.tsx` ga potom šalje na `/nemas-pristup` sa CTA
+ * za refill, što je tačno retencioni put koji želimo. Refundirane/otkazane se
+ * ne broje (`grantsAccess`), inače bi refund i dalje otvarao registraciju.
+ */
+export async function isKnownBuyer(email: string): Promise<boolean> {
+  const [row] = await db
+    .select({ one: sql<number>`1` })
+    .from(orders)
+    .where(and(sql`lower(${orders.email}) = ${email.trim().toLowerCase()}`, grantsAccess))
+    .limit(1)
+
+  return Boolean(row)
+}
+
 type RefreshResult = { changed: boolean; status: AccessStatus }
 
 /**

@@ -7,6 +7,7 @@ import { refreshAccessStatusForEmail } from '@/lib/access/status'
 import { belgradeToday } from '@/lib/dates'
 import { db, profiles } from '@/lib/db'
 import { sendWelcomeEmail } from '@/lib/email/send'
+import { parseInviteMetadata } from '@/lib/invitations/rules'
 import { hasEverNotified } from '@/lib/push/dedup'
 import { EVENTS, logError } from '@/lib/observability/log'
 
@@ -44,6 +45,18 @@ export async function POST(req: NextRequest) {
     const name = [first_name, last_name].filter(Boolean).join(' ') || null
 
     if (eventType === 'user.created') {
+      /**
+       * Admin pozivnica (`lib/invitations/rules.ts`) → trajan `access_override = 'vip'`,
+       * nezavisno od porudžbina. Clerk je `publicMetadata` pozivnice prepisao na
+       * korisnika; menja se samo iz Backend API-ja, pa je korisnik ne može podmetnuti.
+       *
+       * Override ide U SAM INSERT, ne u zaseban update: na retry-ju `user.created`
+       * insert je no-op, pa se override ne vraća nalogu kome ga je admin u
+       * međuvremenu skinuo („Vrati automatiku").
+       */
+      const invite = parseInviteMetadata(public_metadata)
+      const invitedByAdmin = invite?.kind === 'admin'
+
       await db
         .insert(profiles)
         .values({
@@ -52,6 +65,9 @@ export async function POST(req: NextRequest) {
           name,
           role: 'user',
           accessStatus: 'inactive',
+          ...(invitedByAdmin
+            ? { accessOverride: 'vip', accessOverrideAt: new Date(), accessOverrideBy: invite.by }
+            : {}),
         })
         .onConflictDoNothing({ target: profiles.id })
 
@@ -78,7 +94,7 @@ export async function POST(req: NextRequest) {
        */
       const refreshed = await refreshAccessStatusForEmail(primaryEmail)
 
-      // Welcome mejl ide SAMO VIP kupcima (verifikacija je našla porudžbinu).
+      // Welcome mejl ide SAMO VIP nalozima (porudžbina u prozoru ili admin pozivnica).
       if (refreshed?.status === 'vip') {
         /**
          * Idempotencija u DVA sloja, jer retry i trka nisu isti problem:
