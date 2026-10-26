@@ -19,7 +19,7 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-ink/10 bg-white px-4 py-6 md:flex">
       <Link href="/dashboard" className="px-3 pb-6 text-lg font-medium text-ink">
-        ZenFlow<span className="text-slate-soft">™</span>
+        ZenFlow
       </Link>
 
       <nav className="flex-1">

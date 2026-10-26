@@ -11,7 +11,7 @@ const ADMIN_NAV_ITEMS = [
   { href: '/admin/korisnici', label: 'Korisnici', icon: Users, exact: false },
   { href: '/admin/porudzbine', label: 'Porudžbine', icon: ShoppingBag, exact: false },
   { href: '/admin/retencija', label: 'Retencija', icon: Repeat, exact: false },
-  { href: '/admin/stack', label: 'Stack', icon: Layers, exact: false },
+  { href: '/admin/stack', label: 'Suplementi', icon: Layers, exact: false },
 ] as const
 
 /**

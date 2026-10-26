@@ -40,7 +40,7 @@ const PHASE_RANGE: Record<TrackedPhase, [number, number]> = {
 
 const PHASE_LABEL: Record<TrackedPhase, string> = {
   protocol: 'Protokol',
-  doses: 'Vreme doza',
+  doses: 'Doziranje',
   quiz: 'Focus Score kviz',
   result: 'Rezultat',
   notifications: 'Podsetnici',

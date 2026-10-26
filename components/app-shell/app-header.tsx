@@ -27,7 +27,7 @@ export function AppHeader({ isAdmin = false }: { isAdmin?: boolean }) {
           href="/dashboard"
           className="flex min-h-11 items-center text-base font-medium text-ink md:hidden"
         >
-          ZenFlow<span className="text-slate-soft">™</span>
+          ZenFlow
         </Link>
         <div className="hidden md:block" />
 

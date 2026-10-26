@@ -18,8 +18,9 @@ export default async function Home() {
         <span className="eyebrow">NuroLab</span>
         <h1 className="text-5xl text-ink">ZenFlow</h1>
         <p className="mx-auto max-w-md text-lg text-slate-mid">
-          Aplikacija za ZenFlow™ protokol. Beleži doze, prati zalihe i
-          gledaj kako ti niz raste iz dana u dan.
+          Tvoj dnevni pratilac za ZenFlow protokol. Podseća te na doze,
+          javlja kad zalihe krenu da se troše i pokazuje koliko dana zaredom
+          ostaješ u ritmu.
         </p>
       </div>
 
@@ -33,8 +34,8 @@ export default async function Home() {
       </div>
 
       <p className="max-w-sm text-sm text-slate-mid">
-        Aplikacija je za ZenFlow kupce. Registruj se istim mejlom kao pri
-        kupovini na nurolab.rs.
+        Aplikacija je namenjena ZenFlow kupcima. Za registraciju koristi isti
+        mejl kao pri kupovini na nurolab.rs.
       </p>
     </main>
   );

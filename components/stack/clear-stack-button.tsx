@@ -25,7 +25,7 @@ export function ClearStackButton() {
       try {
         const result = await clearStack({})
         if (result.ok) {
-          toast.success('Stack je obrisan.')
+          toast.success('Lista suplemenata je obrisana.')
           setOpen(false)
           router.refresh()
         } else {
@@ -41,12 +41,12 @@ export function ClearStackButton() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="ghost" className="min-h-11 rounded-full px-4 text-sm text-slate-mid">
-          Obriši ceo stack
+          Obriši celu listu
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Obrisati ceo stack?</DialogTitle>
+          <DialogTitle>Obrisati celu listu?</DialogTitle>
           <DialogDescription>
             Svi uneti suplementi se trajno brišu. Ovo ne utiče na tvoj ZenFlow protokol.
           </DialogDescription>

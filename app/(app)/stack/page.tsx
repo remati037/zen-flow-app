@@ -20,8 +20,8 @@ export default async function StackPage() {
     <div className="space-y-6">
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="font-heading text-3xl font-medium tracking-[-0.03em] text-ink">Moj stack</h1>
-          <p className="text-slate-mid">Suplementi koje piješ uz ZenFlow.</p>
+          <h1 className="font-heading text-3xl font-medium tracking-[-0.03em] text-ink">Moji suplementi</h1>
+          <p className="text-slate-mid">Svi suplementi koje uzimaš pored ZenFlow-a, na jednom mestu.</p>
         </div>
         <AddSupplementDialog />
       </header>

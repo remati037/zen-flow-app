@@ -49,7 +49,7 @@ export async function addSupplement(
     .from(userSupplements)
     .where(and(eq(userSupplements.userId, userId), eq(userSupplements.active, true)))
   if ((count?.n ?? 0) >= MAX_SUPPLEMENTS_PER_USER) {
-    throw new ActionError(`Stack je pun (najviše ${MAX_SUPPLEMENTS_PER_USER} unosa).`)
+    throw new ActionError(`Lista je puna (najviše ${MAX_SUPPLEMENTS_PER_USER} unosa).`)
   }
 
   const doseNote = fields.doseNote ?? null

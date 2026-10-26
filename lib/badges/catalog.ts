@@ -74,13 +74,13 @@ export const BADGE_CATALOG: readonly BadgeDefinition[] = [
   {
     key: 'prvi-fokus',
     title: 'Prvi fokus blok',
-    description: 'Završi svoj prvi Pomodoro blok do kraja.',
+    description: 'Završi svoj prvi fokus blok do kraja.',
     icon: Timer,
   },
   {
     key: 'fokus-10',
     title: '10 fokus blokova',
-    description: 'Završi ukupno deset Pomodoro blokova.',
+    description: 'Završi ukupno deset fokus blokova.',
     icon: Brain,
   },
   {

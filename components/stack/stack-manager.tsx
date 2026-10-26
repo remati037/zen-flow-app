@@ -27,7 +27,7 @@ function StackItem({ row }: { row: StackRow }) {
       try {
         const result = await updateSupplement({ id: row.id, active: false })
         if (result.ok) {
-          toast.success('Uklonjeno iz stack-a.')
+          toast.success('Uklonjeno sa liste.')
           router.refresh()
         } else {
           setStillTaking(true)

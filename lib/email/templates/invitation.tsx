@@ -17,8 +17,8 @@ type InvitationEmailProps = {
 export function InvitationEmail({ url, kind, expiresInDays }: InvitationEmailProps) {
   const intro =
     kind === 'admin'
-      ? 'Pozvan si u NuroLab Companion — aplikaciju koja prati tvoj ZenFlow™ protokol: dnevne doze, streak, zalihe i fokus blokove.'
-      : 'Stigao je zahtev za registraciju u NuroLab Companion sa ovog mejla. Pošto si ZenFlow™ kupac, nalog možeš da napraviš odmah.'
+      ? 'Pozvan si u NuroLab Companion — aplikaciju koja prati tvoj ZenFlow protokol: dnevne doze, streak, zalihe i fokus blokove.'
+      : 'Stigao je zahtev za registraciju u NuroLab Companion sa ovog mejla. Pošto si ZenFlow kupac, nalog možeš da napraviš odmah.'
 
   return (
     <EmailLayout preview="Tvoj link za registraciju u NuroLab Companion.">

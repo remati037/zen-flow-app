@@ -14,7 +14,7 @@ const hankenGrotesk = Hanken_Grotesk({
 export const metadata: Metadata = {
   title: "ZenFlow · Tvoj dnevni protokol",
   description:
-    "Aplikacija za ZenFlow™ protokol. Beleži doze, prati zalihe i radi u fokusu.",
+    "Tvoj dnevni pratilac za ZenFlow protokol: podsetnici za doze, praćenje zaliha i rad u fokusu.",
   applicationName: "ZenFlow",
   appleWebApp: {
     capable: true,

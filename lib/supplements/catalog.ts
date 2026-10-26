@@ -1,5 +1,5 @@
 /**
- * Katalog suplemenata za „Moj stack" (100 stavki).
+ * Katalog suplemenata za „Moji suplementi" (114 stavki; ruta i interni naziv ostaju `stack`).
  *
  * Generisano jednokratno iz docs/superpowers/specs/2026-10-19-moj-stack-katalog-predlog.md;
  * od sada se menja RUČNO. Ključevi su STABILNI — upisani su u `user_supplements.catalog_key`
@@ -34,20 +34,30 @@ export interface CatalogItem {
 
 export const SUPPLEMENT_CATALOG: readonly CatalogItem[] = [
   { key: 'vitamin_d3', label: 'Vitamin D3', category: 'vitamins', aliases: ['vitamin d', 'd3', 'holekalciferol', 'sunčani vitamin'] },
+  { key: 'vitamin_d3_k2', label: 'Vitamin D3 + K2', category: 'vitamins', aliases: ['d3 k2', 'd3k2', 'vitamin d i k2'] },
   { key: 'vitamin_c', label: 'Vitamin C', category: 'vitamins', aliases: ['c vitamin', 'askorbinska kiselina'] },
   { key: 'vitamin_b12', label: 'Vitamin B12', category: 'vitamins', aliases: ['b12', 'kobalamin', 'cijanokobalamin', 'metilkobalamin'] },
   { key: 'vitamin_b_complex', label: 'B kompleks', category: 'vitamins', aliases: ['b complex', 'vitamini b grupe'] },
+  { key: 'vitamin_b1', label: 'Vitamin B1', category: 'vitamins', aliases: ['b1', 'tiamin', 'benfotiamin'] },
+  { key: 'niacin', label: 'Vitamin B3 (niacin)', category: 'vitamins', aliases: ['b3', 'niacin', 'niacinamid', 'nikotinamid'] },
   { key: 'vitamin_b6', label: 'Vitamin B6', category: 'vitamins', aliases: ['b6', 'piridoksin'] },
   { key: 'folate', label: 'Folna kiselina / folat', category: 'vitamins', aliases: ['b9', 'folat', 'metilfolat'] },
   { key: 'biotin', label: 'Biotin', category: 'vitamins', aliases: ['b7', 'vitamin h'] },
   { key: 'vitamin_k2', label: 'Vitamin K2', category: 'vitamins', aliases: ['k2', 'menahinon', 'mk-7'] },
+  { key: 'vitamin_a', label: 'Vitamin A', category: 'vitamins', aliases: ['a vitamin', 'retinol', 'beta karoten'] },
+  { key: 'vitamin_e', label: 'Vitamin E', category: 'vitamins', aliases: ['e vitamin', 'tokoferol'] },
   { key: 'multivitamin', label: 'Multivitamin', category: 'vitamins', aliases: ['multivitamini', 'multi', 'kompleks vitamina'] },
   { key: 'magnesium', label: 'Magnezijum', category: 'minerals', aliases: ['magnezium', 'magnesium', 'mg'] },
-  { key: 'magnesium_glycinate', label: 'Magnezijum glicinat', category: 'minerals', aliases: ['magnezijum bisglicinat', 'mg glicinat'] },
+  { key: 'magnesium_glycinate', label: 'Magnezijum bisglicinat (glicinat)', category: 'minerals', aliases: ['magnezijum bisglicinat', 'magnezijum glicinat', 'mg glicinat', 'mg bisglicinat', 'bisglicinat', 'magnesium glycinate', 'magnesium bisglycinate'] },
   { key: 'magnesium_citrate', label: 'Magnezijum citrat', category: 'minerals', aliases: ['mg citrat'] },
+  { key: 'magnesium_malate', label: 'Magnezijum malat', category: 'minerals', aliases: ['mg malat', 'magnesium malate'] },
+  { key: 'magnesium_taurate', label: 'Magnezijum taurat', category: 'minerals', aliases: ['mg taurat', 'magnesium taurate'] },
+  { key: 'magnesium_oxide', label: 'Magnezijum oksid', category: 'minerals', aliases: ['mg oksid', 'magnesium oxide'] },
   { key: 'magnesium_threonate', label: 'Magnezijum treonat', category: 'minerals', aliases: ['magtein', 'mg treonat', 'l-threonate'] },
-  { key: 'zinc', label: 'Cink', category: 'minerals', aliases: ['zink', 'zinc', 'zn'] },
-  { key: 'iron', label: 'Gvožđe', category: 'minerals', aliases: ['gvozdje', 'iron', 'fe', 'ferum'] },
+  { key: 'zinc', label: 'Cink', category: 'minerals', aliases: ['zink', 'zinc', 'zn', 'cink pikolinat', 'cink bisglicinat', 'cink glukonat'] },
+  { key: 'zma', label: 'ZMA', category: 'minerals', aliases: ['cink magnezijum b6', 'zinc magnesium aspartate'] },
+  { key: 'copper', label: 'Bakar', category: 'minerals', aliases: ['copper', 'cu'] },
+  { key: 'iron', label: 'Gvožđe', category: 'minerals', aliases: ['gvozdje', 'iron', 'fe', 'ferum', 'gvožđe bisglicinat', 'iron bisglycinate'] },
   { key: 'calcium', label: 'Kalcijum', category: 'minerals', aliases: ['calcium', 'ca'] },
   { key: 'potassium', label: 'Kalijum', category: 'minerals', aliases: ['potassium', 'k'] },
   { key: 'selenium', label: 'Selen', category: 'minerals', aliases: ['selenium', 'se'] },
@@ -74,6 +84,7 @@ export const SUPPLEMENT_CATALOG: readonly CatalogItem[] = [
   { key: 'omega3', label: 'Omega-3', category: 'fats', aliases: ['riblje ulje', 'fish oil', 'epa', 'dha', 'omega 3'] },
   { key: 'krill_oil', label: 'Krill ulje', category: 'fats', aliases: ['krill'] },
   { key: 'algae_omega3', label: 'Omega-3 iz algi', category: 'fats', aliases: ['vegan omega', 'algae oil', 'algal'] },
+  { key: 'cod_liver_oil', label: 'Ulje jetre bakalara', category: 'fats', aliases: ['cod liver oil', 'bakalar'] },
   { key: 'mct_oil', label: 'MCT ulje', category: 'fats', aliases: ['mct', 'kokosovo ulje'] },
   { key: 'caffeine', label: 'Kofein', category: 'focus', aliases: ['caffeine', 'tablete kofeina'] },
   { key: 'l_theanine', label: 'L-teanin', category: 'focus', aliases: ['teanin', 'theanine'] },
@@ -93,6 +104,7 @@ export const SUPPLEMENT_CATALOG: readonly CatalogItem[] = [
   { key: 'chamomile', label: 'Kamilica', category: 'sleep', aliases: ['chamomile'] },
   { key: 'lemon_balm', label: 'Matičnjak', category: 'sleep', aliases: ['maticnjak', 'melisa', 'lemon balm'] },
   { key: 'five_htp', label: '5-HTP', category: 'sleep', aliases: ['5htp', 'hidroksitriptofan', 'grifonija'] },
+  { key: 'l_tryptophan', label: 'L-triptofan', category: 'sleep', aliases: ['triptofan', 'tryptophan'] },
   { key: 'gaba', label: 'GABA', category: 'sleep', aliases: ['gama-aminobuterna kiselina'] },
   { key: 'saffron', label: 'Šafran', category: 'sleep', aliases: ['safran', 'saffron'] },
   { key: 'reishi', label: 'Reishi', category: 'sleep', aliases: ['ganoderma', 'reishi gljiva'] },
@@ -109,6 +121,8 @@ export const SUPPLEMENT_CATALOG: readonly CatalogItem[] = [
   { key: 'prebiotic', label: 'Prebiotik', category: 'gut', aliases: ['prebiotici', 'inulin'] },
   { key: 'psyllium', label: 'Psilijum', category: 'gut', aliases: ['psyllium', 'vlakna'] },
   { key: 'digestive_enzymes', label: 'Digestivni enzimi', category: 'gut', aliases: ['enzimi', 'varenje', 'digestive enzymes'] },
+  { key: 'colostrum', label: 'Kolostrum', category: 'gut', aliases: ['colostrum', 'mlezivo'] },
+  { key: 'beta_glucan', label: 'Beta-glukan', category: 'gut', aliases: ['beta glucan', 'beta glukani'] },
   { key: 'elderberry', label: 'Zova', category: 'gut', aliases: ['bazga', 'elderberry', 'sambucus'] },
   { key: 'echinacea', label: 'Ehinacea', category: 'gut', aliases: ['echinacea'] },
   { key: 'propolis', label: 'Propolis', category: 'gut', aliases: ['propolis'] },

@@ -28,8 +28,8 @@ export function DosesStep({
     <div className="flex flex-col gap-5">
       <StepHeading
         eyebrow="Korak 2 od 5"
-        title="Vreme doza"
-        description="Kada uzimaš jutarnju, a kada popodnevnu dozu? U to vreme ti stižu podsetnici."
+        title="Doziranje"
+        description="Izaberi kada ti odgovara da uzmeš jutarnju, a kada popodnevnu dozu. Tačno u ta vremena stižu ti podsetnici."
       />
 
       <div className="flex flex-col gap-4">

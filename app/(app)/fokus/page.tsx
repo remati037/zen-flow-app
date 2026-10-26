@@ -36,7 +36,7 @@ export default async function FokusPage() {
         <h1 className="font-heading text-3xl font-medium tracking-[-0.03em] text-ink">Fokus</h1>
         <p className="text-slate-mid">
           {sessions === 0
-            ? 'Pomodoro tajmer za rad u fokusiranim blokovima.'
+            ? 'Tajmer za rad u blokovima od 25 ili 50 minuta, sa kratkom pauzom posle svakog.'
             : `Danas: ${sessions} ${sessions === 1 ? 'sesija' : sessions < 5 ? 'sesije' : 'sesija'} · ${minutes} min`}
         </p>
       </header>

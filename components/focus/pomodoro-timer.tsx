@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Coffee, Pause, Play, Square, Target } from 'lucide-react'
+import { Check, Coffee, Pause, Play, Square, Target } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { saveFocusSession } from '@/app/(app)/fokus/actions'
@@ -282,6 +282,8 @@ export function PomodoroTimer({ tasks }: { tasks: FocusTask[] }) {
     }
   }
 
+  const selectableTasks = tasks.filter((task) => !task.done || task.title === taskLabel)
+
   const progress = totalMs > 0 ? Math.min(1, Math.max(0, displayMs / totalMs)) : 0
   const isBreak = mode === 'break'
 
@@ -376,40 +378,46 @@ export function PomodoroTimer({ tasks }: { tasks: FocusTask[] }) {
         )}
       </div>
 
-      {/* Vezivanje za današnji zadatak */}
-      {tasks.length > 0 && (
+      {/* Vezivanje za današnji zadatak — opciono, pa „bez zadatka" nije čip
+          ravnopravan zadacima nego tiho dugme za poništavanje izbora. Završeni
+          zadaci se ne nude; izabran ostaje vidljiv dok je izabran. */}
+      {selectableTasks.length > 0 && (
         <div className="mt-6 border-t border-border pt-4">
-          <p className="text-sm text-slate-mid">Na čemu radiš?</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setTaskLabel(null)}
-              aria-pressed={taskLabel === null}
-              className={cn(
-                'rounded-full px-3 py-1.5 text-sm ring-1 transition-all',
-                taskLabel === null
-                  ? 'bg-lime text-ink ring-lime'
-                  : 'bg-paper text-slate-mid ring-transparent hover:ring-foreground/15',
-              )}
-            >
-              Bez zadatka
-            </button>
-            {tasks.map((task) => (
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-sm font-medium text-ink">Na čemu radiš u ovom bloku?</p>
+            {taskLabel !== null ? (
               <button
-                key={task.id}
                 type="button"
-                onClick={() => setTaskLabel(task.title)}
-                aria-pressed={taskLabel === task.title}
-                className={cn(
-                  'max-w-full truncate rounded-full px-3 py-1.5 text-sm ring-1 transition-all',
-                  taskLabel === task.title
-                    ? 'bg-lime text-ink ring-lime'
-                    : 'bg-paper text-slate-mid ring-transparent hover:ring-foreground/15',
-                )}
+                onClick={() => setTaskLabel(null)}
+                className="relative shrink-0 text-xs font-medium text-slate-soft underline-offset-4 transition-colors after:absolute after:-inset-3 hover:text-ink hover:underline"
               >
-                {task.title}
+                Poništi izbor
               </button>
-            ))}
+            ) : (
+              <span className="shrink-0 text-xs text-slate-soft">Nije obavezno</span>
+            )}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {selectableTasks.map((task) => {
+              const selected = taskLabel === task.title
+              return (
+                <button
+                  key={task.id}
+                  type="button"
+                  onClick={() => setTaskLabel(selected ? null : task.title)}
+                  aria-pressed={selected}
+                  className={cn(
+                    'inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full px-4 text-sm ring-1 transition-all',
+                    selected
+                      ? 'bg-lime font-medium text-ink ring-lime'
+                      : 'bg-paper text-slate-mid ring-transparent hover:ring-foreground/15',
+                  )}
+                >
+                  {selected && <Check aria-hidden className="size-4 shrink-0" />}
+                  <span className="truncate">{task.title}</span>
+                </button>
+              )
+            })}
           </div>
         </div>
       )}

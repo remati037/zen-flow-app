@@ -65,7 +65,7 @@ export function AddSupplementDialog() {
       try {
         const result = await addSupplement({ ...target, timeOfDay, doseNote })
         if (result.ok) {
-          toast.success('Dodato u tvoj stack.')
+          toast.success('Dodato u tvoje suplemente.')
           handleOpenChange(false)
           router.refresh()
         } else {

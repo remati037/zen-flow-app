@@ -25,47 +25,47 @@ export interface FocusQuizQuestion {
 export const FOCUS_QUIZ_QUESTIONS: readonly FocusQuizQuestion[] = [
   {
     key: 'focus',
-    prompt: 'Koliko lako se fokusiraš tokom radnog dana?',
-    hint: 'Misli na tipičan radni dan poslednjih nedelju dana.',
+    prompt: 'Kako ti ide fokus tokom radnog dana?',
+    hint: 'Misli na tipičan radni dan u poslednjih nedelju dana.',
     weakPlan: {
-      title: 'Blokovi umesto celog dana',
-      body: 'Kreni sa dva Pomodoro bloka dnevno u Fokusu. Pažnju je lakše držati u kraćim intervalima.',
+      title: 'Radi u kraćim blokovima',
+      body: 'Umesto da pokušavaš da zadržiš fokus ceo dan, podeli posao na blokove od 25 minuta sa kratkom pauzom. Kreni sa dva bloka dnevno u delu Fokus.',
     },
   },
   {
     key: 'energy',
-    prompt: 'Kakav ti je nivo energije tokom dana?',
-    hint: 'Uključi i onaj popodnevni pad, ako ga imaš.',
+    prompt: 'Kakva ti je energija tokom dana?',
+    hint: 'Uračunaj i popodnevni pad, ako ga imaš.',
     weakPlan: {
-      title: 'Ujednači jutarnju dozu',
-      body: 'Drži jutarnju dozu u istom terminu (±30 min). Stalan ritam najviše pomaže da energija bude ujednačena.',
+      title: 'Jutarnja doza uvek u isto vreme',
+      body: 'Uzimaj jutarnju dozu svakog dana u isto vreme, uz odstupanje od najviše pola sata. Ujednačen ritam najviše doprinosi stabilnoj energiji.',
     },
   },
   {
     key: 'clarity',
-    prompt: 'Koliko ti je um bistar i jasan?',
-    hint: 'Koliko lako hvataš misao i donosiš odluke.',
+    prompt: 'Kako ocenjuješ bistrinu misli?',
+    hint: 'Koliko lako pratiš misao, pamtiš detalje i donosiš odluke.',
     weakPlan: {
-      title: 'Bistrina se gradi nedeljama',
-      body: 'Prvi jasan pomak se najčešće oseti od 10. do 14. dana. Zato pratimo niz uzastopnih dana.',
+      title: 'Daj protokolu dve nedelje',
+      body: 'Bistrina se ne gradi preko noći. Većina ljudi prvu jasnu razliku primeti između 10. i 14. dana, zato je važno da ne preskačeš dane.',
     },
   },
   {
     key: 'endurance',
-    prompt: 'Koliko dugo zadržiš koncentraciju bez pada?',
-    hint: 'Koliko traje jedan blok pre nego što ti pažnja odluta.',
+    prompt: 'Kako ti ide duža koncentracija na jednom zadatku?',
+    hint: 'Na primer, sat vremena čitanja ili rada bez odlutalih misli i proveravanja telefona.',
     weakPlan: {
-      title: 'Produžavaj postepeno',
-      body: 'Prvih 7 dana radi 25-minutne blokove, pa tek onda idi na duže. Koncentracija raste uz redovan ritam.',
+      title: 'Produžavaj blokove postepeno',
+      body: 'Prve nedelje radi u blokovima od 25 minuta. Kad ti to postane lako, pređi na blokove od 50 minuta. Koncentracija se, kao i kondicija, gradi postepeno.',
     },
   },
   {
     key: 'morning',
-    prompt: 'Koliko se budno i sveže osećaš ujutru?',
-    hint: 'Prvih sat vremena posle buđenja.',
+    prompt: 'Kakva su ti jutra, koliko se budno i sveže osećaš?',
+    hint: 'Misli na prvih sat vremena posle buđenja.',
     weakPlan: {
-      title: 'Ritam se oseti i ujutru',
-      body: 'Drži obe doze u istom terminu svakog dana, popodnevnu oko 14h, i uključi podsetnike. Stabilan ritam ti olakšava i jutra.',
+      title: 'Stalan ritam za lakša jutra',
+      body: 'Uzimaj obe doze svakog dana u isto vreme, popodnevnu oko 14h. Uključi podsetnike da nijednu ne propustiš.',
     },
   },
 ] as const
@@ -154,13 +154,13 @@ const PLAN_MAX_HIGHLIGHTS = 3
 const PLAN_BASELINE_HIGHLIGHTS: readonly PlanHighlight[] = [
   {
     key: 'ritam',
-    title: 'Uhvati ritam prve nedelje',
-    body: 'Prvi cilj je sedam dana u istim terminima. Posle toga protokol postaje navika.',
+    title: 'Prvi cilj: sedam dana zaredom',
+    body: 'Nedelju dana bez propuštene doze, u istim terminima. Posle toga protokol postaje navika.',
   },
   {
     key: 'zalihe',
-    title: 'Ne dozvoli prazan dan',
-    body: 'Prati zalihe u aplikaciji i naruči dopunu na vreme. Pauza poništava deo napretka.',
+    title: 'Bez praznih dana',
+    body: 'Aplikacija prati koliko ti je kapsula ostalo i javlja ti na vreme. Naruči dopunu pre nego što ostaneš bez zaliha, jer pauza vraća napredak unazad.',
   },
 ] as const
 

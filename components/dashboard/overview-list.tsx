@@ -75,13 +75,13 @@ export function OverviewList({
         <Row
           href="/stack"
           icon={Layers}
-          title="Moj stack"
+          title="Moji suplementi"
           tone={stackNeedsConfirm ? 'caution' : 'default'}
           meta={
             stackCount === 0
               ? 'Dodaj suplemente koje piješ'
               : stackNeedsConfirm
-                ? 'Potvrdi da je stack isti'
+                ? 'Potvrdi da je lista ista'
                 : 'Svi na jednom mestu'
           }
           value={`${stackCount}`}

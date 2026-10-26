@@ -134,7 +134,7 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
   eksplicitne potrebe. `orders_email_lower_date_idx` je funkcionalni
   (`lower(email)`, `order_date DESC`) jer svaki upit za pristup poredi mejl case-insensitive;
   `protocol_logs_date_taken_idx` je parcijalni (`WHERE status = 'taken'`).
-- **„Moj stack" (`/stack`, `/admin/stack`):** katalog od 100 suplemenata je konstanta u
+- **„Moji suplementi" (`/stack`, `/admin/stack`; interno i dalje „stack", u UI-ju se ta reč ne koristi):** katalog od 114 suplemenata je konstanta u
   `lib/supplements/catalog.ts` (ključevi su STABILNI, upisani su u `user_supplements.catalog_key`;
   novi suplement = deploy, bez migracije). Sav SQL je u `lib/supplements/store.ts` — akcije su tanke,
   a `qa-sql` izvršava te iste funkcije. Uklanjanje je soft (`active = false`); ponovno dodavanje
@@ -164,7 +164,7 @@ Svi koraci 1.1–1.16 su gotovi. Definicija gotovo je ispunjena: korisnik se log
   pozivnice na localhost.
 - QA harness ima TRI sloja i sva tri moraju ostati zelena (`npm run qa` vozi sve):
   `qa-dates` (čiste funkcije: datumi/streak/prozori/Woo/access override/cap alerta/odjavni
-  token, pozivnice, Sprint 2–6 pravila i „Moj stack“, 368 provera), `qa-routes` (klasifikacija ruta, 54 provere) i **`qa-sql`**
+  token, pozivnice, Sprint 2–6 pravila i „Moj stack“, 370 provera), `qa-routes` (klasifikacija ruta, 54 provere) i **`qa-sql`**
   (184 provere — SQL koji se STVARNO izvršava nad pravim Postgres-om). Lokalno bez Docker-a:
   privremeni klaster sa Homebrew `postgresql@16` (`initdb --locale=C`, `pg_ctl -o "-p 5433"`).
 - **`qa-sql` postoji zato što prva dva sloja ne izvršavaju nijedan upit.** Dva produkciona

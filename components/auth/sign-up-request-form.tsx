@@ -43,8 +43,8 @@ export function SignUpRequestForm() {
         </p>
         <CardTitle className="text-lg">Registracija</CardTitle>
         <CardDescription>
-          Aplikacija je za ZenFlow kupce. Unesi mejl kojim si kupovao na nurolab.rs i poslaćemo ti
-          link za registraciju.
+          Aplikacija je namenjena ZenFlow kupcima. Unesi isti mejl kao pri kupovini na nurolab.rs,
+          a mi ti na njega šaljemo link za registraciju.
         </CardDescription>
       </CardHeader>
 

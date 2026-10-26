@@ -21,7 +21,7 @@ export function StackConfirmCard({ showEditLink = true }: { showEditLink?: boole
       try {
         const result = await confirmStack({})
         if (result.ok) {
-          toast.success('Stack potvrđen.')
+          toast.success('Lista je potvrđena.')
           router.refresh()
         } else {
           toast.error(result.error)
@@ -34,7 +34,7 @@ export function StackConfirmCard({ showEditLink = true }: { showEditLink?: boole
 
   return (
     <section className="rounded-[24px] bg-white p-5 ring-1 ring-ink/[0.06]">
-      <h2 className="font-medium text-ink">Da li je stack i dalje isti?</h2>
+      <h2 className="font-medium text-ink">Da li i dalje uzimaš iste suplemente?</h2>
       <p className="mt-1 text-sm text-slate-mid">Proveri da li još piješ sve što je na listi.</p>
       <div className="mt-4 flex flex-wrap gap-2">
         <Button variant="lime" className="min-h-11 rounded-full px-5" onClick={confirm} disabled={isPending}>

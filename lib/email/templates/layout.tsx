@@ -45,7 +45,7 @@ export function EmailLayout({ preview, children }: EmailLayoutProps) {
           }}
         >
           <Text style={{ color: brand.ink, fontSize: 18, fontWeight: 700, margin: '0 0 24px', letterSpacing: '-0.01em' }}>
-            NuroLab <span style={{ color: brand.muted, fontWeight: 500 }}>· ZenFlow™</span>
+            NuroLab <span style={{ color: brand.muted, fontWeight: 500 }}>· ZenFlow</span>
           </Text>
 
           {children}

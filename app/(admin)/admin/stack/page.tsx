@@ -5,7 +5,7 @@ import { belgradeToday } from '@/lib/dates'
 import { FRESH_WITHIN_DAYS } from '@/lib/supplements/confirm-rules'
 
 export const metadata = {
-  title: 'Stack · ZenFlow admin',
+  title: 'Suplementi · ZenFlow admin',
 }
 
 function share(part: number | null, of: number): string {
@@ -23,7 +23,7 @@ export default async function AdminStackPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="font-heading text-3xl font-medium tracking-[-0.03em] text-ink">Stack</h1>
+        <h1 className="font-heading text-3xl font-medium tracking-[-0.03em] text-ink">Suplementi korisnika</h1>
         <p className="text-slate-mid">
           Šta korisnici piju uz ZenFlow. Računa se samo unos potvrđen u poslednjih {FRESH_WITHIN_DAYS} dana.
         </p>

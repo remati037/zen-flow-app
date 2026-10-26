@@ -776,13 +776,13 @@ async function runDatabaseChecks() {
       const r = await stack.addSupplement('qa_stk_cap', { customName: `Unos broj ${i}` }, { timeOfDay: 'morning' }, today)
       if (i === 0) firstId = r.id
     }
-    await mustFail('unos preko granice se odbija', 'Stack je pun', () =>
+    await mustFail('unos preko granice se odbija', 'Lista je puna', () =>
       stack.addSupplement('qa_stk_cap', { customName: 'Jedan previše' }, { timeOfDay: 'morning' }, today),
     )
     ok('uklanjanje unosa (active=false) uspeva', await stack.updateSupplementRow('qa_stk_cap', firstId, { active: false }, today))
     const freed = await stack.addSupplement('qa_stk_cap', { customName: 'Oslobođeno mesto' }, { timeOfDay: 'morning' }, today)
     ok('uklonjen unos oslobađa mesto (granica broji samo aktivne)', freed.id > 0)
-    await mustFail('ponovno aktiviranje uklonjenog unosa na punom stack-u se odbija', 'Stack je pun', () =>
+    await mustFail('ponovno aktiviranje uklonjenog unosa na punom stack-u se odbija', 'Lista je puna', () =>
       stack.addSupplement('qa_stk_cap', { customName: 'Unos broj 0' }, { timeOfDay: 'morning' }, today),
     )
   })

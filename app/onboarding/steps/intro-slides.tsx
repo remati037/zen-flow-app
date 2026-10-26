@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { CalendarCheck, Flame, Sparkles, Timer, TrendingDown, type LucideIcon } from 'lucide-react'
+import { Award, CalendarCheck, Flame, Package, Sparkles, Timer, TrendingUp, type LucideIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -14,8 +14,8 @@ interface IntroSlide {
   eyebrow: string
   title: string
   body: string
-  /** Opcioni bulleti — koristi ih poslednji slajd ("šta te čeka"). */
-  bullets?: { icon: LucideIcon; text: string }[]
+  /** Opcioni bulleti — koristi ih poslednji slajd ("šta dobijaš"). */
+  bullets?: { icon: LucideIcon; title: string; text: string }[]
 }
 
 /**
@@ -28,24 +28,40 @@ const SLIDES: readonly IntroSlide[] = [
     icon: Sparkles,
     eyebrow: 'Uvod · 1 od 3',
     title: 'ZenFlow se uzima po protokolu',
-    body: 'Dve doze dnevno, svaki dan u isto vreme. Jutarnja pokriva prepodne, a popodnevna, oko 14h, ostatak dana.',
+    body: 'Protokol čine dve doze dnevno, uvek u isto vreme. Jutarnja te nosi kroz prepodne, a popodnevna, oko 14h, kroz ostatak dana. Upravo taj stalni ritam je ono što daje rezultat.',
   },
   {
-    icon: TrendingDown,
+    icon: TrendingUp,
     eyebrow: 'Uvod · 2 od 3',
     title: 'Efekat raste sa svakim danom',
-    body: 'Sastojci se nakupljaju postepeno. Prvi jasan pomak se obično oseti od 10. do 14. dana, a nekoliko propuštenih dana te vraća unazad. Zato aplikacija broji niz i javlja ti na vreme, pre nego što ostaneš bez kapsula.',
+    body: 'ZenFlow ne deluje kao kafa, odmah i kratko. Efekat se gradi postepeno: većina ljudi prvu jasnu razliku primeti posle 10 do 14 dana redovnog uzimanja. Ako napraviš pauzu od nekoliko dana, deo tog napretka se gubi. Zato aplikacija broji dane zaredom i javlja ti na vreme da dopuniš zalihe.',
   },
   {
     icon: Flame,
     eyebrow: 'Uvod · 3 od 3',
-    title: 'Šta te čeka unutra',
-    body: 'Sve što ti treba da ostaneš u ritmu.',
+    title: 'Šta dobijaš u aplikaciji',
+    body: 'Četiri alata koja ti pomažu da ostaneš u ritmu.',
     bullets: [
-      { icon: CalendarCheck, text: 'Dnevni check-in obe doze i niz koji raste' },
-      { icon: Flame, text: 'Praćenje zaliha i podsetnik pre nego što ti ponestane' },
-      { icon: Timer, text: 'Pomodoro fokus blokovi i tri dnevna zadatka' },
-      { icon: Sparkles, text: 'Bedževi za važne korake u protokolu' },
+      {
+        icon: CalendarCheck,
+        title: 'Beleženje doza',
+        text: 'Jednim dodirom potvrdi jutarnju i popodnevnu dozu i gledaj kako raste broj dana zaredom.',
+      },
+      {
+        icon: Package,
+        title: 'Praćenje zaliha',
+        text: 'Aplikacija računa koliko ti je kapsula ostalo i javlja ti nekoliko dana pre nego što ponestane.',
+      },
+      {
+        icon: Timer,
+        title: 'Fokus tajmer i zadaci',
+        text: 'Rad u blokovima od 25 ili 50 minuta, uz do tri najvažnija zadatka za taj dan.',
+      },
+      {
+        icon: Award,
+        title: 'Bedževi i napredak',
+        text: 'Nagrade za prve korake i nizove dana, uz Focus Score koji pokazuje kako napreduješ.',
+      },
     ],
   },
 ] as const
@@ -110,14 +126,17 @@ export function IntroSlides({
                 const BulletIcon = bullet.icon
                 return (
                   <motion.li
-                    key={bullet.text}
+                    key={bullet.title}
                     initial={{ opacity: 0, x: 8 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ ...SLIDE_TRANSITION, delay: 0.06 * (i + 1) }}
-                    className="flex items-center gap-2.5 rounded-lg bg-paper px-3 py-2 text-sm text-ink"
+                    className="flex items-start gap-2.5 rounded-lg bg-paper px-3 py-2.5 text-sm"
                   >
-                    <BulletIcon className="size-4 shrink-0 text-slate-soft" />
-                    <span>{bullet.text}</span>
+                    <BulletIcon className="mt-0.5 size-4 shrink-0 text-slate-soft" />
+                    <span className="flex flex-col gap-0.5">
+                      <span className="font-medium text-ink">{bullet.title}</span>
+                      <span className="leading-snug text-slate-mid">{bullet.text}</span>
+                    </span>
                   </motion.li>
                 )
               })}

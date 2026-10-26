@@ -47,7 +47,10 @@ export function ResultStep({
       <p className="text-center text-sm leading-relaxed text-slate-mid">{band.summary}</p>
 
       <div className="flex flex-col gap-2 rounded-xl bg-paper p-4">
-        <p className="font-heading text-sm font-medium text-ink">Tvoj 30-dnevni plan</p>
+        <div className="flex flex-col gap-0.5">
+          <p className="font-heading text-sm font-medium text-ink">Tvoj plan za prvih 30 dana</p>
+          <p className="text-xs text-slate-soft">Izdvojeno prema tvojim odgovorima u kvizu.</p>
+        </div>
         <ul className="flex flex-col gap-2.5">
           {highlights.map((highlight, i) => (
             <motion.li
